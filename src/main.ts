@@ -373,7 +373,7 @@ async function main() {
   });
 
   // Expose for debugging and automated screenshots.
-  Object.assign(window, { tlvtm: { time, rig, buildings, scene, camera, renderer, ERAS, setHour } });
+  Object.assign(window, { tlvtm: { time, rig, buildings, scene, camera, renderer, ERAS, setHour, selectSite } });
 }
 
 main().catch((err) => {

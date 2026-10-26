@@ -16,7 +16,8 @@ const STYLE_SHORT: Record<string, string> = {
 };
 
 function phaseLabel(p: BuildingPhase): string {
-  const base = STYLE_SHORT[p.style] ?? p.style.replace(/-/g, ' ');
+  const raw = STYLE_SHORT[p.style] ?? p.style.replace(/-/g, ' ');
+  const base = raw.charAt(0).toUpperCase() + raw.slice(1);
   const w = p.weathering ?? 0;
   const state = w > 0.4 ? ' · weathered' : w === 0 && p.from >= 2004 && (p.style === 'bauhaus' || p.style === 'eclectic') ? ' · restored' : '';
   const size = p.height ? ` · ${Math.round(p.height)} m` : p.floors ? ` · ${p.floors} floor${p.floors > 1 ? 's' : ''}` : '';

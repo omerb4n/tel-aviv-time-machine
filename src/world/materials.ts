@@ -84,11 +84,11 @@ export function createMaterials(tex: TextureSet): MaterialLibrary {
   };
 
   const ghost = new THREE.MeshBasicMaterial({
-    color: 0x9fd8ff,
+    color: 0x7fc8ff,
     transparent: true,
-    opacity: 0.16,
+    opacity: 0.38,
     depthWrite: false,
-    blending: THREE.AdditiveBlending,
+    depthTest: false,
   });
   const highlight = new THREE.MeshStandardMaterial({ color: 0xffd27a, emissive: 0xffb84a, emissiveIntensity: 0.6, transparent: true, opacity: 0.35, depthWrite: false });
 

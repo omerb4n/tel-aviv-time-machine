@@ -69,15 +69,15 @@ export class Atmosphere {
     const sunColor = new THREE.Color('#fff4e3').lerp(new THREE.Color('#ffae6b'), golden * day);
     this.sun.color.copy(sunColor);
     this.sun.intensity = 3.2 * day;
-    this.hemi.intensity = lerp(0.12, 0.9, day);
-    this.hemi.color.set('#bcd6ff').lerp(new THREE.Color('#2a3a5c'), this.night);
-    this.hemi.groundColor.set('#a08c6a').lerp(new THREE.Color('#1a1814'), this.night);
+    this.hemi.intensity = lerp(0.45, 0.9, day);
+    this.hemi.color.set('#bcd6ff').lerp(new THREE.Color('#5a74a8'), this.night);
+    this.hemi.groundColor.set('#a08c6a').lerp(new THREE.Color('#3a3428'), this.night);
 
-    const horizon = new THREE.Color('#cdd9e3').lerp(new THREE.Color('#f0c39a'), golden * day * 0.7).lerp(new THREE.Color('#0d1424'), this.night);
+    const horizon = new THREE.Color('#cdd9e3').lerp(new THREE.Color('#f0c39a'), golden * day * 0.7).lerp(new THREE.Color('#1c2740'), this.night);
     horizon.lerp(new THREE.Color('#d8c8a8'), haze * 0.35 * day);
     this.fog.color.copy(horizon);
     this.fog.density = 0.00018 + haze * 0.00028;
-    this.renderer.toneMappingExposure = lerp(0.35, 0.62, day);
+    this.renderer.toneMappingExposure = lerp(0.55, 0.62, day);
 
     if (Math.abs(hour - this.lastEnvHour) > 0.25) {
       this.lastEnvHour = hour;
