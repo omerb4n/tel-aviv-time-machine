@@ -1,0 +1,57 @@
+# Roadmap
+
+## ✅ Milestone 0 — Vertical slice (this build)
+
+- Ahuzat Bayit core (Herzl, Rothschild, Ahad Ha'am, Lilienblum, Yehuda HaLevi, Nahalat Binyamin,
+  Allenby), Neve Tzedek, old Jaffa, the railway, the sea, a procedural greater city.
+- 1900–2025 timeline with 9 eras, 21 events and a guided tour of 9 key moments.
+- 16 landmark sites with sources: Herzliya Gymnasium → Shalom Meir Tower, Dizengoff House →
+  museum → Independence Hall, first kiosk, water tower → Founders' Monument, Great Synagogue
+  (two phases), Pagoda House, Engel House, Jaffa Clock Tower, St Peter's, Jaffa station, Azrieli
+  towers, Sarona tower.
+- Procedural fabric with life stories (weathering, closed balconies, solar heaters, restoration,
+  TAMA 38 floors, towers).
+- People, vehicles, trees, day/night, period grading, ghosts, walk mode, sound, deep links.
+
+## Milestone 1 — Real geography (≈ 3–4 weeks)
+
+- Import OSM + Tel Aviv GIS footprints and street centrelines for ~1 km² around Rothschild;
+  replace the hand-sketched street polylines.
+- Use the municipal conservation list (Plan 2650B) and OSM `start_date` to give real buildings
+  real construction years and styles; keep procedural fabric only where data is missing.
+- Georeference 5 historical maps/aerials (1917, 1925/27, 1936–38, 1949, 1965) and use them to
+  date streets and blocks; optional "map drape" view mode per era.
+- Content validation script + CI (GitHub Actions: typecheck, test, build, Pages deploy).
+
+## Milestone 2 — Landmarks & archive (≈ 4–6 weeks)
+
+- 30 landmark sites with researched phases and bespoke glTF models (Gymnasium, Dizengoff House,
+  Bialik House, Beit Ha'ir, Habima, Great Synagogue, Pagoda House, Engel House, Levin House,
+  Shalom Meir Tower, Migdal HaOpera, Ha'Tachana, Sarona, …).
+- Archival photo cards (public-domain / licensed) attached to sites and events, with credits.
+- Hebrew UI (RTL) and Arabic, with all content strings localized.
+- Expert review pass with historians / the municipal archive; feedback form for corrections.
+
+## Milestone 3 — Experience (≈ 4 weeks)
+
+- **Then & Now** split screen / swipe between two years.
+- **Rephotography**: stand where a historical photographer stood; fade the photo over the scene.
+- Narrated audio tour (voice + subtitles), cinematic camera paths, chapter music.
+- Special scenes: Adloyada Purim parade, the Levant Fair, 1936 port opening, 1948 crowds, 2011
+  protest, Pride parade — each clearly labelled as reconstruction.
+- Games: *Guess the year*, *Find the Bauhaus*, scavenger hunts for classes.
+- Clickable passers-by with short composite stories ("a Fifth Aliyah architect", "a 1950s
+  newspaper seller") — explicitly fictional composites grounded in sources.
+
+## Milestone 4 — Scale & quality (≈ 6 weeks)
+
+- Whole-city coverage via per-era 3D Tiles with LOD and streaming.
+- Higher fidelity: GTAO, volumetric clouds, seasonal light, rain, better water and foam.
+- WebGPU renderer path; mobile performance tiers; offline PWA.
+- Accessibility: reduced motion, keyboard-only flow, screen-reader descriptions of each era.
+
+## Milestone 5 — Community & education
+
+- Teacher mode with lesson plans and worksheets per era.
+- Moderated community memories (photos, family stories) pinned to places and years.
+- Open content repository so researchers can contribute sites, events and corrections via PRs.
