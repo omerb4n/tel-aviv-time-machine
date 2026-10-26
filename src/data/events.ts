@@ -1,0 +1,275 @@
+import type { TimelineEvent } from './types';
+
+const W = (title: string) => `https://en.wikipedia.org/wiki/${title}`;
+
+export const VIEWS = {
+  overview: { pos: [-280, 170, 330], target: [80, 0, -80] },
+  lottery: { pos: [-70, 38, 120], target: [40, 2, -20] },
+  herzlNorth: { pos: [22, 22, 60], target: [-14, 10, -173] },
+  dizengoff: { pos: [92, 14, -78], target: [121, 6, -28] },
+  shalom: { pos: [230, 130, 160], target: [-10, 60, -170] },
+  whiteCity: { pos: [520, 95, -110], target: [330, 0, -330] },
+  jaffa: { pos: [-820, 140, 300], target: [-1500, 25, 880] },
+  allenby: { pos: [320, 55, -150], target: [224, 10, -252] },
+  skyline: { pos: [140, 190, 120], target: [1600, 120, -1200] },
+  boulevard: { pos: [375, 24, -205], target: [470, 2, -320] },
+} satisfies Record<string, { pos: [number, number, number]; target: [number, number, number] }>;
+
+export const EVENTS: TimelineEvent[] = [
+  {
+    id: 'before',
+    year: 1900,
+    title: { en: 'Before the city', he: 'לפני העיר' },
+    text: {
+      en: 'North of crowded, ancient Jaffa lie orchards and shifting sand dunes. Neve Tzedek (1887), the first Jewish neighbourhood built outside Jaffa, and the Jaffa–Jerusalem railway (1892) mark the edge of the empty sands where Tel Aviv will rise.',
+    },
+    view: VIEWS.jaffa,
+    sources: [
+      { label: 'Neve Tzedek – Wikipedia', url: W('Neve_Tzedek') },
+      { label: 'Jaffa–Jerusalem railway – Wikipedia', url: W('Jaffa%E2%80%93Jerusalem_railway') },
+    ],
+    confidence: 'documented',
+    major: true,
+  },
+  {
+    id: 'society',
+    year: 1906,
+    title: { en: 'The Ahuzat Bayit society', he: 'אגודת אחוזת בית' },
+    text: {
+      en: 'A group of Jaffa families forms the Ahuzat Bayit society to build a modern, healthy garden neighbourhood outside the crowded old town — with straight streets, running water and gardens.',
+    },
+    view: VIEWS.overview,
+    sources: [{ label: 'Ahuzat Bayit – Wikipedia', url: W('Ahuzat_Bayit') }],
+    confidence: 'documented',
+  },
+  {
+    id: 'lottery',
+    year: 1909,
+    date: '11 April 1909',
+    title: { en: 'The seashell lottery', he: 'הגרלת הצדפים' },
+    text: {
+      en: 'Members gather on the dunes of Kerem Jabali. Akiva Aryeh Weiss collected 120 seashells on the beach: members’ names were written on white shells, plot numbers on grey ones, and pairs were drawn to allot the plots. Herzl Street becomes the central axis; Rothschild Boulevard is laid out in a levelled valley between dunes.',
+    },
+    view: VIEWS.lottery,
+    sources: [
+      { label: 'Ahuzat Bayit – Wikipedia', url: W('Ahuzat_Bayit') },
+      { label: 'History of Tel Aviv – Wikipedia', url: W('History_of_Tel_Aviv') },
+    ],
+    confidence: 'documented',
+    major: true,
+  },
+  {
+    id: 'gymnasium-cornerstone',
+    year: 1909,
+    date: '28 July 1909',
+    title: { en: 'Cornerstone of the Gymnasium', he: 'הנחת אבן הפינה לגימנסיה' },
+    text: {
+      en: 'The Herzliya Hebrew Gymnasium lays the cornerstone of its new building at the head of Herzl Street. Joseph Barsky’s design drew on 19th-century reconstructions of Solomon’s Temple.',
+    },
+    view: VIEWS.herzlNorth,
+    sources: [{ label: 'Herzliya Hebrew Gymnasium – Wikipedia', url: W('Herzliya_Hebrew_Gymnasium') }],
+    confidence: 'documented',
+  },
+  {
+    id: 'named',
+    year: 1910,
+    date: '21 May 1910',
+    title: { en: 'A new name: Tel Aviv', he: 'השם תל אביב' },
+    text: {
+      en: 'Residents vote to rename Ahuzat Bayit “Tel Aviv” — the Hebrew title of Herzl’s utopian novel Altneuland (“Old New Land”): a tel is an ancient mound, aviv is spring. The first houses, the Gymnasium, a water tower and the boulevard kiosk now stand on the former dunes.',
+    },
+    view: VIEWS.herzlNorth,
+    sources: [{ label: 'Ahuzat Bayit – Wikipedia', url: W('Ahuzat_Bayit') }],
+    confidence: 'documented',
+    major: true,
+  },
+  {
+    id: 'expulsion',
+    year: 1917,
+    date: 'April 1917',
+    title: { en: 'Expulsion', he: 'גירוש תל אביב ויפו' },
+    text: {
+      en: 'During the First World War the Ottoman authorities order the civilian population of Jaffa and Tel Aviv to leave. The young town stands nearly empty until the British capture the area late in 1917 and residents begin to return.',
+    },
+    view: VIEWS.herzlNorth,
+    sources: [{ label: 'Tel Aviv and Jaffa deportation – Wikipedia', url: W('Tel_Aviv_and_Jaffa_deportation') }],
+    confidence: 'documented',
+    major: true,
+  },
+  {
+    id: 'township',
+    year: 1921,
+    title: { en: 'An independent township', he: 'תל אביב עיירה עצמאית' },
+    text: {
+      en: 'Tel Aviv is separated from Jaffa as its own township. Immigration of the Third and Fourth Aliyot drives a building boom of ornate “eclectic” houses mixing European and oriental motifs.',
+    },
+    view: VIEWS.overview,
+    sources: [{ label: 'History of Tel Aviv – Wikipedia', url: W('History_of_Tel_Aviv') }],
+    confidence: 'documented',
+  },
+  {
+    id: 'geddes',
+    year: 1925,
+    title: { en: 'The Geddes Plan', he: 'תוכנית גדס' },
+    text: {
+      en: 'Scottish planner Patrick Geddes drafts a plan for the city’s northward growth: a hierarchy of main roads and quiet residential streets, blocks with green cores and small public gardens — the skeleton of today’s central Tel Aviv.',
+    },
+    view: VIEWS.whiteCity,
+    sources: [{ label: 'Geddes Plan for Tel Aviv – Wikipedia', url: W('Geddes_Plan_for_Tel_Aviv') }],
+    confidence: 'documented',
+  },
+  {
+    id: 'museum',
+    year: 1932,
+    title: { en: 'A museum in the mayor’s house', he: 'מוזיאון בבית דיזנגוף' },
+    text: {
+      en: 'Mayor Meir Dizengoff gives his house on Rothschild Boulevard to the city for the Tel Aviv Museum of Art. It is remodelled in the new International Style (attributed to architect Carl Rubin).',
+    },
+    view: VIEWS.dizengoff,
+    sources: [{ label: 'Independence Hall – Wikipedia', url: W('Independence_Hall_(Israel)') }],
+    confidence: 'approximate',
+  },
+  {
+    id: 'white-city',
+    year: 1933,
+    title: { en: 'The White City', he: 'העיר הלבנה' },
+    text: {
+      en: 'Refugees from Central Europe arrive in the Fifth Aliyah. Architects trained in Germany and Europe adapt the International Style to the Mediterranean: white plaster, ribbon balconies that shade the walls, pilotis that let the sea breeze pass, flat roofs for gatherings. Thousands of such buildings rise in the 1930s.',
+    },
+    view: VIEWS.whiteCity,
+    sources: [
+      { label: 'White City (Tel Aviv) – Wikipedia', url: W('White_City_(Tel_Aviv)') },
+      { label: 'UNESCO – White City of Tel-Aviv', url: 'https://whc.unesco.org/en/list/1096/' },
+    ],
+    confidence: 'documented',
+    major: true,
+  },
+  {
+    id: 'city',
+    year: 1934,
+    title: { en: 'Tel Aviv becomes a city', he: 'תל אביב לעיר' },
+    text: { en: 'Tel Aviv receives municipal status under the British Mandate. Meir Dizengoff, its long-time leader, dies two years later.' },
+    view: VIEWS.overview,
+    sources: [{ label: 'History of Tel Aviv – Wikipedia', url: W('History_of_Tel_Aviv') }],
+    confidence: 'documented',
+  },
+  {
+    id: 'independence',
+    year: 1948,
+    date: '14 May 1948, 4 p.m.',
+    title: { en: 'Declaration of Independence', he: 'הכרזת העצמאות' },
+    text: {
+      en: 'In the hall of the museum — Dizengoff’s former house at 16 Rothschild Boulevard — David Ben-Gurion reads the Declaration of the Establishment of the State of Israel. The building is known ever since as Independence Hall.',
+    },
+    view: VIEWS.dizengoff,
+    sources: [
+      { label: 'Independence Hall – Wikipedia', url: W('Independence_Hall_(Israel)') },
+      { label: 'Israeli Declaration of Independence – Wikipedia', url: W('Israeli_Declaration_of_Independence') },
+    ],
+    confidence: 'documented',
+    major: true,
+  },
+  {
+    id: 'merger',
+    year: 1950,
+    title: { en: 'Tel Aviv-Yafo', he: 'תל אביב-יפו' },
+    text: { en: 'Tel Aviv and Jaffa are united into a single municipality. Mass immigration and austerity bring plain, practical housing blocks (shikunim).' },
+    view: VIEWS.jaffa,
+    sources: [{ label: 'Tel Aviv – Wikipedia', url: W('Tel_Aviv') }],
+    confidence: 'documented',
+  },
+  {
+    id: 'gymnasium-demolished',
+    year: 1962,
+    title: { en: 'The Gymnasium is demolished', he: 'הריסת הגימנסיה' },
+    text: {
+      en: 'The Herzliya Gymnasium, a symbol of the first Hebrew city, is razed and the school moves away. The loss shocks the public and becomes a founding trauma of Israel’s conservation movement.',
+    },
+    view: VIEWS.herzlNorth,
+    sources: [
+      { label: 'Herzliya Hebrew Gymnasium – Wikipedia', url: W('Herzliya_Hebrew_Gymnasium') },
+      {
+        label: 'Technion – “A wish for destruction”: the life and death of the Herzliya Gymnasium',
+        url: 'https://cris.technion.ac.il/en/publications/a-wish-for-destruction-the-life-and-death-of-the-herzliya-gymnasi',
+      },
+    ],
+    confidence: 'documented',
+  },
+  {
+    id: 'shalom-tower',
+    year: 1965,
+    title: { en: 'Shalom Meir Tower', he: 'מגדל שלום מאיר' },
+    text: {
+      en: 'On the Gymnasium’s site rises the Shalom Meir Tower — about 129 m and 34 floors — the tallest building in the Middle East when completed.',
+    },
+    view: VIEWS.shalom,
+    sources: [{ label: 'Shalom Meir Tower – Wikipedia', url: W('Shalom_Meir_Tower') }],
+    confidence: 'documented',
+    major: true,
+  },
+  {
+    id: 'decline',
+    year: 1975,
+    title: { en: 'The old centre fades', he: 'דעיכת המרכז הישן' },
+    text: {
+      en: 'Offices and shops move north and east. Many 1930s buildings are neglected: plaster greys, balconies are closed in, solar water heaters and air-conditioners crowd the roofs and walls.',
+    },
+    view: VIEWS.whiteCity,
+    confidence: 'illustrative',
+  },
+  {
+    id: 'azrieli',
+    year: 1999,
+    title: { en: 'A new skyline', he: 'קו רקיע חדש' },
+    text: { en: 'The first, circular tower of the Azrieli Center opens to the north-east; the business district shifts toward the Ayalon highway.' },
+    view: VIEWS.skyline,
+    sources: [{ label: 'Azrieli Center – Wikipedia', url: W('Azrieli_Center') }],
+    confidence: 'approximate',
+  },
+  {
+    id: 'unesco',
+    year: 2003,
+    date: 'July 2003',
+    title: { en: 'UNESCO World Heritage', he: 'אתר מורשת עולמית' },
+    text: {
+      en: 'UNESCO inscribes the White City of Tel Aviv as a World Heritage Site, “an outstanding example of new town planning and architecture in the early 20th century”. Restoration of the 1930s buildings accelerates.',
+    },
+    view: VIEWS.whiteCity,
+    sources: [{ label: 'UNESCO – White City of Tel-Aviv', url: 'https://whc.unesco.org/en/list/1096/' }],
+    confidence: 'documented',
+    major: true,
+  },
+  {
+    id: 'centennial',
+    year: 2009,
+    title: { en: 'One hundred years', he: 'מאה שנה לתל אביב' },
+    text: { en: 'Tel Aviv celebrates its centennial. Rothschild Boulevard is again the city’s living room — cafés, kiosks, bicycles and start-ups.' },
+    view: VIEWS.boulevard,
+    confidence: 'documented',
+  },
+  {
+    id: 'tents',
+    year: 2011,
+    date: 'July 2011',
+    title: { en: 'Tents on the boulevard', he: 'מחאת האוהלים' },
+    text: {
+      en: 'A protest over housing costs begins with a few tents on Rothschild Boulevard and grows into one of the largest social protests in Israel’s history.',
+    },
+    view: VIEWS.boulevard,
+    sources: [{ label: '2011 Israeli housing protests – Wikipedia', url: W('2011_Israeli_housing_protests') }],
+    confidence: 'documented',
+    major: true,
+  },
+  {
+    id: 'light-rail',
+    year: 2023,
+    date: 'August 2023',
+    title: { en: 'The Red Line opens', he: 'הקו האדום' },
+    text: { en: 'Tel Aviv’s first light-rail line opens, running underground beneath the city centre.' },
+    view: VIEWS.overview,
+    sources: [{ label: 'Red Line (Tel Aviv Light Rail) – Wikipedia', url: W('Red_Line_(Tel_Aviv_Light_Rail)') }],
+    confidence: 'documented',
+  },
+];
+
+export const MAJOR_EVENTS = EVENTS.filter((e) => e.major);
