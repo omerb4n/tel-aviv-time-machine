@@ -8,6 +8,12 @@ Meir Tower (1965) and today's towers (2025).
 You are an observer: orbit above the city or walk the boulevard, scrub the timeline, and click any
 building to hear its life story.
 
+| 1912 — Ahuzat Bayit and the Gymnasium | 1940 — Rothschild Blvd, the White City |
+| --- | --- |
+| ![1912](docs/screenshots/b-1912-herzl.png) | ![1940](docs/screenshots/b-1940-roth.png) |
+| **1936 — walking the boulevard** | **2025 — today** |
+| ![1936 street level](docs/screenshots/b-1936-street.png) | ![2025](docs/screenshots/a-2025.png) |
+
 ## Quick start
 
 ```bash
