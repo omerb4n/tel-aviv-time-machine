@@ -20,14 +20,21 @@ function mosaicTexture() {
     const pick = (x: number, y: number): string => {
       const u = x / 1024;
       const v = y / 256;
-      const sun = Math.hypot(u - 0.82, (v - 0.25) * 0.25) < 0.035;
+      const sun = Math.hypot(u - 0.86, (v - 0.22) * 0.25) < 0.03;
       if (sun) return '#f2b541';
       if (v < 0.42) return u < 0.25 ? '#4f8fc0' : '#87b9d8'; // sky
       if (u < 0.22) return v < 0.62 ? '#c9a46a' : '#2f6f9e'; // Jaffa hill / sea
-      const house = Math.floor(u * 22) % 3 === 0 && v > 0.45 && v < 0.72;
+      const house = (u < 0.38 || u > 0.7) && Math.floor(u * 22) % 3 === 0 && v > 0.45 && v < 0.72;
       if (house) return v < 0.52 ? '#b4442f' : '#efe3c8';
-      // the Gymnasium in the middle of the wall
-      if (u > 0.47 && u < 0.6 && v > 0.32 && v < 0.72) return v < 0.4 && (u < 0.5 || u > 0.57) ? '#efe3c8' : v < 0.4 ? '#87b9d8' : '#e8d7b0';
+      // the Gymnasium in the middle of the wall: twin towers, a dark arch, long wings
+      if (u > 0.47 && u < 0.6 && v > 0.22 && v < 0.74) {
+        const tower = (u > 0.49 && u < 0.515) || (u > 0.555 && u < 0.58);
+        if (v < 0.5 && !tower) return '#87b9d8';
+        if (v < 0.27) return '#b4442f'; // tower caps
+        if (u > 0.522 && u < 0.548 && v > 0.56) return '#3a2e26'; // arch
+        return '#f4ead2';
+      }
+      if (u > 0.4 && u < 0.67 && v > 0.55 && v < 0.74) return Math.floor(u * 160) % 3 === 0 && v > 0.6 && v < 0.68 ? '#5a4a3a' : '#efe3c8';
       if (v > 0.8) return '#3d6b5a';
       return '#d8b77a'; // sand
     };
@@ -109,7 +116,7 @@ export class Interactables {
     this.root.name = 'interactables';
     const spark = sparkTexture();
     for (const poi of pois) {
-      const marker = new THREE.Sprite(new THREE.SpriteMaterial({ map: spark, depthWrite: false, transparent: true, blending: THREE.AdditiveBlending }));
+      const marker = new THREE.Sprite(new THREE.SpriteMaterial({ map: spark, depthWrite: false, depthTest: false, transparent: true }));
       const y0 = baseHeight(poi.x, poi.z);
       marker.position.set(poi.x, y0 + poi.y, poi.z);
       marker.scale.setScalar(1.4);
@@ -177,7 +184,7 @@ export class Interactables {
       const near = 1 - Math.min(1, Math.max(0, (d - 12) / 43));
       const pulse = 0.85 + Math.sin(t * 3.2) * 0.15;
       (e.marker.material as THREE.SpriteMaterial).opacity = near * pulse;
-      e.marker.scale.setScalar(1.1 + pulse * 0.5);
+      e.marker.scale.setScalar(1.6 + pulse * 0.6);
       e.marker.position.y = baseHeight(e.poi.x, e.poi.z) + e.poi.y + Math.sin(t * 1.7) * 0.12;
     }
   }

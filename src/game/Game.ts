@@ -717,6 +717,8 @@ export class Game {
   // ------------------------------------------------------------------ frame
 
   update(dt: number, t: number) {
+    // props stay in the world in free mode, but their sparkles belong to the game
+    if (!this.active) this.inter.wanted.clear();
     this.inter.update(t, this.w.camera.position);
     if (!this.active) return;
     this.updateLens(dt);

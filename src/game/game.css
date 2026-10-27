@@ -658,10 +658,19 @@ button.g-chip:hover {
   .g-year {
     bottom: calc(88px + env(safe-area-inset-bottom));
   }
+  .g-chips {
+    flex-wrap: nowrap;
+  }
   .g-chip {
-    min-width: 54px;
-    padding: 7px 9px;
+    min-width: 0;
+    padding: 7px 10px;
     font-size: 15px;
+  }
+  .g-chip.locked {
+    letter-spacing: 0.08em;
+  }
+  .g-meter {
+    top: 30%;
   }
   .g-toast {
     max-width: calc(100vw - 32px);
