@@ -5,16 +5,18 @@ import { clamp, easeInOutCubic } from '../core/math';
 import type { TimeController } from '../core/TimeController';
 import { LANDMARKS } from '../data/landmarks';
 import { STYLE_INFO } from '../data/styleInfo';
-import type { BuildingSite } from '../data/types';
+import type { BuildingSite, Localized } from '../data/types';
 import { h } from '../ui/dom';
 import type { BuildingManager } from '../world/buildings/BuildingManager';
 import { phaseAt } from '../world/fabric';
 import type { PostFX } from '../world/PostFX';
 import { GameState, type SaveData } from './GameState';
-import { GameUI } from './GameUI';
+import { GameUI, type CaseFileSpec } from './GameUI';
 import { Interactables } from './Interactables';
 import { Joystick } from './Joystick';
-import { alignment, wrapAngle } from './rephoto';
+import { hintArea, streetAt, yearLayer, type YearLayer } from './mapData';
+import { FullMap, MiniMap, type MapOverlay } from './MapView';
+import { alignment, MATCH, wrapAngle } from './rephoto';
 import { Sfx } from './sfx';
 import type { CaseDef, Lead, PhotoDef, Poi } from './types';
 
@@ -47,9 +49,25 @@ type Lens =
   | { kind: 'peek'; t: number; base: number; year: number; closing: boolean };
 
 interface PhotoPlate {
+  /** The aged photograph, as seen when held up. */
   overlay: string;
+  /** The same photo as a postcard with a border and caption. */
   card: string;
+  /** Outlines of the photo (an alignment aid). */
+  tracing: string;
+  /** Width / height. */
   ratio: number;
+  /** Match points in photo coordinates (0 … 1). */
+  marks: { u: number; v: number }[];
+}
+
+interface Holding {
+  lead: Lead;
+  photo: PhotoDef;
+  held: number;
+  /** Aids switched on: 1 tracing, 2 match points, 3 directions. */
+  aid: number;
+  focus: 'none' | 'near' | 'lock';
 }
 
 function load(): SaveData | undefined {
@@ -61,10 +79,16 @@ function load(): SaveData | undefined {
   }
 }
 
+/** First sentence of a text, and the rest. */
+function split(text: string): [string, string] {
+  const m = text.match(/^(.+?[.!?])\s+(.+)$/s);
+  return m ? [m[1], m[2]] : [text, ''];
+}
+
 /**
  * The exploration game: a case to solve on foot, at street level, by noticing things,
  * standing where old photos were taken and slipping through anchored years.
- * See docs/GAME_DESIGN.md.
+ * See docs/GAME_DESIGN.md and docs/UI_DESIGN.md.
  */
 export class Game {
   state: GameState;
@@ -77,13 +101,17 @@ export class Game {
 
   private lens: Lens = { kind: 'idle' };
   private photos = new Map<string, PhotoPlate>();
-  private holding?: { lead: Lead; photo: PhotoDef; held: number };
+  private holding?: Holding;
   private lastYear?: number;
   private saveTimer = 0;
   private ray = new THREE.Raycaster();
   private titleEl?: HTMLElement;
   private v = new THREE.Vector3();
   private keyPeek = false;
+  private mini = new MiniMap();
+  private full: FullMap;
+  private layer?: YearLayer;
+  private caseTab: 'case' | 'finds' = 'case';
 
   constructor(
     private w: WorldApi,
@@ -101,15 +129,23 @@ export class Game {
     });
     if (matchMedia('(pointer: coarse)').matches) new Joystick(this.ui.root, w.rig.moveInput);
 
+    this.ui.mapSlot.append(this.mini.el);
+    this.full = new FullMap(this.ui.root);
+    this.full.onClose = () => this.closeMap();
+    this.mini.el.onclick = () => this.openMap();
+    void document.fonts?.ready.then(() => this.mini.invalidate());
+
     this.ui.onHint = () => this.hint();
     this.ui.onTravel = (y) => this.travel(y);
     this.ui.onPeek = (y, on) => (on ? this.peek(y) : this.unpeek());
     this.ui.onSolve = () => this.solve();
-    this.ui.btnPhoto.onclick = () => this.togglePhoto();
-    this.ui.btnJournal.onclick = () => this.journal();
-    this.ui.btnSound.onclick = () => void this.toggleSound();
-    this.ui.btnMenu.onclick = () => this.menu();
-    this.ui.examineBtn.onclick = () => this.examineHere();
+    this.ui.onCase = () => (this.state.readyToSolve ? this.solve() : this.caseFile());
+    this.ui.onMenu = () => this.menu();
+    this.ui.onExamine = () => this.examineHere();
+    this.ui.onPostcard = () => this.togglePhoto();
+    this.ui.onAid = () => this.aid();
+    this.ui.onPhotoClose = () => this.closePhoto();
+    this.ui.onFlapStep = () => this.sfx.flap();
     window.addEventListener('keydown', (e) => this.onKey(e));
     // safety net: a peek always ends when the pointer is released anywhere
     window.addEventListener('pointerup', () => {
@@ -143,7 +179,31 @@ export class Game {
   }
 
   private renderPlate(p: PhotoDef): PhotoPlate {
-    this.w.post.render();
+    // A postcard is landscape. On a portrait screen, render it at 4:3 with the same vertical
+    // field of view: the phone then sees exactly the middle of the photo, so it still lines up.
+    const { camera, post } = this.w;
+    const renderer = post.composer.renderer;
+    const [vw, vh] = [window.innerWidth, window.innerHeight];
+    const narrow = vw / vh < 4 / 3;
+    if (narrow) {
+      const pw = Math.round(vh * (4 / 3));
+      camera.aspect = 4 / 3;
+      camera.updateProjectionMatrix();
+      renderer.setSize(pw, vh, false);
+      post.setSize(pw, vh);
+    }
+    post.render();
+    const plate = this.readPlate(p);
+    if (narrow) {
+      camera.aspect = vw / vh;
+      camera.updateProjectionMatrix();
+      renderer.setSize(vw, vh, false);
+      post.setSize(vw, vh);
+    }
+    return plate;
+  }
+
+  private readPlate(p: PhotoDef): PhotoPlate {
     const src = this.w.canvas;
     const W = src.width;
     const H = src.height;
@@ -155,15 +215,45 @@ export class Game {
     c.height = Math.round(H * scale);
     const g = c.getContext('2d')!;
     g.drawImage(src, (W - cw) / 2, 0, cw, H, 0, 0, c.width, c.height);
-    // age the print: warm monochrome, crushed contrast, vignette, dust
+
+    // match points, projected with the photographer's camera
+    this.w.camera.updateMatrixWorld();
+    const marks = p.marks.map((m) => {
+      this.v.set(m.x, this.w.ground(m.x, m.z) + m.y, m.z).project(this.w.camera);
+      return { u: ((this.v.x * 0.5 + 0.5) * W - (W - cw) / 2) / cw, v: -this.v.y * 0.5 + 0.5 };
+    });
+
     const img = g.getImageData(0, 0, c.width, c.height);
     const d = img.data;
+    const cwid = c.width;
+    const lum = new Float32Array(cwid * c.height);
+    for (let i = 0; i < lum.length; i++) lum[i] = (0.3 * d[i * 4] + 0.59 * d[i * 4 + 1] + 0.11 * d[i * 4 + 2]) / 255;
+
+    // the tracing: the photo's outlines in cream ink (Sobel edges)
+    const t = document.createElement('canvas');
+    t.width = cwid;
+    t.height = c.height;
+    const tg = t.getContext('2d')!;
+    const ti = tg.createImageData(cwid, c.height);
+    for (let y = 1; y < c.height - 1; y++)
+      for (let x = 1; x < cwid - 1; x++) {
+        const i = y * cwid + x;
+        const gx = lum[i - cwid + 1] + 2 * lum[i + 1] + lum[i + cwid + 1] - lum[i - cwid - 1] - 2 * lum[i - 1] - lum[i + cwid - 1];
+        const gy = lum[i + cwid - 1] + 2 * lum[i + cwid] + lum[i + cwid + 1] - lum[i - cwid - 1] - 2 * lum[i - cwid] - lum[i - cwid + 1];
+        const a = clamp((Math.hypot(gx, gy) - 0.18) * 3.2, 0, 1);
+        ti.data[i * 4] = 255;
+        ti.data[i * 4 + 1] = 240;
+        ti.data[i * 4 + 2] = 200;
+        ti.data[i * 4 + 3] = a * 255;
+      }
+    tg.putImageData(ti, 0, 0);
+
+    // age the print: warm monochrome, crushed contrast, vignette, dust
     for (let i = 0; i < d.length; i += 4) {
-      const px = (i / 4) % c.width;
-      const py = Math.floor(i / 4 / c.width);
-      const l = (0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2]) / 255;
-      const k = Math.min(1, Math.max(0, (l - 0.5) * 1.18 + 0.52));
-      const vx = px / c.width - 0.5;
+      const px = (i / 4) % cwid;
+      const py = Math.floor(i / 4 / cwid);
+      const k = Math.min(1, Math.max(0, (lum[i / 4] - 0.5) * 1.18 + 0.52));
+      const vx = px / cwid - 0.5;
       const vy = py / c.height - 0.5;
       const vig = 1 - (vx * vx + vy * vy) * 1.3;
       const n = (Math.random() - 0.5) * 0.07;
@@ -177,7 +267,7 @@ export class Game {
     for (let i = 0; i < 14; i++) {
       g.lineWidth = Math.random() * 1.2;
       g.beginPath();
-      const x = Math.random() * c.width;
+      const x = Math.random() * cwid;
       g.moveTo(x, Math.random() * c.height);
       g.lineTo(x + (Math.random() - 0.5) * 30, Math.random() * c.height);
       g.stroke();
@@ -186,7 +276,7 @@ export class Game {
     // postcard: cream border and a caption
     const pad = Math.round(c.height * 0.06);
     const pc = document.createElement('canvas');
-    pc.width = c.width + pad * 2;
+    pc.width = cwid + pad * 2;
     pc.height = c.height + pad * 3.2;
     const pg = pc.getContext('2d')!;
     pg.fillStyle = '#efe6d2';
@@ -196,41 +286,40 @@ export class Game {
     pg.font = `italic ${Math.round(pad * 0.9)}px "Frank Ruhl Libre", Georgia, serif`;
     pg.textAlign = 'center';
     pg.fillText(p.caption.en, pc.width / 2, c.height + pad * 2.25);
-    return { overlay, card: pc.toDataURL('image/jpeg', 0.86), ratio };
+    return { overlay, card: pc.toDataURL('image/jpeg', 0.86), tracing: t.toDataURL('image/png'), ratio, marks };
   }
 
-  /** The title screen: begin/continue the case, or open the classic timeline. */
+  /** The title screen: a 1930s-style poster with the case as a ticket. */
   showTitle(parent: HTMLElement) {
     const d = this.def;
     const hasSave = this.state.done.size > 0 || this.state.where !== undefined;
-    const begin = h('button', { class: 'btn big' }, hasSave ? 'Continue the case' : 'Begin') as HTMLButtonElement;
-    const fresh = h('button', { class: 'btn ghost' }, 'Start over') as HTMLButtonElement;
-    const free = h('button', { class: 'btn ghost' }, 'Free explore · classic timeline') as HTMLButtonElement;
+    const begin = h('button', { class: 'g-btn-ink big' }, hasSave ? 'Continue' : 'Begin the case') as HTMLButtonElement;
+    const fresh = h('button', { class: 'g-btn-text' }, 'Start over') as HTMLButtonElement;
+    const free = h('button', { class: 'g-btn-text light' }, 'Free explore · the classic timeline') as HTMLButtonElement;
     const el = h(
       'div',
       { id: 'title' },
       h(
         'div',
-        { class: 'title-inner' },
-        h('div', { class: 'title-brand' }, 'Tel Aviv ', h('span', {}, 'Time Machine')),
-        h('div', { class: 'title-he', lang: 'he', dir: 'rtl' }, 'מכונת הזמן של תל אביב'),
+        { class: 'poster' },
+        h('div', { class: 'poster-band', lang: 'he', dir: 'rtl' }, 'מכונת הזמן של תל אביב'),
+        h('h1', {}, h('span', {}, 'Tel Aviv'), h('span', {}, 'Time Machine')),
+        h('p', { class: 'poster-sub' }, 'Walk its streets from 1909 to today. Notice what changed — and find out why.'),
         h(
           'div',
-          { class: 'title-case glass' },
-          h('div', { class: 'g-kicker' }, `Case ${d.number}`),
-          h('h2', {}, d.title.en),
-          h('p', {}, d.tagline.en),
-          h('div', { class: 'g-actions' }, begin, hasSave ? fresh : null),
+          { class: 'poster-ticket' },
+          h('div', { class: 'pt-stub' }, h('small', {}, 'Case'), h('b', {}, String(d.number))),
+          h('div', { class: 'pt-body' }, h('b', {}, d.title.en), h('small', {}, d.tagline.en), h('div', { class: 'g-actions' }, begin, hasSave ? fresh : null)),
         ),
-        h('div', { class: 'title-next' }, h('span', {}, 'Coming next:'), ...d.teasers.map((t) => h('span', { class: 'locked' }, `🔒 ${t.en}`))),
-        free,
+        h('div', { class: 'poster-next' }, ...d.teasers.map((t, i) => h('span', {}, h('small', {}, `Case ${d.number + i + 1}`), t.en))),
       ),
+      free,
     );
     parent.append(el);
     this.titleEl = el;
     const go = (resume: boolean) => {
       this.sfx.unlock();
-      void this.w.audio.enable().then(() => this.ui.btnSound.classList.toggle('active', this.w.audio.enabled));
+      void this.w.audio.enable().then(() => (this.sfx.enabled = this.w.audio.enabled));
       el.classList.add('done');
       window.setTimeout(() => el.remove(), 900);
       this.enter(resume);
@@ -276,10 +365,9 @@ export class Game {
       const p = this.def.start.pose;
       rig.teleport(p.x, p.z, p.yaw, p.pitch);
     }
+    this.mini.invalidate();
     this.renderHud();
-    const fresh = this.state.done.size === 0;
-    if (fresh && !where) this.intro();
-    else this.showControls();
+    if (this.state.done.size === 0 && !where) this.intro();
   }
 
   /** Leave the game for the classic free timeline. */
@@ -287,6 +375,7 @@ export class Game {
     this.save();
     this.active = false;
     this.closePhoto();
+    this.closeMap();
     this.ui.closeModal();
     this.ui.show(false);
     this.w.rig.lockStreet = false;
@@ -299,58 +388,17 @@ export class Game {
     const lead = this.def.leads[0];
     const plate = lead.trigger.kind === 'rephoto' ? this.photos.get(lead.trigger.photo.id) : undefined;
     this.ui.showCard({
+      kind: 'postcard',
       kicker: `Case ${this.def.number} · ${this.def.title.en}`,
       title: 'An old postcard',
-      text: this.def.intro.en,
+      gist: this.def.intro.en,
       image: plate?.card,
-      actions: [
-        {
-          label: 'Start exploring',
-          primary: true,
-          run: () => {
-            this.howToPlay();
-          },
-        },
-      ],
+      actions: [{ label: 'Next', primary: true, run: () => this.howToPlay() }],
     });
   }
 
-  /** A short "how to play" card: shown after the intro, and from the menu. */
-  private howToPlay(then?: () => void) {
-    const touch = matchMedia('(pointer: coarse)').matches;
-    this.ui.showCard({
-      kicker: 'How to play',
-      title: 'You are a time walker',
-      text: 'Solve the case by exploring the street, examining what you find and travelling between the years you discover.',
-      facts: [
-        touch ? 'Walk with the stick at the bottom left. Drag anywhere to look around.' : 'Walk with W A S D or the arrow keys. Drag the mouse to look around.',
-        'Your current task is in the box at the top. Stuck? Press “Hint” — the last hint marks the spot on your screen.',
-        touch
-          ? 'When you are close to something important, an “Examine” button appears. You can also tap buildings and objects to learn about them.'
-          : 'When you are close to something important, an “Examine” button appears (or press E). You can also click buildings and objects to learn about them.',
-        'The years along the bottom are your time compass. Tap a year to travel there; press and hold to peek at it from where you stand. Clues unlock the ???? years.',
-      ],
-      actions: [
-        {
-          label: 'Got it',
-          primary: true,
-          run: () => {
-            this.ui.closeModal();
-            if (then) then();
-            else this.showControls();
-          },
-        },
-      ],
-    });
-  }
-
-  private showControls() {
-    const touch = matchMedia('(pointer: coarse)').matches;
-    this.ui.controlsHint.innerHTML = touch
-      ? 'Left stick to walk · drag to look · <b>tap</b> things to examine'
-      : 'Drag to look · <b>W A S D</b> to walk · <b>click</b> to examine · <b>P</b> photo · <b>J</b> journal';
-    this.ui.controlsHint.classList.remove('hidden', 'fade');
-    window.setTimeout(() => this.ui.controlsHint.classList.add('fade'), 9000);
+  private howToPlay() {
+    this.ui.showHowTo(matchMedia('(pointer: coarse)').matches, () => this.ui.closeModal());
   }
 
   private save() {
@@ -369,22 +417,83 @@ export class Game {
   private renderHud() {
     const s = this.state;
     const lead = s.current;
-    this.ui.renderObjective(s, lead, lead ? s.hintTier(lead.id) : -1);
+    const steps = this.def.leads.map((l) => (s.done.has(l.id) ? 'done' : l === lead ? 'now' : '') as 'done' | 'now' | '');
+    const tier = lead ? s.hintTier(lead.id) : -1;
+    if (lead)
+      this.ui.renderTag({
+        kicker: `Case ${this.def.number}`,
+        text: lead.short.en,
+        steps,
+        hint: tier >= 0 ? lead.hints[Math.min(tier, lead.hints.length - 1)].en : undefined,
+        canHint: tier < lead.hints.length - 1,
+      });
+    else if (s.readyToSolve) this.ui.renderTag({ kicker: `Case ${this.def.number} · every clue found`, text: 'Tap here to solve the case', steps, canHint: false });
+    else this.ui.renderTag({ kicker: `Case ${this.def.number} · closed`, text: 'Free travel: wander any year', steps, canHint: false });
+
     const y = this.lens.kind === 'peek' ? this.lens.base : Math.floor(this.w.time.year);
     this.ui.renderYear(y, this.lens.kind === 'peek' ? this.lens.year : undefined);
-    this.ui.renderCompass(s.compass, y, s.solved);
+    const anchored = s.compass.filter((c) => !c.locked).length;
+    const tip = anchored < 2 ? undefined : !s.seen.has('travel') ? 'Tap a year to travel' : !s.seen.has('peek') ? 'Hold a year to peek' : undefined;
+    this.ui.renderCompass(s.compass, y, tip);
     this.inter.wanted = new Set(s.open.flatMap((l) => (l.trigger.kind === 'poi' ? [l.trigger.poiId] : [])));
     const photoLead = s.open.find((l) => l.trigger.kind === 'rephoto');
-    this.ui.btnPhoto.classList.toggle('hidden', !photoLead);
+    const plate = photoLead?.trigger.kind === 'rephoto' ? this.photos.get(photoLead.trigger.photo.id) : undefined;
+    this.ui.setPostcard(plate?.card);
   }
 
   private hint() {
     const lead = this.state.current;
     if (!lead) return;
-    this.state.nextHint(lead.id);
+    const tier = this.state.nextHint(lead.id);
     this.sfx.tick();
     this.save();
     this.renderHud();
+    // from the second hint on, the map shows where to look: draw the eye to it
+    if (tier >= 1) {
+      this.mini.el.classList.remove('ping');
+      void this.mini.el.offsetWidth;
+      this.mini.el.classList.add('ping');
+    }
+  }
+
+  // ------------------------------------------------------------------ map
+
+  private yearLayer(): YearLayer {
+    const y = this.lens.kind === 'peek' ? this.lens.base : Math.floor(this.w.time.year);
+    if (!this.layer || this.layer.year !== y) this.layer = yearLayer(y, this.w.buildings.sites);
+    return this.layer;
+  }
+
+  private mapOverlay(): MapOverlay {
+    const s = this.state;
+    const c = this.w.camera.position;
+    const lead = s.current;
+    const tier = lead ? s.hintTier(lead.id) : -1;
+    let hint: MapOverlay['hint'];
+    if (lead && tier >= 1) {
+      const exact = tier >= lead.hints.length - 1;
+      hint = exact ? { x: lead.target.x, z: lead.target.z, r: 0, exact } : { ...hintArea(lead.target, lead.id), exact };
+    }
+    return {
+      player: { x: c.x, z: c.z, yaw: this.w.rig.yaw },
+      trail: s.trail,
+      pins: LANDMARKS.filter((l) => s.landmarks.has(l.id)).map((l) => ({ x: l.x, z: l.z, label: l.name?.en ?? '' })),
+      stamps: this.def.leads.flatMap((l, i) => (s.done.has(l.id) ? [{ x: l.target.x, z: l.target.z, n: i + 1 }] : [])),
+      hint,
+    };
+  }
+
+  private openMap() {
+    if (!this.active || this.holding || this.lens.kind !== 'idle') return;
+    this.ui.closeModal();
+    const c = this.w.camera.position;
+    const st = streetAt(c.x, c.z, Math.floor(this.w.time.year));
+    this.full.show(this.yearLayer(), this.mapOverlay(), st ? `You are on ${st.name.en}` : 'You are here');
+    this.sfx.tick();
+  }
+
+  private closeMap() {
+    if (this.full.open) this.full.hide();
   }
 
   // ------------------------------------------------------------------ time lens
@@ -393,10 +502,12 @@ export class Game {
   travel(year: number, done?: () => void) {
     if (this.lens.kind !== 'idle' || !this.state.anchors.has(year) || year === Math.floor(this.w.time.year)) return;
     this.closePhoto();
+    this.closeMap();
     this.lastYear = Math.floor(this.w.time.year);
     this.w.post.wipe.capture();
     this.lens = { kind: 'travel-capture', year, done };
     this.sfx.whoosh(year > this.lastYear);
+    this.state.seen.add('travel');
   }
 
   /** Look into another anchored year through a small lens, without leaving. */
@@ -405,6 +516,7 @@ export class Game {
     this.w.post.wipe.capture();
     this.lens = { kind: 'peek-capture', year, base: Math.floor(this.w.time.year) };
     this.sfx.whoosh(true, 0.6);
+    this.state.seen.add('peek');
   }
 
   unpeek() {
@@ -446,7 +558,7 @@ export class Game {
         this.renderHud();
       }
     }
-    this.w.rig.inputEnabled = !this.ui.modalOpen && (this.lens.kind === 'idle' || this.lens.kind === 'travel');
+    this.w.rig.inputEnabled = !this.ui.modalOpen && !this.full.open && (this.lens.kind === 'idle' || this.lens.kind === 'travel');
   }
 
   private checkDoubleExposure(peekYear: number, base: number) {
@@ -455,23 +567,35 @@ export class Game {
   }
 
   // ------------------------------------------------------------------ rephotography
+  //
+  // No meter: you line the photo up by eye. Camera-style corner brackets appear when the
+  // view is roughly right and lock when it matches. Three optional aids, one at a time:
+  // the photo's outlines, match points, then plain directions.
 
   private togglePhoto() {
     if (this.holding) return this.closePhoto();
     const lead = this.state.open.find((l) => l.trigger.kind === 'rephoto');
-    if (!lead || lead.trigger.kind !== 'rephoto') return;
+    if (!lead || lead.trigger.kind !== 'rephoto' || this.lens.kind !== 'idle') return;
     const plate = this.photos.get(lead.trigger.photo.id);
     if (!plate) return;
-    this.holding = { lead, photo: lead.trigger.photo, held: 0 };
-    this.ui.showPhoto(plate.overlay, plate.ratio);
-    this.ui.btnPhoto.classList.add('active');
+    this.closeMap();
+    this.ui.closeModal();
+    this.holding = { lead, photo: lead.trigger.photo, held: 0, aid: 0, focus: 'none' };
+    this.ui.showPhoto({ src: plate.overlay, tracing: plate.tracing, ratio: plate.ratio, caption: `${lead.trigger.photo.caption.en} · line it up by eye` });
     this.sfx.tick();
   }
 
   private closePhoto() {
+    if (!this.holding) return;
     this.holding = undefined;
     this.ui.showPhoto(undefined);
-    this.ui.btnPhoto.classList.remove('active');
+  }
+
+  private aid() {
+    const H = this.holding;
+    if (!H || H.aid >= 3) return;
+    H.aid++;
+    this.sfx.tick();
   }
 
   private updatePhoto(dt: number) {
@@ -480,21 +604,46 @@ export class Game {
     const { rig, camera } = this.w;
     const view = { x: camera.position.x, z: camera.position.z, yaw: rig.yaw, pitch: rig.pitch };
     const a = alignment(H.photo.pose, view);
-    let advice: string;
-    if (a.dist > 6) {
-      const dx = H.photo.pose.x - view.x;
-      const dz = H.photo.pose.z - view.z;
-      const rel = wrapAngle(Math.atan2(-dx, -dz) - view.yaw) * (180 / Math.PI);
-      const dir = Math.abs(rel) < 35 ? 'ahead' : Math.abs(rel) > 145 ? 'behind you' : rel > 0 ? 'to your left' : 'to your right';
-      advice = a.dist > 45 ? 'Compare the street in the photo with what you see.' : `The photographer stood a bit ${dir}.`;
-    } else if (a.yawErr > 9) advice = wrapAngle(H.photo.pose.yaw - view.yaw) > 0 ? 'Turn a little left.' : 'Turn a little right.';
-    else if (a.pitchErr > 9) advice = H.photo.pose.pitch > view.pitch ? 'Look up a little.' : 'Look down a little.';
-    else advice = 'Perfect.';
+    const focus = a.matched ? 'lock' : a.near ? 'near' : 'none';
+    if (focus !== 'none' && H.focus === 'none') this.sfx.focus();
+    H.focus = focus;
+
+    let marks;
+    const plate = this.photos.get(H.photo.id);
+    if (H.aid >= 2 && plate) {
+      const W = window.innerWidth;
+      const Hh = window.innerHeight;
+      const pw = Hh * plate.ratio;
+      const left = (W - pw) / 2;
+      marks = H.photo.marks.map((m, i) => {
+        this.v.set(m.x, this.w.ground(m.x, m.z) + m.y, m.z).project(camera);
+        const visible = this.v.z < 1 && Math.abs(this.v.x) < 1.4 && Math.abs(this.v.y) < 1.4;
+        return { px: left + plate.marks[i].u * pw, py: plate.marks[i].v * Hh, lx: (this.v.x * 0.5 + 0.5) * W, ly: (-this.v.y * 0.5 + 0.5) * Hh, visible };
+      });
+    }
+
+    let advice: string | undefined;
+    if (H.aid >= 3) {
+      if (a.dist > MATCH.dist) {
+        const dx = H.photo.pose.x - view.x;
+        const dz = H.photo.pose.z - view.z;
+        const rel = wrapAngle(Math.atan2(-dx, -dz) - view.yaw) * (180 / Math.PI);
+        const dir = Math.abs(rel) < 35 ? 'ahead' : Math.abs(rel) > 145 ? 'behind you' : rel > 0 ? 'to your left' : 'to your right';
+        advice = a.dist > 45 ? 'Find the street in the photo first.' : `The photographer stood a bit ${dir}.`;
+      } else if (a.yawErr > MATCH.yaw) advice = wrapAngle(H.photo.pose.yaw - view.yaw) > 0 ? 'Turn a little left.' : 'Turn a little right.';
+      else if (a.pitchErr > MATCH.pitch) advice = H.photo.pose.pitch > view.pitch ? 'Look up a little.' : 'Look down a little.';
+      else advice = 'Hold still…';
+    }
+    this.ui.renderPhoto({ focus, aid: H.aid, marks, advice });
+
     H.held = a.matched ? H.held + dt : 0;
-    this.ui.renderMeter(a.score, advice, a.matched);
     if (H.held > 0.7) {
-      const lead = H.lead;
+      const { lead, aid } = H;
+      this.sfx.shutter();
+      this.ui.root.classList.add('flash');
+      window.setTimeout(() => this.ui.root.classList.remove('flash'), 500);
       this.closePhoto();
+      if (aid === 0) this.note('photographers-eye');
       this.completeLead(lead);
     }
   }
@@ -503,7 +652,7 @@ export class Game {
 
   /** Handles a tap/click on the scene. Returns true if it hit something. */
   tap(clientX: number, clientY: number): boolean {
-    if (!this.active || this.ui.modalOpen || this.lens.kind !== 'idle') return false;
+    if (!this.active || this.ui.modalOpen || this.full.open || this.holding || this.lens.kind !== 'idle') return false;
     // Forgiving taps: try the exact point first, then a small ring around it (fingers, archways).
     const ndc = new THREE.Vector2();
     let poi: ReturnType<Interactables['pick']>;
@@ -532,10 +681,10 @@ export class Game {
   private examinePoi(poi: Poi, dist: number) {
     const year = Math.floor(this.w.time.year);
     const lead = this.state.def.leads.find((l) => l.trigger.kind === 'poi' && l.trigger.poiId === poi.id);
-    if (dist > 30) return this.ui.toast('Too far away to make out — walk closer.');
+    if (dist > 30) return this.ui.toast('Too far away — walk closer.');
     if (lead && this.state.canComplete(lead, year)) return this.completeLead(lead);
-    if (lead && this.state.done.has(lead.id)) return this.ui.toast(`${lead.clue.title.en} — already in your journal.`);
-    this.ui.toast(`${poi.label.en}. Something to remember…`);
+    if (lead && this.state.done.has(lead.id)) return this.ui.toast(`${lead.clue.title.en} — in your case file.`);
+    this.ui.toast(`${poi.label.en}. Remember it…`);
   }
 
   private examineSite(site: BuildingSite, dist: number) {
@@ -548,20 +697,21 @@ export class Game {
     const phase = phaseAt(site, year);
     if (!phase) return;
     if (site.landmark && site.info) {
-      if (dist > 140) return this.ui.toast(`${site.name?.en ?? 'A landmark'} — walk closer to look.`);
+      if (dist > 140) return this.ui.toast(`${site.name?.en ?? 'A landmark'} — walk closer.`);
       const isNew = this.state.collect('landmarks', site.id);
       const note = NOTE_FOR_SITE[site.id];
-      if (note) this.note(note, false);
+      if (note) this.note(note);
       if (!isNew) return this.ui.toast(`${site.name?.en} · ${phase.from}`);
       this.sfx.chime();
       this.save();
+      const [gist, rest] = split(site.info.summary.en);
       return this.ui.showCard({
-        kicker: `Landmark discovered · ${this.state.landmarks.size}/${LANDMARKS.length}`,
+        kicker: `Landmark ${this.state.landmarks.size} / ${LANDMARKS.length}`,
         title: site.name?.en ?? 'Landmark',
-        text: site.info.summary.en,
-        facts: site.info.facts?.map((f) => f.en),
-        sources: site.info.sources,
+        gist,
+        more: { text: rest, facts: site.info.facts?.map((f) => f.en), sources: site.info.sources },
         confidence: site.info.confidence,
+        ticket: { label: 'Built', value: String(phase.from) },
         actions: [{ label: 'Continue', primary: true, run: () => this.ui.closeModal() }],
       });
     }
@@ -572,25 +722,56 @@ export class Game {
     if (!isNew) return this.ui.toast(`${style.name.en} · built ${phase.from}`);
     this.sfx.chime();
     this.save();
+    const [gist, rest] = split(style.text.en);
     this.ui.showCard({
-      kicker: `New style stamp · ${this.state.stamps.size}/${Object.keys(STYLE_INFO).length}`,
+      kicker: `Style stamp ${this.state.stamps.size} / ${Object.keys(STYLE_INFO).length}`,
       title: style.name.en,
-      text: style.text.en,
-      facts: style.look.map((l) => `Look for: ${l}`),
-      sources: style.sources,
+      gist,
+      more: { text: rest, facts: style.look.map((l) => `Look for: ${l}`), sources: style.sources },
       confidence: 'documented',
-      reward: `${style.period} · this one was built in ${phase.from}`,
+      ticket: { label: style.period, value: String(phase.from) },
       actions: [{ label: 'Continue', primary: true, run: () => this.ui.closeModal() }],
     });
   }
 
-  private note(id: string, announce = true) {
+  /** The current lead, if its target can be examined from where the player stands right now. */
+  private inReach(): { lead: Lead; label: string } | undefined {
+    const lead = this.state.current;
+    if (!lead || this.lens.kind !== 'idle' || this.ui.modalOpen || this.holding || this.full.open) return undefined;
+    if (!this.state.canComplete(lead, Math.floor(this.w.time.year))) return undefined;
+    const c = this.w.camera.position;
+    const tr = lead.trigger;
+    const label = `Examine ${lead.examine?.en ?? 'it'}`;
+    if (tr.kind === 'site') {
+      const site = LANDMARKS.find((s) => s.id === tr.siteId);
+      if (!site) return undefined;
+      // distance to the footprint edge, roughly (as for taps)
+      const d = Math.max(0, Math.hypot(c.x - site.x, c.z - site.z) - Math.min(site.width, site.depth) / 2);
+      return d <= Math.min(tr.maxDist, 40) ? { lead, label } : undefined;
+    }
+    if (tr.kind === 'poi') {
+      const poi = this.def.pois.find((p) => p.id === tr.poiId);
+      if (!poi || !this.inter.present(poi.id)) return undefined;
+      return Math.hypot(c.x - poi.x, c.z - poi.z) < 16 ? { lead, label } : undefined;
+    }
+    return undefined;
+  }
+
+  /** Examine the current lead's target if it is in reach. Returns whether it was. */
+  private examineHere(): boolean {
+    const reach = this.inReach();
+    if (!reach) return false;
+    this.completeLead(reach.lead);
+    return true;
+  }
+
+  private note(id: string) {
     if (!this.state.collect('notes', id)) return;
     this.save();
     const n = this.def.notes.find((x) => x.id === id);
     if (!n) return;
     this.sfx.chime();
-    if (announce) this.ui.toast(`Field note · ${n.title.en}`, 3500);
+    this.ui.toast(`Field note · ${n.title.en}`, 3500);
   }
 
   private completeLead(lead: Lead) {
@@ -622,13 +803,14 @@ export class Game {
             { label: 'Later', run: after },
           ]
         : [{ label: 'Continue', primary: true, run: after }];
+    const n = this.def.leads.indexOf(lead) + 1;
     this.ui.showCard({
-      kicker: 'Clue found',
+      kicker: `Clue ${n} / ${this.def.leads.length}`,
       title: c.title.en,
-      text: c.text.en,
-      sources: c.sources,
+      gist: c.gist.en,
+      more: { text: c.text.en, sources: c.sources },
       confidence: c.confidence,
-      reward: newYear !== undefined ? (traveled ? `You slipped into ${newYear} · it is now on your time compass` : `Year anchored: ${newYear}`) : undefined,
+      ticket: newYear !== undefined ? { label: traveled ? 'You are now in' : 'New year', value: String(newYear) } : undefined,
       actions,
     });
   }
@@ -639,7 +821,9 @@ export class Game {
   }
 
   private solve() {
-    if (this.state.readyToSolve) this.deduce();
+    if (!this.state.readyToSolve) return;
+    this.ui.closeModal();
+    this.deduce();
   }
 
   private solved() {
@@ -648,14 +832,14 @@ export class Game {
     this.sfx.chime(true);
     this.renderHud();
     const r = this.def.resolution;
+    const [gist, rest] = split(r.text.en);
     this.ui.showCard({
       kicker: 'Case closed',
       title: r.title.en,
-      text: r.text.en,
-      facts: r.facts.map((f) => f.en),
-      sources: r.sources,
+      gist,
+      more: { text: rest, facts: r.facts.map((f) => f.en), sources: r.sources },
       confidence: 'documented',
-      reward: 'Unlocked: free travel through every year, 1900–2025',
+      ticket: { label: 'Unlocked', value: 'All years' },
       actions: [
         {
           label: 'Open the full timeline',
@@ -673,39 +857,67 @@ export class Game {
 
   // ------------------------------------------------------------------ menus
 
-  private journal() {
-    if (this.ui.modalOpen) return this.ui.closeModal();
-    const landmarkNames = new Map(LANDMARKS.map((l) => [l.id, l.name?.en ?? l.id]));
-    const styleNames = Object.entries(STYLE_INFO).map(([k, v]) => [k, v!.name.en] as [string, string]);
-    this.ui.showJournal(this.state, { landmarkNames, landmarkTotal: LANDMARKS.length, styleNames }, () => this.ui.closeModal());
+  private caseFile(tab = this.caseTab) {
+    this.closeMap();
+    this.caseTab = tab;
+    const s = this.state;
+    const L = (x: Localized) => x.en;
+    const spec: CaseFileSpec = {
+      number: this.def.number,
+      title: L(this.def.title),
+      question: L(this.def.question),
+      years: s.compass,
+      leads: this.def.leads.map((l) => {
+        if (s.done.has(l.id)) return { state: 'done' as const, title: L(l.clue.title), gist: L(l.clue.gist), text: L(l.clue.text), year: l.clue.anchors };
+        if (s.open.includes(l)) {
+          const tier = s.hintTier(l.id);
+          return { state: 'now' as const, title: L(l.title), text: L(l.text), hint: tier >= 0 ? L(l.hints[tier]) : undefined };
+        }
+        return { state: 'locked' as const, title: '' };
+      }),
+      solved: s.solved,
+      readyToSolve: s.readyToSolve,
+      notes: this.def.notes.map((n) => ({ title: L(n.title), text: L(n.text), got: s.notes.has(n.id) })),
+      stamps: Object.entries(STYLE_INFO).map(([id, v]) => ({ name: v!.name.en, got: s.stamps.has(id) })),
+      landmarks: { names: LANDMARKS.filter((l) => s.landmarks.has(l.id)).map((l) => l.name?.en ?? l.id), total: LANDMARKS.length },
+    };
+    this.ui.showCaseFile(spec, tab, (t) => this.caseFile(t), () => this.ui.closeModal());
   }
 
   private menu() {
-    if (this.ui.modalOpen) return this.ui.closeModal();
-    this.ui.showCard({
-      kicker: 'Menu',
-      title: 'Paused',
-      text: 'Your progress is saved in this browser.',
-      actions: [
-        { label: 'Resume', primary: true, run: () => this.ui.closeModal() },
-        { label: 'How to play', run: () => this.howToPlay(() => undefined) },
-        {
-          label: 'Free explore · classic timeline',
-          run: () => {
-            this.exit();
-            this.onFreeMode?.(true);
-          },
+    this.closeMap();
+    const sound = this.w.audio.enabled;
+    let armed = false;
+    this.ui.showMenu([
+      { label: 'Resume', icon: 'play', run: () => this.ui.closeModal() },
+      { label: sound ? 'Sound: on' : 'Sound: off', icon: sound ? 'sound' : 'mute', run: () => void this.toggleSound().then(() => this.menu()) },
+      { label: 'Map', icon: 'map', run: () => this.openMap() },
+      { label: 'How to play', icon: 'help', run: () => this.howToPlay() },
+      {
+        label: 'Free explore · timeline',
+        icon: 'free',
+        run: () => {
+          this.exit();
+          this.onFreeMode?.(true);
         },
-        {
-          label: 'Restart case',
-          run: () => {
-            this.ui.closeModal();
-            this.reset();
-            this.enter(false);
-          },
+      },
+      {
+        label: 'Restart case',
+        icon: 'restart',
+        danger: true,
+        run: () => {
+          if (!armed) {
+            armed = true;
+            const el = document.querySelector('.g-menu-item.danger span');
+            if (el) el.textContent = 'Tap again to restart';
+            return;
+          }
+          this.ui.closeModal();
+          this.reset();
+          this.enter(false);
         },
-      ],
-    });
+      },
+    ]);
   }
 
   private async toggleSound() {
@@ -713,27 +925,28 @@ export class Game {
     if (a.enabled) a.disable();
     else await a.enable();
     this.sfx.enabled = a.enabled;
-    this.ui.btnSound.classList.toggle('active', a.enabled);
   }
 
   private onKey(e: KeyboardEvent) {
     if (!this.active || (e.target as HTMLElement)?.tagName === 'INPUT' || e.repeat) return;
     if (e.code === 'Escape') {
-      if (this.ui.modalOpen) this.ui.closeModal();
+      if (this.full.open) this.closeMap();
+      else if (this.ui.modalOpen) this.ui.closeModal();
       else if (this.holding) this.closePhoto();
       else this.menu();
       return;
     }
-    if (this.ui.modalOpen) return;
+    if (e.code === 'KeyM') return this.full.open ? this.closeMap() : this.openMap();
+    if (this.ui.modalOpen || this.full.open) return;
     const anchored = this.state.compass.filter((s) => !s.locked).map((s) => s.year);
     if (e.code === 'KeyP') this.togglePhoto();
-    else if (e.code === 'KeyJ') this.journal();
-    else if (e.code === 'KeyH') this.hint();
-    else if (e.code === 'KeyM') void this.toggleSound();
-    else if (e.code === 'KeyE') {
+    else if (e.code === 'KeyJ') this.caseFile();
+    else if (e.code === 'KeyH') {
+      if (this.holding) this.aid();
+      else this.hint();
+    } else if (e.code === 'KeyE') {
       if (!this.examineHere()) this.tap(window.innerWidth / 2, window.innerHeight / 2);
-    }
-    else if (e.code === 'KeyQ') {
+    } else if (e.code === 'KeyQ') {
       const cur = Math.floor(this.w.time.year);
       const target = this.lastYear !== undefined && this.lastYear !== cur ? this.lastYear : anchored.find((y) => y !== cur);
       if (target !== undefined) {
@@ -756,41 +969,16 @@ export class Game {
     this.updateLens(dt);
     this.updatePhoto(dt);
     this.updateGuidance();
+    const c = this.w.camera.position;
+    const year = this.lens.kind === 'peek' ? this.lens.base : Math.floor(this.w.time.year);
+    if (this.lens.kind === 'idle') this.state.walk(c.x, c.z);
+    this.ui.setStreet(streetAt(c.x, c.z, year));
+    if (!this.full.open) this.mini.draw(this.yearLayer(), this.mapOverlay());
     this.saveTimer += dt;
     if (this.saveTimer > 4) {
       this.saveTimer = 0;
       this.save();
     }
-  }
-
-  /** The current lead, if its target can be examined from where the player stands right now. */
-  private inReach(): { lead: Lead; label: string } | undefined {
-    const lead = this.state.current;
-    if (!lead || this.lens.kind !== 'idle' || this.ui.modalOpen || this.holding) return undefined;
-    if (!this.state.canComplete(lead, Math.floor(this.w.time.year))) return undefined;
-    const c = this.w.camera.position;
-    const tr = lead.trigger;
-    if (tr.kind === 'site') {
-      const site = LANDMARKS.find((s) => s.id === tr.siteId);
-      if (!site) return undefined;
-      // distance to the footprint edge, roughly (as for taps)
-      const d = Math.max(0, Math.hypot(c.x - site.x, c.z - site.z) - Math.min(site.width, site.depth) / 2);
-      return d <= Math.min(tr.maxDist, 40) ? { lead, label: `Examine the ${site.name?.en ?? 'building'}` } : undefined;
-    }
-    if (tr.kind === 'poi') {
-      const poi = this.def.pois.find((p) => p.id === tr.poiId);
-      if (!poi || !this.inter.present(poi.id)) return undefined;
-      return Math.hypot(c.x - poi.x, c.z - poi.z) < 16 ? { lead, label: `Examine the ${poi.label.en.toLowerCase()}` } : undefined;
-    }
-    return undefined;
-  }
-
-  /** Examine the current lead's target if it is in reach. Returns whether it was. */
-  private examineHere(): boolean {
-    const reach = this.inReach();
-    if (!reach) return false;
-    this.completeLead(reach.lead);
-    return true;
   }
 
   /** Context prompts, the Examine button and the on-screen marker of the final hint tier. */
@@ -800,14 +988,15 @@ export class Game {
     const year = Math.floor(this.w.time.year);
     let prompt: string | undefined;
     const reach = this.inReach();
-    if (lead && !reach && this.lens.kind === 'idle' && !this.ui.modalOpen) {
+    let nearSpot = false;
+    if (lead && !reach && this.lens.kind === 'idle' && !this.ui.modalOpen && !this.holding) {
       const d = Math.hypot(lead.target.x - c.x, lead.target.z - c.z);
-      if (lead.trigger.kind === 'rephoto' && !this.holding && d < 18) prompt = 'This looks like the spot — hold up the photo (P)';
-      else if (lead.years && (year < lead.years[0] || year > lead.years[1]) && d < 60) prompt = 'Nothing here in this year — try another on your time compass';
+      if (lead.trigger.kind === 'rephoto' && d < 18) nearSpot = true;
+      else if (lead.years && (year < lead.years[0] || year > lead.years[1]) && d < 60) prompt = `Not in ${year} — try another year`;
     }
     this.ui.setPrompt(prompt);
     this.ui.setExamine(reach?.label);
-    this.ui.btnPhoto.classList.toggle('pulse', !!prompt && lead?.trigger.kind === 'rephoto');
+    this.ui.root.classList.toggle('near-spot', nearSpot);
 
     if (!lead || this.state.hintTier(lead.id) < lead.hints.length - 1 || this.holding) return this.ui.placeMarker(undefined);
     const ty = lead.target.y ?? 2;

@@ -13,10 +13,14 @@ export interface Alignment {
   yawErr: number;
   pitchErr: number;
   matched: boolean;
+  /** Roughly right (the photo's corner brackets show): within NEAR tolerances. */
+  near: boolean;
 }
 
 /** Tolerances for a successful rephotograph. */
 export const MATCH = { dist: 6, yaw: 9, pitch: 9 };
+/** Tolerances for "nearly there": coarse feedback, so the player still has to look. */
+export const NEAR = { dist: 14, yaw: 20, pitch: 18 };
 
 /** How well the current view lines up with where a photo was taken. */
 export function alignment(photo: Pose, view: Pose): Alignment {
@@ -25,5 +29,7 @@ export function alignment(photo: Pose, view: Pose): Alignment {
   const pitchErr = Math.abs(view.pitch - photo.pitch) * (180 / Math.PI);
   const f = (v: number, range: number) => Math.max(0, 1 - v / range);
   const score = f(dist, 60) ** 1.4 * f(yawErr, 60) * f(pitchErr, 45);
-  return { score, dist, yawErr, pitchErr, matched: dist <= MATCH.dist && yawErr <= MATCH.yaw && pitchErr <= MATCH.pitch };
+  return { score, dist, yawErr, pitchErr, matched: dist <= MATCH.dist && yawErr <= MATCH.yaw && pitchErr <= MATCH.pitch,
+    near: dist <= NEAR.dist && yawErr <= NEAR.yaw && pitchErr <= NEAR.pitch,
+  };
 }

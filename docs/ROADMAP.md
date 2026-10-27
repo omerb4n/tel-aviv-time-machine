@@ -23,6 +23,11 @@ The first build felt like a museum. The project is now an exploration game (see
 - ✅ Rephotography: line up an old photo to step into its year.
 - ✅ Case 1 *The Vanishing School*: 5 leads, tiered hints, a deduction, free travel as the reward.
 - ✅ Field journal, style stamps, landmark collection, field notes; local save.
+- ✅ A distinctive interface, the "time walker's kit" (see [UI_DESIGN.md](UI_DESIGN.md)): ceramic
+  street sign, objective tag, split-flap year board, year tickets, index-card clues, case folder.
+- ✅ Less text: one-line objectives and hints, one-sentence cards with *More*, pictogram how-to.
+- ✅ Rephotography by eye: focus brackets instead of a meter, three optional aids, a mastery note.
+- ✅ Map of the current year: heading-up minimap, full map, trail, clue stamps, hint circles.
 - ⏭ Playtest with 5–10 people and tune hints, distances and pacing (targets in GAME_DESIGN §8).
 - ⏭ Case 2 *The Seashell Lottery* and Case 3 *The House on Plot 43*.
 

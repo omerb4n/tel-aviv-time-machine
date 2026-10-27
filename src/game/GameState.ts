@@ -12,7 +12,15 @@ export interface SaveData {
   hints: Record<string, number>;
   /** Where the player was when last saved. */
   where?: { year: number; x: number; z: number; yaw: number };
+  /** The walked trail, flattened [x0, z0, x1, z1, …] in whole metres. */
+  trail?: number[];
+  /** One-time things the player has already done or been taught (e.g. 'travel', 'peek'). */
+  seen?: string[];
 }
+
+/** Trail points are recorded every TRAIL_STEP metres and capped at TRAIL_MAX points. */
+export const TRAIL_STEP = 6;
+export const TRAIL_MAX = 3000;
 
 /**
  * Pure progress state of a case: which leads are done, which years are anchored,
@@ -25,6 +33,9 @@ export class GameState {
   readonly stamps = new Set<string>();
   readonly notes = new Set<string>();
   readonly hints = new Map<string, number>();
+  readonly seen = new Set<string>();
+  /** Walked trail as [x, z] pairs, oldest first. */
+  trail: [number, number][] = [];
   solved = false;
   where?: SaveData['where'];
 
@@ -42,6 +53,9 @@ export class GameState {
       for (const [k, v] of Object.entries(save.hints ?? {})) this.hints.set(k, v);
       this.solved = !!save.solved;
       if (save.where && this.anchors.has(save.where.year)) this.where = save.where;
+      save.seen?.forEach((x) => this.seen.add(x));
+      const t = save.trail ?? [];
+      for (let i = 0; i + 1 < t.length; i += 2) this.trail.push([t[i], t[i + 1]]);
     }
   }
 
@@ -98,6 +112,18 @@ export class GameState {
     return this.hints.get(leadId) ?? -1;
   }
 
+  /**
+   * Records the player's position on the trail. A new point is added once the player is
+   * TRAIL_STEP metres from the last one. Returns true if a point was added.
+   */
+  walk(x: number, z: number): boolean {
+    const last = this.trail[this.trail.length - 1];
+    if (last && Math.hypot(x - last[0], z - last[1]) < TRAIL_STEP) return false;
+    this.trail.push([Math.round(x), Math.round(z)]);
+    if (this.trail.length > TRAIL_MAX) this.trail.splice(0, this.trail.length - TRAIL_MAX);
+    return true;
+  }
+
   /** Adds to a collection; true if it was new. */
   collect(set: 'landmarks' | 'stamps' | 'notes', id: string): boolean {
     const s = this[set];
@@ -118,6 +144,8 @@ export class GameState {
       solved: this.solved,
       hints: Object.fromEntries(this.hints),
       where: this.where,
+      trail: this.trail.flat(),
+      seen: [...this.seen],
     };
   }
 }

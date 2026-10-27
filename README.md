@@ -12,11 +12,17 @@ The original "scroll through time" experience is still there as **Free explore**
 the city, scrub the timeline from sand dunes (1900) to today's towers (2025), and click any
 building to hear its life story. See [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md) for the design.
 
-| The postcard that starts Case 1 | Lining it up slips you into 1910 |
+| Street sign, objective tag, split-flap year and year tickets | Lining up the postcard, with two aids on |
 | --- | --- |
-| ![postcard](docs/screenshots/g-postcard.png) | ![time slip](docs/screenshots/g-time-slip.png) |
-| **Peeking into 1910 from the foot of the tower** | **1962: what happened to the site?** |
-| ![peek](docs/screenshots/g-peek.png) | ![1962](docs/screenshots/g-1962.png) |
+| ![HUD](docs/screenshots/g-hud.png) | ![photo aids](docs/screenshots/g-photo-aids.png) |
+| **A clue: an archive index card** | **The map of 1910, drawn as a survey map** |
+| ![clue](docs/screenshots/g-clue.png) | ![map 1910](docs/screenshots/g-map-1910.png) |
+
+| On a phone: the title | Examine the school | A clue anchors 1962 |
+| --- | --- | --- |
+| ![title](docs/screenshots/g-phone-title.png) | ![examine](docs/screenshots/g-phone-examine.png) | ![clue 1962](docs/screenshots/g-phone-clue.png) |
+
+The interface design and the research behind it are in [docs/UI_DESIGN.md](docs/UI_DESIGN.md).
 
 Free explore:
 
@@ -45,9 +51,10 @@ Deep links: `http://localhost:5173/#year=1948`.
 | --- | --- |
 | Drag · `W A S D` (touch: stick + drag) | Look · walk (`Shift` to hurry) |
 | Click / tap · `E` · **Examine** button | Examine what you are looking at (the button appears when your current lead is in reach) |
-| Time compass: tap a year · hold a year (`Q`) | Slip to that year · peek into it from where you stand |
-| `P` | Hold up the old photo (rephotography) |
-| `J` · `H` · `M` · `Esc` | Journal · hint · sound · menu |
+| Year tickets: tap a year · hold a year (`Q`) | Slip to that year · peek into it from where you stand |
+| The postcard · `P` | Hold up the old photo and line it up by eye; `H` while holding adds an aid |
+| The map disc · `M` | Open the full map of the current year |
+| The tag · `J` · `?` · `H` · `Esc` | Case file · hint · hint · menu |
 
 **Free explore (classic timeline)**
 
