@@ -36,6 +36,7 @@ const ICONS = {
   sound: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path class="wave" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.8"/>',
   menu: '<path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" fill="none"/>',
   hint: '<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z" fill="none" stroke="currentColor" stroke-width="1.8"/>',
+  examine: '<circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15 15l5.5 5.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>',
 };
 
 /** All DOM for the exploration game. Game.ts decides what to show; this only renders. */
@@ -49,6 +50,8 @@ export class GameUI {
   readonly overlayImg: HTMLImageElement;
   readonly meter: HTMLElement;
   readonly prompt: HTMLElement;
+  /** Big contextual button shown when the current lead's target is in reach. */
+  readonly examineBtn: HTMLButtonElement;
   readonly card: HTMLElement;
   readonly toastEl: HTMLElement;
   readonly controlsHint: HTMLElement;
@@ -76,10 +79,11 @@ export class GameUI {
     this.meter = h('div', { class: 'g-meter glass' });
     this.overlay = h('div', { class: 'g-photo hidden' }, this.overlayImg, this.meter);
     this.prompt = h('div', { class: 'g-prompt hidden' });
+    this.examineBtn = h('button', { class: 'g-examine hidden' }) as HTMLButtonElement;
     this.card = h('div', { class: 'g-modal hidden', role: 'dialog' });
     this.toastEl = h('div', { class: 'g-toast glass hidden', 'aria-live': 'polite' });
     this.controlsHint = h('div', { class: 'g-controls glass hidden' });
-    this.root.append(this.overlay, this.objective, this.yearLabel, this.buttons, this.marker, this.prompt, this.compass, this.toastEl, this.controlsHint, this.card);
+    this.root.append(this.overlay, this.objective, this.yearLabel, this.buttons, this.marker, this.prompt, this.examineBtn, this.compass, this.toastEl, this.controlsHint, this.card);
     parent.append(this.root);
 
     const btn = (cls: string, title: string, ic: string, label: string) => {
@@ -189,6 +193,15 @@ export class GameUI {
   setPrompt(text: string | undefined) {
     this.prompt.classList.toggle('hidden', !text);
     if (text) this.prompt.textContent = text;
+  }
+
+  /** Show the Examine button with a label, or hide it (undefined). */
+  setExamine(label: string | undefined) {
+    this.examineBtn.classList.toggle('hidden', !label);
+    if (label && this.examineBtn.dataset.label !== label) {
+      this.examineBtn.dataset.label = label;
+      this.examineBtn.replaceChildren(icon(ICONS.examine), h('span', {}, label));
+    }
   }
 
   get modalOpen() {

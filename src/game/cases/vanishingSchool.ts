@@ -67,7 +67,7 @@ export const VANISHING_SCHOOL: CaseDef = {
     {
       id: 'gymnasium',
       title: { en: 'The building at the end of the street' },
-      text: { en: 'Walk up Herzl Street and take a closer look at the grand building at its end.' },
+      text: { en: 'Walk up Herzl Street to the grand building at its end. When you are close, press Examine (or tap the building).' },
       requires: ['postcard'],
       years: [1910, 1961],
       trigger: { kind: 'site', siteId: 'herzliya-gymnasium', maxDist: 95 },
@@ -84,15 +84,15 @@ export const VANISHING_SCHOOL: CaseDef = {
       },
       hints: [
         { en: 'Follow Herzl Street north to its end.' },
-        { en: 'Tap the building with the twin towers when you are close.' },
+        { en: 'Walk towards the building with the twin towers until an Examine button appears.' },
         { en: 'The building is marked on your screen.' },
       ],
-      target: { x: SITE.x, z: SITE.z + 12, y: 14 },
+      target: { x: SITE.x - 7, z: SITE.z + 10, y: 5 },
     },
     {
       id: 'mosaic',
       title: { en: 'A trace in the present' },
-      text: { en: 'Go back to 2025. Is anything left of the school at the foot of the tower?' },
+      text: { en: 'Go back to 2025 (tap it on the time compass). Is anything left of the school at the foot of the tower? Look for a glimmer.' },
       requires: ['gymnasium'],
       years: [1966, 2025],
       trigger: { kind: 'poi', poiId: 'gutman-mosaic' },
@@ -118,7 +118,7 @@ export const VANISHING_SCHOOL: CaseDef = {
     {
       id: 'hoarding',
       title: { en: 'The empty lot' },
-      text: { en: 'Travel to 1962 and see what has become of the site.' },
+      text: { en: 'Travel to 1962 on the time compass and walk to where the school stood. Look for a glimmer.' },
       requires: ['mosaic'],
       years: [1962, 1964],
       trigger: { kind: 'poi', poiId: 'site-hoarding' },
@@ -144,7 +144,7 @@ export const VANISHING_SCHOOL: CaseDef = {
     {
       id: 'tower',
       title: { en: 'What replaced it' },
-      text: { en: 'Jump to 1965 and examine what stands on the site now.' },
+      text: { en: 'Travel to 1965 and examine what stands on the site now.' },
       requires: ['hoarding'],
       years: [1965, 2025],
       trigger: { kind: 'site', siteId: 'shalom-meir-tower', maxDist: 140 },

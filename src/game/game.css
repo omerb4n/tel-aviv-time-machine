@@ -354,24 +354,33 @@ button.g-chip:hover {
 .g-marker::before {
   content: '';
   position: absolute;
-  left: -13px;
-  top: -13px;
-  width: 26px;
-  height: 26px;
+  left: -16px;
+  top: -16px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  border: 2px solid var(--accent);
-  box-shadow: 0 0 0 4px rgba(233, 184, 114, 0.25), 0 0 18px rgba(233, 184, 114, 0.6);
-  animation: pulse 1.4s ease-in-out infinite;
+  border: 3px solid var(--accent);
+  background: rgba(233, 184, 114, 0.22);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.55), 0 0 22px rgba(233, 184, 114, 0.8);
+  animation: marker-pulse 1.4s ease-in-out infinite;
 }
 .g-marker span {
   position: absolute;
   left: 50%;
-  top: 18px;
+  top: 22px;
   transform: translateX(-50%);
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(18, 20, 25, 0.75);
   font-size: 12px;
+  font-weight: 600;
   white-space: nowrap;
   color: var(--accent);
-  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8);
+}
+@keyframes marker-pulse {
+  50% {
+    transform: scale(1.25);
+  }
 }
 .g-marker.edge::before {
   border-style: dashed;
@@ -676,5 +685,46 @@ button.g-chip:hover {
     max-width: calc(100vw - 32px);
     top: auto;
     bottom: 170px;
+  }
+}
+
+/* Examine: the contextual action when the current lead's target is in reach */
+.g-examine {
+  position: absolute;
+  left: 50%;
+  top: 58%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100vw - 32px);
+  width: max-content;
+  padding: 14px 24px;
+  border-radius: 28px;
+  border: 1px solid rgba(255, 236, 190, 0.8);
+  background: var(--accent);
+  color: #1d1a15;
+  font-size: 17px;
+  font-weight: 600;
+  font-family: inherit;
+  text-align: left;
+  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.45), 0 0 0 0 rgba(233, 184, 114, 0.6);
+  cursor: pointer;
+  animation: g-examine-pulse 1.8s ease-out infinite;
+}
+.g-examine svg {
+  width: 22px;
+  height: 22px;
+  flex: none;
+}
+.g-examine span {
+  min-width: 0;
+}
+@keyframes g-examine-pulse {
+  0% {
+    box-shadow: 0 6px 28px rgba(0, 0, 0, 0.45), 0 0 0 0 rgba(233, 184, 114, 0.6);
+  }
+  100% {
+    box-shadow: 0 6px 28px rgba(0, 0, 0, 0.45), 0 0 0 18px rgba(233, 184, 114, 0);
   }
 }

@@ -109,6 +109,7 @@ export class Game {
     this.ui.btnJournal.onclick = () => this.journal();
     this.ui.btnSound.onclick = () => void this.toggleSound();
     this.ui.btnMenu.onclick = () => this.menu();
+    this.ui.examineBtn.onclick = () => this.examineHere();
     window.addEventListener('keydown', (e) => this.onKey(e));
     // safety net: a peek always ends when the pointer is released anywhere
     window.addEventListener('pointerup', () => {
@@ -307,8 +308,36 @@ export class Game {
           label: 'Start exploring',
           primary: true,
           run: () => {
+            this.howToPlay();
+          },
+        },
+      ],
+    });
+  }
+
+  /** A short "how to play" card: shown after the intro, and from the menu. */
+  private howToPlay(then?: () => void) {
+    const touch = matchMedia('(pointer: coarse)').matches;
+    this.ui.showCard({
+      kicker: 'How to play',
+      title: 'You are a time walker',
+      text: 'Solve the case by exploring the street, examining what you find and travelling between the years you discover.',
+      facts: [
+        touch ? 'Walk with the stick at the bottom left. Drag anywhere to look around.' : 'Walk with W A S D or the arrow keys. Drag the mouse to look around.',
+        'Your current task is in the box at the top. Stuck? Press “Hint” — the last hint marks the spot on your screen.',
+        touch
+          ? 'When you are close to something important, an “Examine” button appears. You can also tap buildings and objects to learn about them.'
+          : 'When you are close to something important, an “Examine” button appears (or press E). You can also click buildings and objects to learn about them.',
+        'The years along the bottom are your time compass. Tap a year to travel there; press and hold to peek at it from where you stand. Clues unlock the ???? years.',
+      ],
+      actions: [
+        {
+          label: 'Got it',
+          primary: true,
+          run: () => {
             this.ui.closeModal();
-            this.showControls();
+            if (then) then();
+            else this.showControls();
           },
         },
       ],
@@ -659,6 +688,7 @@ export class Game {
       text: 'Your progress is saved in this browser.',
       actions: [
         { label: 'Resume', primary: true, run: () => this.ui.closeModal() },
+        { label: 'How to play', run: () => this.howToPlay(() => undefined) },
         {
           label: 'Free explore · classic timeline',
           run: () => {
@@ -700,7 +730,9 @@ export class Game {
     else if (e.code === 'KeyJ') this.journal();
     else if (e.code === 'KeyH') this.hint();
     else if (e.code === 'KeyM') void this.toggleSound();
-    else if (e.code === 'KeyE') this.tap(window.innerWidth / 2, window.innerHeight / 2);
+    else if (e.code === 'KeyE') {
+      if (!this.examineHere()) this.tap(window.innerWidth / 2, window.innerHeight / 2);
+    }
     else if (e.code === 'KeyQ') {
       const cur = Math.floor(this.w.time.year);
       const target = this.lastYear !== undefined && this.lastYear !== cur ? this.lastYear : anchored.find((y) => y !== cur);
@@ -731,19 +763,50 @@ export class Game {
     }
   }
 
-  /** Context prompts and the on-screen marker of the final hint tier. */
+  /** The current lead, if its target can be examined from where the player stands right now. */
+  private inReach(): { lead: Lead; label: string } | undefined {
+    const lead = this.state.current;
+    if (!lead || this.lens.kind !== 'idle' || this.ui.modalOpen || this.holding) return undefined;
+    if (!this.state.canComplete(lead, Math.floor(this.w.time.year))) return undefined;
+    const c = this.w.camera.position;
+    const tr = lead.trigger;
+    if (tr.kind === 'site') {
+      const site = LANDMARKS.find((s) => s.id === tr.siteId);
+      if (!site) return undefined;
+      // distance to the footprint edge, roughly (as for taps)
+      const d = Math.max(0, Math.hypot(c.x - site.x, c.z - site.z) - Math.min(site.width, site.depth) / 2);
+      return d <= Math.min(tr.maxDist, 40) ? { lead, label: `Examine the ${site.name?.en ?? 'building'}` } : undefined;
+    }
+    if (tr.kind === 'poi') {
+      const poi = this.def.pois.find((p) => p.id === tr.poiId);
+      if (!poi || !this.inter.present(poi.id)) return undefined;
+      return Math.hypot(c.x - poi.x, c.z - poi.z) < 16 ? { lead, label: `Examine the ${poi.label.en.toLowerCase()}` } : undefined;
+    }
+    return undefined;
+  }
+
+  /** Examine the current lead's target if it is in reach. Returns whether it was. */
+  private examineHere(): boolean {
+    const reach = this.inReach();
+    if (!reach) return false;
+    this.completeLead(reach.lead);
+    return true;
+  }
+
+  /** Context prompts, the Examine button and the on-screen marker of the final hint tier. */
   private updateGuidance() {
     const lead = this.state.current;
     const c = this.w.camera.position;
     const year = Math.floor(this.w.time.year);
     let prompt: string | undefined;
-    if (lead && this.lens.kind === 'idle' && !this.ui.modalOpen) {
+    const reach = this.inReach();
+    if (lead && !reach && this.lens.kind === 'idle' && !this.ui.modalOpen) {
       const d = Math.hypot(lead.target.x - c.x, lead.target.z - c.z);
       if (lead.trigger.kind === 'rephoto' && !this.holding && d < 18) prompt = 'This looks like the spot — hold up the photo (P)';
-      else if (lead.trigger.kind === 'poi' && this.inter.present(lead.trigger.poiId) && d < 14) prompt = 'Tap the glimmer to examine';
       else if (lead.years && (year < lead.years[0] || year > lead.years[1]) && d < 60) prompt = 'Nothing here in this year — try another on your time compass';
     }
     this.ui.setPrompt(prompt);
+    this.ui.setExamine(reach?.label);
     this.ui.btnPhoto.classList.toggle('pulse', !!prompt && lead?.trigger.kind === 'rephoto');
 
     if (!lead || this.state.hintTier(lead.id) < lead.hints.length - 1 || this.holding) return this.ui.placeMarker(undefined);
