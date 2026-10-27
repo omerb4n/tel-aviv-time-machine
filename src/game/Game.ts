@@ -43,6 +43,7 @@ const saveKey = (caseId: string) => `tlvtm.case.${caseId}.v1`;
 const LEGACY_KEY = 'tlvtm.case.v1';
 /** What carries over between cases: collections, and the last case played. */
 const PROFILE_KEY = 'tlvtm.profile.v1';
+const FULLSCREEN_KEY = 'tlvtm.fullscreen';
 interface Profile {
   landmarks: string[];
   stamps: string[];
@@ -341,6 +342,7 @@ export class Game {
     const el = h('div', { id: 'title' });
     const go = (def: CaseDef, fresh: boolean) => {
       this.sfx.unlock();
+      this.fullscreen();
       void this.w.audio.enable().then(() => (this.sfx.enabled = this.w.audio.enabled));
       this.selectCase(def);
       if (fresh) this.reset();
@@ -431,6 +433,10 @@ export class Game {
   /** Enter the game (from the title or from free mode). */
   enter(resume = true) {
     const { rig } = this.w;
+    // Photo plates are rendered at load from the title screen. A page opened on a
+    // #year= link skips the title, so render them now, before the case needs them.
+    if (this.photos.size === 0) this.preparePhotos();
+    this.fullscreen();
     this.active = true;
     document.body.classList.add('mode-game');
     document.body.classList.remove('mode-free');
@@ -1119,6 +1125,9 @@ export class Game {
       { label: 'Resume', icon: 'play', run: () => this.ui.closeModal() },
       { label: sound ? 'Sound: on' : 'Sound: off', icon: sound ? 'sound' : 'mute', run: () => void this.toggleSound().then(() => this.menu()) },
       { label: 'Map', icon: 'map', run: () => this.openMap() },
+      ...(document.fullscreenEnabled
+        ? [{ label: this.fullscreenPref() ? 'Full screen: on' : 'Full screen: off', icon: 'fullscreen' as const, run: () => this.toggleFullscreen() }]
+        : []),
       { label: 'How to play', icon: 'help', run: () => this.howToPlay() },
       { label: 'Choose a case', icon: 'journal', run: () => this.toTitle() },
       {
@@ -1146,6 +1155,28 @@ export class Game {
         },
       },
     ]);
+  }
+
+  // ------------------------------------------------------------------ full screen
+  // On by default on touch devices. Browsers allow it only inside a tap, so it is requested
+  // when the player taps Begin / Continue / Case, and from the menu toggle.
+
+  private fullscreenPref(): boolean {
+    const v = read<boolean>(FULLSCREEN_KEY);
+    return v ?? matchMedia('(pointer: coarse)').matches;
+  }
+
+  private fullscreen() {
+    if (!this.fullscreenPref() || !document.fullscreenEnabled || document.fullscreenElement) return;
+    document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => undefined);
+  }
+
+  private toggleFullscreen() {
+    const on = !this.fullscreenPref();
+    write(FULLSCREEN_KEY, on);
+    if (on) this.fullscreen();
+    else if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
+    this.menu();
   }
 
   private async toggleSound() {
