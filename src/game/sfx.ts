@@ -90,4 +90,45 @@ export class Sfx {
     o.start(t);
     o.stop(t + 0.07);
   }
+
+  /** Short filtered noise burst: a mechanical clack (split-flap leaves, camera shutter). */
+  private clack(t: number, dur: number, freq: number, gain: number) {
+    const ctx = this.ctx!;
+    const len = Math.floor(ctx.sampleRate * dur);
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len) ** 3;
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const f = ctx.createBiquadFilter();
+    f.type = 'bandpass';
+    f.frequency.value = freq;
+    f.Q.value = 1.2;
+    const g = ctx.createGain();
+    g.gain.value = gain;
+    src.connect(f).connect(g).connect(ctx.destination);
+    src.start(t);
+  }
+
+  /** One split-flap leaf falling. */
+  flap() {
+    const ctx = this.enabled && this.audio;
+    if (!ctx) return;
+    this.clack(ctx.currentTime, 0.03, 3200, 0.18);
+  }
+
+  /** A camera shutter: two clacks. */
+  shutter() {
+    const ctx = this.enabled && this.audio;
+    if (!ctx) return;
+    this.clack(ctx.currentTime, 0.05, 1800, 0.5);
+    this.clack(ctx.currentTime + 0.09, 0.07, 1200, 0.4);
+  }
+
+  /** A soft focus click (the photo is nearly lined up). */
+  focus() {
+    const ctx = this.enabled && this.audio;
+    if (!ctx) return;
+    this.clack(ctx.currentTime, 0.025, 5200, 0.12);
+  }
 }

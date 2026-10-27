@@ -26,7 +26,7 @@ Milestone 0, which is kept as the *free explore* mode.
 | **MDA framework** (Hunicke, LeBlanc & Zubek, 2004) | Design from the target **aesthetics** back to the mechanics. | Target aesthetics: **Discovery** (primary), **Fantasy** (being a time traveller), **Narrative** (the city's story). Not challenge or competition. |
 | **Environmental storytelling** (Jenkins, 2004, "Game Design as Narrative Architecture") | Spaces can hold *embedded narratives* that the player reconstructs. | The city is the text: a mosaic, a site fence, a missing building, a weathered façade. We don't narrate; we let the street testify. |
 | **A theory of fun** (Koster, 2004) | Fun is the feeling of learning a pattern. | Style stamps teach the player to *read* façades (ribbon balconies → International Style). Late in a case the player starts dating buildings by eye. |
-| **Flow** (Csikszentmihalyi) and **tiered hints** | Keep challenge near skill, and never leave the player stuck. | Three-tier hints per lead: nudge → direction → on-screen marker. No timers, no failure states. |
+| **Flow** (Csikszentmihalyi) and **tiered hints** | Keep challenge near skill, and never leave the player stuck. | Three-tier hints per lead: nudge → search circle on the map → on-screen and map marker. No timers, no failure states. |
 | **Zeigarnik effect** | Unfinished tasks stay on the mind. | The step bar, `????` years, undiscovered field notes and locked next-case titles invite return. |
 | **Player types** (Bartle's *explorers*; Quantic Foundry's *Discovery* and *Story* motivations) | Some players love finding secrets and understanding how worlds work. | We design for explorers first: hidden notes, landmark and style collections, peeking for "double exposures". |
 
@@ -79,12 +79,18 @@ take **10–15 minutes**.
 - After a case is solved, **free travel** (the full timeline) is unlocked as the reward.
 
 ### 5.3 Rephotography (the signature mechanic)
-- A lead gives you an archival photograph. Hold it up (P) and it is overlaid on your view.
-- An alignment meter ("walk a bit to your left", "look up a little") guides you to where the
-  photographer stood. When the view lines up the photo dissolves and **you slip into its year**.
+- A lead gives you an archival photograph: the postcard in your pocket. Tap it (P) to hold it up
+  as a translucent ghost over your view.
+- **No meter.** You line it up by eye. Camera-style focus brackets appear when you are roughly in
+  the right place and close in when the view matches; hold still and the shutter clicks and
+  **you slip into its year**.
+- If you are stuck, three optional aids, one at a time: the photo's **outlines** (a tracing),
+  **match points** (coloured dots on the photo, rings in your view), then **directions** in words.
+  Matching with no aids earns the *Photographer's eye* field note.
 - This turns real archive material into concrete, spatial goals that need no text.
 - In the prototype the "photo" is rendered from the reconstruction (and aged), with a link to
   the real archival photos. Milestone 2 uses licensed or public-domain originals.
+- Details and reasoning: [UI_DESIGN.md §5](UI_DESIGN.md#5-rephotography-from-a-meter-to-an-eye).
 
 ### 5.4 Examining (the world as text)
 - Points of interest (props that exist only in some years) shimmer when you are near and a
@@ -100,12 +106,21 @@ take **10–15 minutes**.
 - When all leads are done, the case ends with a short **deduction** (multiple choice with
   gentle feedback). Then a **resolution card** with the real story and sources.
 
-### 5.6 Field journal (memory and collection)
+### 5.6 Map (orientation)
+- A round, heading-up minimap; tap it for the full north-up map.
+- The map is **the map of the current year**: streets, buildings and the railway as they were.
+  It is drawn as a hand-inked survey map before 1948 and as a modern map after.
+- Every street is always shown. What fills in as you play: landmarks you examined, numbered
+  stamps where you found clues, and the trail you walked.
+- The second hint tier draws a search circle on the map; the last tier a pin. No route lines.
+- Details and reasoning: [UI_DESIGN.md §6](UI_DESIGN.md#6-the-map).
+
+### 5.7 Field journal (memory and collection)
 - Clues found so far, what you are looking for now, and `? ? ?` for what is still hidden.
 - Anchored years, field notes (optional secrets such as *Double exposure*), style stamps and
   landmarks.
 
-### 5.7 Honesty
+### 5.8 Honesty
 - Every clue shows its **confidence** (documented / approximate / illustrative) and sources.
 - Props that are reconstructions say so, and composite characters (future) are labelled as fiction.
 

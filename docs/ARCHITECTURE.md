@@ -50,7 +50,9 @@ src/
   game/                   the exploration game (see GAME_DESIGN.md §9)
     cases/                case content (leads, clues, props, deduction)
     GameState.ts          pure progress state + save/load
-    Game.ts, GameUI.ts    orchestration (time lens, rephotography, examining) and HUD
+    Game.ts, GameUI.ts    orchestration (time lens, rephotography, examining) and HUD (see UI_DESIGN.md)
+    Flap.ts               split-flap year board
+    mapData.ts, MapView.ts  the map of a year (pure data) and its canvas minimap / full map
   ui/                     timeline, info panel, labels, toasts, tour (free-explore mode)
   audio/Ambience.ts       procedural WebAudio soundscape
 ```

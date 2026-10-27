@@ -11,6 +11,9 @@ export interface Pose {
 /** What the player learns when a lead is completed. Shown as a card and kept in the journal. */
 export interface Clue {
   title: Localized;
+  /** One sentence: what the card says before "More". */
+  gist: Localized;
+  /** The full story, shown under "More" and in the case file. */
   text: Localized;
   sources?: SourceRef[];
   confidence: Confidence;
@@ -31,8 +34,12 @@ export type Trigger =
 export interface Lead {
   id: string;
   title: Localized;
-  /** The objective, phrased as what the player wants to find out. */
+  /** The objective in one short line (the HUD tag). */
+  short: Localized;
+  /** The objective, phrased as what the player wants to find out (case file). */
   text: Localized;
+  /** What the Examine button names, e.g. "the school". */
+  examine?: Localized;
   /** Leads that must be completed first. */
   requires: string[];
   trigger: Trigger;
@@ -70,6 +77,11 @@ export interface PhotoDef {
   caption: Localized;
   /** Link to the real archival material this reconstruction is based on. */
   reference: SourceRef;
+  /**
+   * Match points: world positions (y = metres above ground) that are easy to recognise in
+   * the photo. Shown only as an alignment aid, as dots on the photo and rings in the view.
+   */
+  marks: { x: number; y: number; z: number }[];
 }
 
 export interface Deduction {
@@ -89,6 +101,8 @@ export interface CaseDef {
   number: number;
   title: Localized;
   tagline: Localized;
+  /** The question the whole case answers (top of the case file). */
+  question: Localized;
   /** Opening text: short, ends with the first question. */
   intro: Localized;
   start: { year: number; pose: Pose };
