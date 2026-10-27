@@ -13,6 +13,32 @@
   TAMA 38 floors, towers).
 - People, vehicles, trees, day/night, period grading, ghosts, walk mode, sound, deep links.
 
+## 🚧 Milestone 0.5 — Exploration game (prototype)
+
+The first build felt like a museum. The project is now an exploration game (see
+[GAME_DESIGN.md](GAME_DESIGN.md)).
+
+- ✅ First-person street walking with collision, touch stick and tap-to-examine.
+- ✅ Time compass with anchored years; slip and peek through a time lens.
+- ✅ Rephotography: line up an old photo to step into its year.
+- ✅ Case 1 *The Vanishing School*: 5 leads, tiered hints, a deduction, free travel as the reward.
+- ✅ Field journal, style stamps, landmark collection, field notes; local save.
+- ⏭ Playtest with 5–10 people and tune hints, distances and pacing (targets in GAME_DESIGN §8).
+- ⏭ Case 2 *The Seashell Lottery* and Case 3 *The House on Plot 43*.
+
+## Milestone 0.6 — Street-level realism (on a GPU workstation)
+
+The game puts the camera on the street, so detail is needed in small walkable areas rather than
+across the whole city. That is what makes realism feasible on phones.
+
+- Modular façade kits per style (windows, shutters, balconies, cornices, tiles), modelled in
+  Blender against archival photos; glTF + meshopt + KTX2.
+- Photo-sourced PBR materials (plaster, stone, asphalt, cobbles), aged per year.
+- Street clutter (kiosks, posters, signs, wires, benches), baked lighting and AO, LOD and
+  phone / laptop / desktop quality tiers.
+- Temporal upscaling (TAA with dynamic resolution) instead of DLSS, which cannot run in browsers.
+- Optional: a Gaussian-splat capture of present-day streets.
+
 ## Milestone 1 — Real geography (≈ 3–4 weeks)
 
 - Import OSM + Tel Aviv GIS footprints and street centrelines for ~1 km² around Rothschild;
@@ -21,7 +47,7 @@
   real construction years and styles; keep procedural fabric only where data is missing.
 - Georeference 5 historical maps/aerials (1917, 1925/27, 1936–38, 1949, 1965) and use them to
   date streets and blocks; optional "map drape" view mode per era.
-- Content validation script + CI (GitHub Actions: typecheck, test, build, Pages deploy).
+- Content validation script. (CI with typecheck, tests, build and Pages deploy is done.)
 
 ## Milestone 2 — Landmarks & archive (≈ 4–6 weeks)
 

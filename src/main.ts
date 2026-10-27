@@ -1,5 +1,8 @@
 import * as THREE from 'three';
+import './game/game.css';
 import { Ambience } from './audio/Ambience';
+import { VANISHING_SCHOOL } from './game/cases/vanishingSchool';
+import { Game } from './game/Game';
 import { CameraRig } from './core/CameraRig';
 import { TimeController } from './core/TimeController';
 import { smoothstep } from './core/math';
@@ -52,7 +55,8 @@ async function main() {
   const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.5, 40000);
   camera.position.set(...VIEWS.overview.pos);
 
-  const startYear = readHash().year ?? 1909;
+  const hashYear = readHash().year;
+  const startYear = hashYear ?? VANISHING_SCHOOL.start.year;
   const time = new TimeController(TIME_MIN, TIME_MAX, startYear);
   progress(0.05);
   await nextFrame();
@@ -160,12 +164,13 @@ async function main() {
     }
     window.clearTimeout(toastTimer);
     toastTimer = window.setTimeout(() => {
-      if (tour.active) return;
+      if (tour.active || !document.body.classList.contains('mode-free')) return;
       const ev = EVENTS.find((e) => e.year === Math.floor(time.year));
       if (ev) toast.show(ev);
     }, 380);
     window.clearTimeout(hashTimer);
-    hashTimer = window.setTimeout(() => history.replaceState(null, '', `#year=${Math.floor(time.year)}`), 500);
+    if (document.body.classList.contains('mode-free'))
+      hashTimer = window.setTimeout(() => history.replaceState(null, '', `#year=${Math.floor(time.year)}`), 500);
     window.setTimeout(() => buildings.refreshHighlight(), 700);
   };
   time.onChange(onYear);
@@ -185,20 +190,54 @@ async function main() {
     stats.replaceChildren(...chips);
   };
 
+  // ------------------------------------------------------------ the exploration game
+  /** Instant time travel: no rise/sink animation, terrain recomputed now. */
+  const jumpTo = (y: number) => {
+    time.set(y);
+    buildings.settle();
+    terrain.setYear(time.year);
+    terrainDirty = false;
+  };
+  const game = new Game({ time, rig, camera, canvas, post, buildings, scene, audio, ground, jumpTo }, VANISHING_SCHOOL, $('#ui'));
+  rig.collide = (x, z) => game.active && buildings.blockedAt(x, z);
+
+  /** The classic free timeline (the original museum-style experience). */
+  const enterFree = (fromGame: boolean) => {
+    document.body.classList.add('mode-free');
+    document.body.classList.remove('mode-game');
+    if (!fromGame) {
+      time.tweenTo(1909, 0.01);
+      rig.setMode('orbit', false);
+      rig.flyTo(new THREE.Vector3(...VIEWS.overview.pos), new THREE.Vector3(...VIEWS.overview.target), 2.5);
+    }
+    $('#btn-street').classList.toggle('active', rig.mode === 'street');
+    $('#street-hint').classList.toggle('hidden', rig.mode !== 'street');
+    window.setTimeout(() => $('#help').classList.add('fade'), 12000);
+    window.setTimeout(() => {
+      const ev = EVENTS.find((e) => e.year === Math.floor(time.year));
+      if (ev && !tour.active) toast.show(ev);
+    }, 1500);
+  };
+  game.onFreeMode = (fromGame) => enterFree(fromGame);
+
   // ------------------------------------------------------------ prebuild the first year
   onYear(time.year);
   terrain.setYear(time.year);
   while (buildings.busy) buildings.update(0, 50);
   buildings.update(10);
+  progress(0.9);
+  await nextFrame();
+  if (hashYear === undefined) {
+    game.preparePhotos();
+    const p = VANISHING_SCHOOL.start.pose;
+    rig.teleport(p.x, p.z, p.yaw, p.pitch);
+  }
   progress(1);
   renderStats();
   await nextFrame();
   $('#loading').classList.add('done');
-  window.setTimeout(() => {
-    const ev = EVENTS.find((e) => e.year === Math.floor(time.year));
-    if (ev && !tour.active) toast.show(ev);
-  }, 1500);
-  window.setTimeout(() => $('#help').classList.add('fade'), 12000);
+  if (hashYear === undefined) game.showTitle(document.body);
+  else enterFree(true);
 
   // ------------------------------------------------------------ toolbar
   const toggle = (sel: string, on: boolean) => $(sel).classList.toggle('active', on);
@@ -224,6 +263,13 @@ async function main() {
     },
   };
   $('#btn-tour').onclick = actions.tour;
+  $('#btn-case').onclick = () => {
+    if (tour.active) tour.stop();
+    info.hide();
+    toast.hide();
+    buildings.select(undefined);
+    game.enter(true);
+  };
   $('#btn-street').onclick = actions.walk;
   $('#btn-ghosts').onclick = actions.ghosts;
   $('#btn-sound').onclick = actions.sound;
@@ -263,7 +309,7 @@ async function main() {
   };
 
   window.addEventListener('keydown', (e) => {
-    if ((e.target as HTMLElement)?.tagName === 'INPUT') return;
+    if ((e.target as HTMLElement)?.tagName === 'INPUT' || !document.body.classList.contains('mode-free')) return;
     if (e.code === 'Space') {
       e.preventDefault();
       time.togglePlay();
@@ -292,7 +338,12 @@ async function main() {
   let down = { x: 0, y: 0 };
   canvas.addEventListener('pointerdown', (e) => (down = { x: e.clientX, y: e.clientY }));
   canvas.addEventListener('pointerup', (e) => {
-    if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5) return;
+    if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6) return;
+    if (game.active) {
+      game.tap(e.clientX, e.clientY);
+      return;
+    }
+    if (!document.body.classList.contains('mode-free')) return;
     ndc.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
     raycaster.setFromCamera(ndc, camera);
     const hit = buildings.pick(raycaster);
@@ -301,7 +352,7 @@ async function main() {
   let lastHover = 0;
   canvas.addEventListener('pointermove', (e) => {
     const now = performance.now();
-    if (now - lastHover < 90 || e.buttons) return;
+    if (now - lastHover < 90 || e.buttons || game.active) return;
     lastHover = now;
     ndc.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
     raycaster.setFromCamera(ndc, camera);
@@ -352,7 +403,8 @@ async function main() {
     }
     sea.update(t);
     atmosphere.follow(rig.focus, rig.distance);
-    labels.update(camera, time.year);
+    if (!game.active) labels.update(camera, time.year);
+    game.update(dt, t);
     timeline.render();
     statsTimer += dt;
     if (statsTimer > 0.5) {
@@ -373,7 +425,7 @@ async function main() {
   });
 
   // Expose for debugging and automated screenshots.
-  Object.assign(window, { tlvtm: { time, rig, buildings, scene, camera, renderer, ERAS, setHour, selectSite } });
+  Object.assign(window, { tlvtm: { time, rig, buildings, scene, camera, renderer, ERAS, setHour, selectSite, game } });
 }
 
 main().catch((err) => {

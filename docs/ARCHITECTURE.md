@@ -47,7 +47,11 @@ src/
     Sea.ts, Atmosphere.ts sky, sun, fog, environment reflections
     PostFX.ts             bloom + period film grading
     textures.ts, materials.ts  procedural textures and shared materials
-  ui/                     timeline, info panel, labels, toasts, tour
+  game/                   the exploration game (see GAME_DESIGN.md §9)
+    cases/                case content (leads, clues, props, deduction)
+    GameState.ts          pure progress state + save/load
+    Game.ts, GameUI.ts    orchestration (time lens, rephotography, examining) and HUD
+  ui/                     timeline, info panel, labels, toasts, tour (free-explore mode)
   audio/Ambience.ts       procedural WebAudio soundscape
 ```
 
@@ -84,7 +88,8 @@ shareable (`#year=1948`) and testable.
 3. Scene: terrain, sea, streets, instanced city blanket, merged per-building meshes (one draw
    call per material per building), instanced trees / people / vehicles.
 4. Post: MSAA render target → UnrealBloom (stronger at night) → tone mapping (ACES) → period
-   grading pass (sepia, saturation, fade, grain, vignette).
+   grading pass (sepia, saturation, fade, grain, vignette) → time-lens pass (a frozen snapshot of
+   the previous year outside a circle, the live new year inside it).
 
 Performance strategies: lazy per-phase mesh generation within a time budget per frame, invisible
 phases are skipped entirely, instancing for everything repeated, logarithmic depth for the
