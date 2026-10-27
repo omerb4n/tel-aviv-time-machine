@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import './game/game.css';
 import { Ambience } from './audio/Ambience';
-import { VANISHING_SCHOOL } from './game/cases/vanishingSchool';
+import { CASES } from './game/cases';
 import { Game } from './game/Game';
 import { CameraRig } from './core/CameraRig';
 import { TimeController } from './core/TimeController';
@@ -56,7 +56,7 @@ async function main() {
   camera.position.set(...VIEWS.overview.pos);
 
   const hashYear = readHash().year;
-  const startYear = hashYear ?? VANISHING_SCHOOL.start.year;
+  const startYear = hashYear ?? 2025;
   const time = new TimeController(TIME_MIN, TIME_MAX, startYear);
   progress(0.05);
   await nextFrame();
@@ -198,8 +198,8 @@ async function main() {
     terrain.setYear(time.year);
     terrainDirty = false;
   };
-  const game = new Game({ time, rig, camera, canvas, post, buildings, scene, audio, ground, jumpTo }, VANISHING_SCHOOL, $('#ui'));
-  rig.collide = (x, z) => game.active && buildings.blockedAt(x, z);
+  const game = new Game({ time, rig, camera, canvas, post, buildings, scene, audio, ground, jumpTo }, CASES, $('#ui'));
+  rig.collide = (x, z) => game.active && game.blocked(x, z);
 
   /** The classic free timeline (the original museum-style experience). */
   const enterFree = (fromGame: boolean) => {
@@ -229,7 +229,7 @@ async function main() {
   await nextFrame();
   if (hashYear === undefined) {
     game.preparePhotos();
-    const p = VANISHING_SCHOOL.start.pose;
+    const p = game.def.start.pose;
     rig.teleport(p.x, p.z, p.yaw, p.pitch);
   }
   progress(1);

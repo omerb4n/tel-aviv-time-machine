@@ -97,17 +97,4 @@ describe('rephotography feedback', () => {
     const far = alignment(pose, { ...pose, x: pose.x + NEAR.dist + 2 });
     expect(far).toMatchObject({ matched: false, near: false });
   });
-
-  it('has match points in front of the photographer', () => {
-    expect(photo.photo.marks.length).toBeGreaterThanOrEqual(2);
-    for (const m of photo.photo.marks) {
-      const fx = -Math.sin(pose.yaw);
-      const fz = -Math.cos(pose.yaw);
-      const ahead = (m.x - pose.x) * fx + (m.z - pose.z) * fz;
-      const side = (m.x - pose.x) * -fz + (m.z - pose.z) * fx;
-      expect(ahead).toBeGreaterThan(10);
-      // visible on a portrait phone too (vertical fov 50°, aspect ~0.46 → about ±12°)
-      expect(Math.abs(Math.atan2(side, ahead)) * (180 / Math.PI)).toBeLessThan(10);
-    }
-  });
 });

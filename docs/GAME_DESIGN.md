@@ -139,12 +139,80 @@ take **10–15 minutes**.
 Optional field notes: *Double exposure* (peek into the past from the foot of the tower),
 the first kiosk, and Dizengoff House (setting up Case 3).
 
+## 6b. Case 2: *The Seashell Lottery*
+
+How did 66 families decide who got which plot, on an empty dune? The case teaches the founding
+of Tel Aviv (11 April 1909) and sets up Case 3 (the house on plot 43).
+
+| # | Lead | Trigger | Clue → reward |
+| --- | --- | --- | --- |
+| 0 | *Intro:* Rothschild Blvd, 2025, by the fountain. | | |
+| 1 | **The fountain on the boulevard** | Examine the Founders' Monument (1951+) | It honours the founding families of 1909 → **slip to 1909** |
+| 2 | **People on the dune** | Examine the crowd (1909) | 66 families have come to divide the land |
+| 3 | **The photographer** | Rephotograph Soskin's picture, *only in 1909* | The best-known image of the founding |
+| 4 | **Two baskets** | Examine the shells, then **draw a white and a grey shell** | The lottery: names on white shells, plot numbers on grey → **1910 anchored** |
+| 5 | **Plot 43** | Examine Dizengoff House (1910+) | The Dizengoffs' home, later Independence Hall |
+| — | **Deduction**: how were plots assigned? | 3 choices | Case closed |
+
+New mechanics in this case:
+- **A hands-on draw** (`Clue.reveal`): before the clue card, the player turns over a white shell and
+  a grey shell. It is a re-enactment ("one of the draws that day"), so the player *does* the lottery
+  rather than reading about it.
+- **A photo that only lines up in its year**: Soskin's photograph shows the crowd, so it locks only in
+  1909. In other years the photo view says "this is the spot, but the photo was taken in 1909".
+- **People of 1909**: an instanced crowd in period dress, a table with two baskets, and the
+  photographer under his cloth beside a plate camera on a tripod.
+
+Optional field notes: *Photographer's eye*, *Where the shells came from* (reach the beach in the
+early years), *Water for the suburb* (the first water tower), *Out of the old town* (visit Neve
+Tzedek before 1914).
+
+Honesty: the exact spot of the lottery on the dune is not documented, so the crowd's placement is
+illustrative; accounts differ on who drew the shells, so that clue is marked *approximate*.
+
+## 6c. Case 3: *The House on Plot 43*
+
+Why was the State of Israel declared in an art museum? The case follows one building through
+four moments and ends inside the hall on 14 May 1948. It closes the opening arc: the lottery
+(Case 2) → the house → the museum → the declaration.
+
+| # | Lead | Trigger | Clue → reward |
+| --- | --- | --- | --- |
+| 0 | *Intro:* 16 Rothschild Blvd, 2025: Independence Hall. | | |
+| 1 | **Independence Hall** | Examine the building (2025) | Built as a home in 1910 → **slip to 1910** |
+| 2 | **The Dizengoffs' home** | Examine the house (1910–1931) | He gives it to the city for art → **1936 anchored** |
+| 3 | **The museum** | Examine the museum sign (1932–1947) | The Tel Aviv Museum of Art → **1948 anchored** |
+| 4 | **Friday, 14 May 1948** | Examine the door, **open the invitation** | A secret ceremony → **step into the hall** |
+| 5 | **Four o'clock** | Rephotograph Weissenstein's picture *inside the hall* | Ben-Gurion reads the Declaration |
+| — | **Deduction**: why a Tel Aviv art museum? | 3 choices | Case closed |
+
+New in this case:
+- **An interior.** A point of interest can be a `room` (a box inside a building, local +z = door).
+  A lead's `enter` steps the player through the door after its clue. Inside, collision is the room's
+  walls; a *Step outside* button appears by the door; time travel is paused ("this room only exists
+  in this moment"). The hall is built procedurally: the leaders' table, Herzl's portrait between two
+  flags, paintings on the walls, rows of seated guests. It is self-lit (soft emissive materials) rather than lit by extra lights, which would make every material in the scene costlier on phones.
+- **People of 1948**: shirt sleeves, suits, coloured dresses, and seated figures.
+- The invitation reuses the hands-on reveal from Case 2.
+
+Optional field notes: *Photographer's eye*, *Two houses in one* (peek from the museum back into
+1910), *Waiting outside* (stand with the crowd on the boulevard in 1948).
+
+Honesty: the museum opening (1932) and its rebuilding (by 1936) are both given; the reason for
+choosing this building comes mostly from guides and memoirs, so that clue is *approximate*; the
+hall and portrait are stylised reconstructions, labelled as such.
+
+### Cases share a world
+
+Every case's props stand in the world in their years (the 1909 crowd is there in Case 1 too); only
+the current case's leads make them glimmer. Each case has its own save; style stamps and landmarks
+are shared across cases (`tlvtm.profile.v1`). The title poster lists each case as a ticket with
+its status, and the menu has *Choose a case*.
+
 ## 7. Future cases (each one is a place, a question and a few years)
 
 | Case | Question | Signature moment |
 | --- | --- | --- |
-| **The Seashell Lottery** | How were the first plots handed out with seashells on a sand dune — and who got which? | Stand among the 1909 crowd on the dune; find the shells. |
-| **The House on Plot 43** | Why did a mayor's house become the most important room in Israel? | Rephotograph 14 May 1948 at 16 Rothschild. |
 | **The White City** | Find the five features of the International Style on one street. | Style-stamp scavenger hunt; peek 1936 vs 1985 vs 2010 restoration. |
 | **The Lost Water Tower** | What was the first thing in town taller than a house? | Find the Founders' Monument and peek back. |
 | **Tents on the Boulevard** | What were thousands of people doing on Rothschild in 2011? | A moving crowd, a present-day lead. |
