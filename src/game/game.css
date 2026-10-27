@@ -837,6 +837,11 @@ body:not(.mode-free) :is(.brand, .toolbar, #timeline, #help, .yearbox, #labels, 
 .g-card.postcard .g-card-img {
   max-height: 42vh;
 }
+.g-credit {
+  margin: -6px 0 10px;
+  font: 11px/1.35 var(--f-typed);
+  opacity: 0.7;
+}
 .g-staple {
   float: right;
   display: flex;

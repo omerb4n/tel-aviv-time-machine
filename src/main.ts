@@ -199,6 +199,8 @@ async function main() {
     terrainDirty = false;
   };
   const game = new Game({ time, rig, camera, canvas, post, buildings, scene, audio, ground, jumpTo }, CASES, $('#ui'));
+  // the real archive photographs download while the first year is built
+  const archive = game.loadArchive();
   rig.collide = (x, z) => game.active && game.blocked(x, z);
 
   /** The classic free timeline (the original museum-style experience). */
@@ -228,6 +230,7 @@ async function main() {
   progress(0.9);
   await nextFrame();
   if (hashYear === undefined) {
+    await archive;
     game.preparePhotos();
     const p = game.def.start.pose;
     rig.teleport(p.x, p.z, p.yaw, p.pitch);

@@ -93,13 +93,28 @@ for (const CASE of CASES)
         expect(marks.length).toBeGreaterThanOrEqual(2);
         const fx = -Math.sin(pose.yaw);
         const fz = -Math.cos(pose.yaw);
-        for (const m of marks) {
+        const angles = marks.map((m) => {
           const ahead = (m.x - pose.x) * fx + (m.z - pose.z) * fz;
           const side = (m.x - pose.x) * -fz + (m.z - pose.z) * fx;
           expect(ahead).toBeGreaterThan(4);
-          // vertical fov 50°, aspect ~0.46 → about ±12° visible
-          expect(Math.abs(Math.atan2(side, ahead)) * (180 / Math.PI)).toBeLessThan(10);
-        }
+          return Math.abs(Math.atan2(side, ahead)) * (180 / Math.PI);
+        });
+        // all inside a 4:3 photo (vertical fov 50° → ±31°); a portrait phone (aspect ~0.46)
+        // shows only about ±12°, so at least one must be near the middle
+        for (const a of angles) expect(a).toBeLessThan(30);
+        expect(angles.some((a) => a < 10)).toBe(true);
+      }
+    });
+
+    it('pairs each real photograph with its match points', () => {
+      for (const l of CASE.leads) {
+        if (l.trigger.kind !== 'rephoto' || !l.trigger.photo.archive) continue;
+        const { marks, archive, reference } = l.trigger.photo;
+        expect(archive.marks.length).toBe(marks.length);
+        for (const [u, v] of archive.marks) for (const x of [u, v]) expect(x >= 0 && x <= 1).toBe(true);
+        expect(archive.src).toBeTruthy();
+        expect(archive.credit.en).toMatch(/public domain/i);
+        expect(reference.url).toMatch(/^https:\/\/commons\.wikimedia\.org\/wiki\/File:/);
       }
     });
   });
@@ -153,13 +168,15 @@ describe('case 2 specifics', () => {
 });
 
 describe('case 1 specifics', () => {
-  it('places the gymnasium where the postcard is looking', () => {
+  it('places the gymnasium in the postcard, a little right of centre as in the photograph', () => {
     const photo = CASE.leads[0].trigger;
     if (photo.kind !== 'rephoto') throw new Error('first lead should be a photo');
     const gym = LANDMARKS.find((s) => s.id === 'herzliya-gymnasium')!;
     const { x, z, yaw } = photo.photo.pose;
     const toGym = Math.atan2(-(gym.x - x), -(gym.z - z));
-    expect(Math.abs(wrapAngle(toGym - yaw))).toBeLessThan(0.05);
+    const off = wrapAngle(toGym - yaw);
+    expect(off).toBeLessThan(0);
+    expect(off).toBeGreaterThan(-0.3);
   });
 });
 

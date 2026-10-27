@@ -107,10 +107,11 @@ New:
    - The brackets close in and turn brass when the view matches; hold still and the **shutter
      clicks**. You step into the photograph.
 4. **Optional aids**, one at a time (button "Need an aid?", or H):
-   1. **Tracing**: the photo's outlines in cream ink (Sobel edges of the plate). Turns the
-      comparison into lining up shapes.
+   1. **Tracing**: the scene's outlines in cream ink (Sobel edges of the model, rendered from
+      the photographer's spot). Turns the comparison into lining up shapes.
    2. **Match points**: coloured dots on the photo and rings in your view for the same places
-      (the school's door, both kerbs). Line each ring up with its dot.
+      (the school's towers and arch, the ends of the crowd, Herzl's portrait). Line each ring up
+      with its dot.
    3. **Directions**: the old words ("the photographer stood a bit to your left").
 5. **Mastery reward**: matching with no aids earns the *Photographer's eye* field note.
 
@@ -122,8 +123,13 @@ Technical notes:
 - On portrait phones the plate is rendered at 4:3 with the same vertical field of view, so the
   phone sees the centre of a landscape postcard and alignment still holds.
 - Match points are projected with the photographer's camera when the plate is rendered and with
-  the live camera every frame. A test keeps them within ±10° of the view axis so they are visible
-  on a portrait phone.
+  the live camera every frame. A test keeps them inside a 4:3 photo, and at least one within
+  ±10° of the view axis so it is visible on a portrait phone.
+- **Real photographs.** Each photo's match points are also given in the real print. `fitCrop`
+  (rephoto.ts) solves by least squares for the 4:3 crop of the print that carries those points
+  onto where the model's camera sees them, kept inside the print. The tracing stays the model's,
+  so it lines up with the view. The scenes were adjusted to the prints (Soskin's crowd is a dense
+  band 13 m wide seen from 11 m; the hall's portrait hangs at 4.1 m), so the overlay is close.
 
 ## 6. The map
 

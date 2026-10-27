@@ -1,5 +1,6 @@
 import { LANDMARKS } from '../../data/landmarks';
 import type { CaseDef, Pose } from '../types';
+import weissenstein1948 from '../../assets/archive/weissenstein-1948.jpg';
 
 const W = (title: string) => `https://en.wikipedia.org/wiki/${title}`;
 
@@ -22,12 +23,13 @@ const IN = OUT + Math.PI;
 // The museum hall fills the ground floor of the 1932 building (22 × 16 m).
 const ROOM = { w: 20.6, d: 14.6 };
 const tableZ = -ROOM.d / 2 + 2.2;
-// Weissenstein's spot: in the centre aisle, facing the table under Herzl's portrait.
-const shot = at(0, -ROOM.d / 2 + 9);
-const PHOTO: Pose = { x: shot.x, z: shot.z, yaw: IN, pitch: 0.07 };
+// Weissenstein's spot: in the centre aisle, facing the table under Herzl's portrait. Hall and
+// spot are laid out so the model lines up with his photograph.
+const shot = at(0, -ROOM.d / 2 + 8.2);
+const PHOTO: Pose = { x: shot.x, z: shot.z, yaw: IN, pitch: 0 };
 const portrait = at(0, -ROOM.d / 2 + 0.12);
-const table = at(0, tableZ);
-const tableL = at(-1.1, tableZ);
+const speaker = at(0, tableZ - 0.7);
+const leftmost = at(-3.6, tableZ - 0.75);
 
 const START_AT = at(0, 8 + 24);
 const START: Pose = { x: START_AT.x, z: START_AT.z, yaw: IN, pitch: 0.08 };
@@ -181,19 +183,25 @@ export const HOUSE_PLOT_43: CaseDef = {
           pose: PHOTO,
           title: { en: 'The declaration, 1948' },
           caption: { en: 'Tel Aviv Museum · 14 May 1948' },
-          reference: { label: 'Rudi Weissenstein – Wikipedia', url: W('Rudi_Weissenstein') },
+          reference: { label: 'The photograph – Wikimedia Commons', url: 'https://commons.wikimedia.org/wiki/File:Declaration_of_State_of_Israel_1948.jpg' },
+          // Herzl's portrait, Ben-Gurion's head, the first man at the left end of the table
           marks: [
-            { x: portrait.x, y: 3.4, z: portrait.z },
-            { x: table.x, y: 0.85, z: table.z },
-            { x: tableL.x, y: 0.85, z: tableL.z },
+            { x: portrait.x, y: 4.1, z: portrait.z },
+            { x: speaker.x, y: 1.6, z: speaker.z },
+            { x: leftmost.x, y: 1.2, z: leftmost.z },
           ],
+          archive: {
+            src: weissenstein1948,
+            marks: [[0.441, 0.17], [0.48, 0.515], [0.055, 0.604]],
+            credit: { en: 'The declaration, 14 May 1948. Photograph by Rudi Weissenstein; public domain (National Photo Collection of Israel).' },
+          },
         },
       },
       clue: {
         title: { en: 'Israel is declared' },
         gist: { en: 'Under Herzl’s portrait, David Ben-Gurion reads the Declaration of Independence.' },
         text: {
-          en: 'At four in the afternoon David Ben-Gurion read the Declaration of Independence, and the State of Israel was born. The ceremony was broadcast on the radio and ended with Hatikvah. Rudi Weissenstein’s photographs are the only ones of the moment. (Here the scene is reconstructed in the model.)',
+          en: 'At four in the afternoon David Ben-Gurion read the Declaration of Independence, and the State of Israel was born. The ceremony was broadcast on the radio and ended with Hatikvah. Rudi Weissenstein’s photograph — the one you just held up — is the best-known image of the moment.',
         },
         sources: [
           { label: 'Israeli Declaration of Independence – Wikipedia', url: W('Israeli_Declaration_of_Independence') },

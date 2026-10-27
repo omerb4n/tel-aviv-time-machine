@@ -147,20 +147,21 @@ function portraitTexture() {
 }
 
 /** The flag of Israel: two blue stripes and a Star of David on white. */
+/** A flag hung vertically, as in the hall: stripes down its length, the star high up. */
 function flagTexture() {
-  return canvasTexture(220, 320, (g) => {
+  return canvasTexture(220, 900, (g) => {
     g.fillStyle = '#f7f7f4';
-    g.fillRect(0, 0, 220, 320);
+    g.fillRect(0, 0, 220, 900);
     g.fillStyle = '#1f4fa3';
-    g.fillRect(28, 0, 26, 320);
-    g.fillRect(166, 0, 26, 320);
+    g.fillRect(28, 0, 26, 900);
+    g.fillRect(166, 0, 26, 900);
     g.strokeStyle = '#1f4fa3';
     g.lineWidth = 9;
     const tri = (rot: number) => {
       g.beginPath();
       for (let i = 0; i < 3; i++) {
         const a = rot + (i * Math.PI * 2) / 3;
-        const [px, py] = [110 + Math.sin(a) * 44, 160 - Math.cos(a) * 44];
+        const [px, py] = [110 + Math.sin(a) * 44, 350 - Math.cos(a) * 44];
         if (i === 0) g.moveTo(px, py);
         else g.lineTo(px, py);
       }
@@ -192,7 +193,7 @@ function paintingTexture(seed: number) {
 function makeHall(room: { w: number; d: number }): THREE.Object3D {
   const g = new THREE.Group();
   const { w, d } = room;
-  const H = 5.2;
+  const H = 6;
   // The hall is lit by a soft self-illumination instead of lights: extra lights would make
   // every material in the scene more expensive on phones, not just the room's.
   const glow = (m: THREE.MeshStandardMaterial) => {
@@ -214,15 +215,15 @@ function makeHall(room: { w: number; d: number }): THREE.Object3D {
   box(0.2, H, d, -w / 2, H / 2, 0, wall);
   box(0.2, H, d, w / 2, H / 2, 0, wall);
   box(1.6, 2.6, 0.06, 0, 1.3, d / 2 - 0.12, mat('#5a4330')); // the double door
-  // Herzl between two long flags
+  // Herzl high between two long flags, laid out after Rudi Weissenstein's photograph
   const lit = (map: THREE.Texture, extra: THREE.MeshStandardMaterialParameters = {}) =>
     new THREE.MeshStandardMaterial({ map, emissiveMap: map, emissive: '#ffffff', emissiveIntensity: 0.4, roughness: 0.8, ...extra });
-  const portrait = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 1.65), lit(portraitTexture()));
-  portrait.position.set(0, 3.4, -d / 2 + 0.12);
+  const portrait = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 2), lit(portraitTexture()));
+  portrait.position.set(0, 4.1, -d / 2 + 0.12);
   g.add(portrait);
-  for (const fx of [-1.25, 1.25]) {
-    const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.85, 3.3), lit(flagTexture(), { side: THREE.DoubleSide }));
-    flag.position.set(fx, 3.0, -d / 2 + 0.14);
+  for (const fx of [-2.6, 2.6]) {
+    const flag = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 5.4), lit(flagTexture(), { side: THREE.DoubleSide }));
+    flag.position.set(fx, 3.5, -d / 2 + 0.14);
     g.add(flag);
   }
   // paintings on the side walls
@@ -236,10 +237,10 @@ function makeHall(room: { w: number; d: number }): THREE.Object3D {
   }
   // the leaders' table: a long table with a cloth, microphones in the middle
   const tz = -d / 2 + 2.2;
-  box(12, 0.8, 1.2, 0, 0.4, tz, mat('#e9e4d6', 1));
+  box(8.4, 0.8, 1.2, 0, 0.4, tz, mat('#e9e4d6', 1));
   for (const mx of [-0.25, 0.25]) box(0.04, 0.35, 0.04, mx, 0.98, tz + 0.35, mat('#202020', 0.4));
   const people = new Figures(mulberry32(14), 1948);
-  for (let i = -6; i <= 6; i++) if (i !== 0) people.add('seated', i * 0.9, tz - 0.75, 0);
+  for (let i = -6; i <= 6; i++) if (i !== 0) people.add('seated', i * 0.6, tz - 0.75, 0);
   people.add('man', 0, tz - 0.7, 0); // the speaker, standing at the microphones
   // rows of guests facing the table, with a centre aisle
   const chair = mat('#4a3626', 0.8);
@@ -383,15 +384,16 @@ export class Interactables {
     const kind = poi.prop!.kind;
     const wood = (c = '#7d6b52') => new THREE.MeshStandardMaterial({ color: c, roughness: 0.9 });
     if (kind === 'crowd') {
-      // ~66 people in a loose crescent, facing the photographer (local +z)
+      // As in Avraham Soskin's photograph: a dense band of people some 13 m wide, facing the
+      // photographer (local +z) more or less, and one man alone up the dune behind them
       const f = new Figures(mulberry32(1909));
       const rnd = mulberry32(411);
-      for (let i = 0; i < 66; i++) {
-        const a = (rnd() - 0.5) * 2.4;
-        const rr = 5.5 + rnd() * 9;
+      for (let i = 0; i < 80; i++) {
+        const x = (rnd() - 0.5) * 13;
         const kindOf: Figure = rnd() < 0.1 ? 'child' : rnd() < 0.62 ? 'man' : 'woman';
-        f.add(kindOf, Math.sin(a) * rr, -Math.cos(a) * rr * 0.75, (rnd() - 0.5) * 0.8);
+        f.add(kindOf, x, -rnd() * 3.5 - (x / 6.5) ** 2 * 0.6, (rnd() - 0.5) * 1.6);
       }
+      f.add('man', 0.5, -11);
       g.add(...f.build());
     } else if (kind === 'shells') {
       // a table with two baskets of shells; the organiser behind it and a child beside it

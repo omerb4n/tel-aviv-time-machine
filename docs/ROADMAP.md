@@ -64,6 +64,7 @@ across the whole city. That is what makes realism feasible on phones.
   Bialik House, Beit Ha'ir, Habima, Great Synagogue, Pagoda House, Engel House, Levin House,
   Shalom Meir Tower, Migdal HaOpera, Ha'Tachana, Sarona, …).
 - Archival photo cards (public-domain / licensed) attached to sites and events, with credits.
+  *(Started: the three case photographs are real public-domain prints.)*
 - Hebrew UI (RTL) and Arabic, with all content strings localized.
 - Expert review pass with historians / the municipal archive; feedback form for corrections.
 

@@ -2,6 +2,7 @@ import { NEVE_TZEDEK } from '../../data/geography';
 import { LANDMARKS } from '../../data/landmarks';
 import { frameAt, sideNormal, streetById } from '../../data/streets';
 import type { CaseDef, Pose } from '../types';
+import soskin1909 from '../../assets/archive/soskin-1909.jpg';
 
 const W = (title: string) => `https://en.wikipedia.org/wiki/${title}`;
 
@@ -19,9 +20,10 @@ const PLOT43 = site('dizengoff-house');
 // documented; this placement is illustrative.
 const C = frameAt(roth, 140);
 const [nx, nz] = sideNormal(C, 'L');
-// The photographer stands 30 m up the dune, facing the crowd; his camera is beside him.
-const P = frameAt(roth, 170);
-const PHOTO: Pose = { x: P.x + nx * 3, z: P.z + nz * 3, yaw: facing(P.x + nx * 3, P.z + nz * 3, C.x, C.z), pitch: -0.02 };
+// The photographer stands a few steps up the dune, close to the crowd and looking down on it
+// a little, as in Soskin's photograph; his camera is beside him.
+const P = frameAt(roth, 150);
+const PHOTO: Pose = { x: P.x + nx * 3, z: P.z + nz * 3, yaw: facing(P.x + nx * 3, P.z + nz * 3, C.x, C.z), pitch: -0.075 };
 // direction from the crowd towards the photographer
 const toP = (() => {
   const dx = PHOTO.x - C.x;
@@ -29,7 +31,10 @@ const toP = (() => {
   const l = Math.hypot(dx, dz);
   return { x: dx / l, z: dz / l };
 })();
-const SHELLS = { x: C.x + toP.x * 4, z: C.z + toP.z * 4 };
+/** The crowd's own axes (local +z towards the photographer, +x to his right) → world. */
+const crowd = (lx: number, y: number, lz: number) => ({ x: C.x + lx * toP.z + lz * toP.x, y, z: C.z - lx * toP.x + lz * toP.z });
+// the table with the shells stands in front of the crowd, to the photographer's right
+const SHELLS = crowd(4.5, 0, 2.5);
 const CAMERA = { x: PHOTO.x - nx * 2.4, z: PHOTO.z - nz * 2.4 };
 /** Yaw of a prop whose local +z faces the photographer. */
 const faceP = Math.atan2(toP.x, toP.z);
@@ -120,19 +125,21 @@ export const SEASHELL_LOTTERY: CaseDef = {
           pose: PHOTO,
           title: { en: 'The lottery, 1909' },
           caption: { en: 'Ahuzat Bayit · 11 April 1909' },
-          reference: { label: 'Ahuzat Bayit – Wikipedia (Soskin’s photograph)', url: W('Ahuzat_Bayit') },
-          marks: [
-            { x: C.x, y: 2.2, z: C.z },
-            { x: SHELLS.x, y: 0.9, z: SHELLS.z },
-            { x: C.x + nx * 4, y: 1.7, z: C.z + nz * 4 },
-          ],
+          reference: { label: 'The photograph – Wikimedia Commons', url: 'https://commons.wikimedia.org/wiki/File:TelAviv-Founding.jpg' },
+          // the middle of the crowd and its two ends
+          marks: [crowd(0, 1, -1), crowd(-6.2, 1, -0.8), crowd(6.2, 1, -0.8)],
+          archive: {
+            src: soskin1909,
+            marks: [[0.48, 0.52], [0.02, 0.536], [0.98, 0.49]],
+            credit: { en: 'The lottery, 11 April 1909. Photograph by Avraham Soskin; public domain.' },
+          },
         },
       },
       clue: {
         title: { en: 'Avraham Soskin’s photograph' },
         gist: { en: 'His picture of this morning became the best-known image of Tel Aviv’s birth.' },
         text: {
-          en: 'The photographer Avraham Soskin recorded the lottery. His photograph of people standing on bare sand is the image most often used to tell the story of the city’s founding. (Here it is reconstructed from the model.)',
+          en: 'The photographer Avraham Soskin recorded the lottery. His photograph of people standing on bare sand — the one you just held up — is the image most often used to tell the story of the city’s founding.',
         },
         sources: [{ label: 'Ahuzat Bayit – Wikipedia', url: W('Ahuzat_Bayit') }],
         confidence: 'documented',

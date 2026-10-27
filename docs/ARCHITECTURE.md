@@ -8,7 +8,7 @@
 | 3D engine | **three.js** (r169) | Mature, small, huge ecosystem (glTF, 3D Tiles renderers, post-processing), full shader control. Babylon.js is a fine alternative; Cesium is great for globe-scale streaming but heavier and less art-directable; Unreal/Unity pixel-streaming costs money per user. |
 | Language / build | **TypeScript + Vite** | Type-safe content model, instant dev server, tiny production bundle. |
 | UI | Plain DOM + CSS (no framework) | The UI is small; avoids a second render loop and keeps the bundle light. A framework can be added if the UI grows (e.g. classroom mode). |
-| Assets | **Procedural** (geometry and canvas textures generated at load) | Zero binary assets in this slice, ~200 kB gzipped. Landmark glTF models can be added later without changing the content model. |
+| Assets | **Procedural** (geometry and canvas textures generated at load) | No binary assets except three archive photographs (`src/assets/archive`, ~0.8 MB, loaded while the first year builds; ~220 kB gzipped of code). Landmark glTF models can be added later without changing the content model. |
 | Content | Typed data modules in `src/data` | Reviewable in PRs, testable, convertible to/from JSON for a future CMS. |
 | Time | Continuous float year, integer year drives the world | Smooth animation on the timeline while the world changes in discrete, testable steps. |
 

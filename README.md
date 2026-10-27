@@ -98,13 +98,25 @@ Deep links: `http://localhost:5173/#year=1948`.
 - Pedestrians in period dress, camels, carts, buses and cars; trees that grow for decades;
   dunes that flatten as the city spreads; day/night; period film grading; procedural sound.
 
-Everything is generated in the browser — no binary assets.
+Everything is generated in the browser. The only binary assets are the three archive
+photographs used in the cases (see Credits).
 
 ## Honesty
 
 Landmarks and events carry a confidence badge and sources. Ordinary buildings are an
 *illustrative reconstruction* of typical fabric, not specific addresses; street geometry is
 hand-sketched and will be replaced with GIS data (see the roadmap).
+
+## Credits
+
+The case photographs are public domain and come from Wikimedia Commons:
+
+- [Herzl Street and the Herzliya Gymnasium, 1913](https://commons.wikimedia.org/wiki/File:THE_HERZL_%22GYMNASIA%22_(SECONDARY_SCHOOL)_AT_THE_ENDOF_HERZL_STRREET_IN_TEL_AVIV._%D7%A8%D7%97%D7%95%D7%91_%D7%94%D7%A8%D7%A6%D7%9C_%D7%91%D7%AA%D7%9C_%D7%90%D7%91%D7%99%D7%91..jpg)
+  — photographer unknown, National Photo Collection of Israel.
+- [The lottery of Ahuzat Bayit, 11 April 1909](https://commons.wikimedia.org/wiki/File:TelAviv-Founding.jpg)
+  — Avraham Soskin.
+- [The Declaration of Independence, 14 May 1948](https://commons.wikimedia.org/wiki/File:Declaration_of_State_of_Israel_1948.jpg)
+  — Rudi Weissenstein, National Photo Collection of Israel.
 
 ## Docs
 

@@ -26,6 +26,8 @@ export interface CardSpec {
   /** Shown under "More" (full story, facts, sources). */
   more?: { text?: string; facts?: string[]; sources?: SourceRef[] };
   image?: string;
+  /** Who took the photograph in `image`, and its rights. */
+  credit?: string;
   confidence?: Confidence;
   /** A ticket stapled to the card, e.g. a newly anchored year. */
   ticket?: { label: string; value: string };
@@ -348,7 +350,7 @@ export class GameUI {
     if (v.advice && this.photoAdvice.textContent !== v.advice) this.photoAdvice.textContent = v.advice;
     const NS = 'http://www.w3.org/2000/svg';
     const nodes: SVGElement[] = [];
-    const COLORS = ['#e9b872', '#7fd1c7', '#f08a6c'];
+    const COLORS = ['#e9b872', '#7fd1c7', '#f08a6c', '#c9a6e8'];
     v.marks?.forEach((m, i) => {
       const c = COLORS[i % COLORS.length];
       const el = (tag: string, attrs: Record<string, string | number>) => {
@@ -402,6 +404,7 @@ export class GameUI {
     if (spec.ticket) box.append(h('div', { class: 'g-staple' }, h('small', {}, spec.ticket.label), h('b', {}, spec.ticket.value)));
     box.append(h('h2', {}, spec.title));
     if (spec.image) box.append(h('img', { class: 'g-card-img', src: spec.image, alt: spec.title }));
+    if (spec.image && spec.credit) box.append(h('p', { class: 'g-credit' }, spec.credit));
     box.append(h('p', { class: 'g-gist' }, spec.gist));
     if (spec.confidence) box.append(h('div', { class: `g-stamp ${spec.confidence}` }, STAMP[spec.confidence]));
     const m = spec.more;

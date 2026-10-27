@@ -97,6 +97,12 @@ export interface PhotoDef {
    * the photo. Shown only as an alignment aid, as dots on the photo and rings in the view.
    */
   marks: { x: number; y: number; z: number }[];
+  /**
+   * The real photograph, when a free one exists. It is shown in place of the reconstruction:
+   * on the postcard, when held up and on the clue card. `marks` gives each match point's
+   * position in it (0 … 1, from the top left); they also fit the print to the view.
+   */
+  archive?: { src: string; marks: [number, number][]; credit: Localized };
 }
 
 export interface Deduction {

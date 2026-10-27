@@ -88,8 +88,11 @@ take **10–15 minutes**.
   **match points** (coloured dots on the photo, rings in your view), then **directions** in words.
   Matching with no aids earns the *Photographer's eye* field note.
 - This turns real archive material into concrete, spatial goals that need no text.
-- In the prototype the "photo" is rendered from the reconstruction (and aged), with a link to
-  the real archival photos. Milestone 2 uses licensed or public-domain originals.
+- The photos are the **real archive photographs** (public domain, from Wikimedia Commons): Herzl
+  Street in 1913, Avraham Soskin's lottery of 1909 and Rudi Weissenstein's declaration of 1948.
+  Each scene and photographer's spot is laid out so the model lines up with the print, and the
+  print is fitted to the view by its match points (see UI_DESIGN.md §5). If a photo fails to
+  load, the game falls back to a print rendered from the reconstruction.
 - Details and reasoning: [UI_DESIGN.md §5](UI_DESIGN.md#5-rephotography-from-a-meter-to-an-eye).
 
 ### 5.4 Examining (the world as text)
@@ -200,7 +203,7 @@ Optional field notes: *Photographer's eye*, *Two houses in one* (peek from the m
 
 Honesty: the museum opening (1932) and its rebuilding (by 1936) are both given; the reason for
 choosing this building comes mostly from guides and memoirs, so that clue is *approximate*; the
-hall and portrait are stylised reconstructions, labelled as such.
+hall and portrait are stylised reconstructions, laid out after Weissenstein's photograph.
 
 ### Cases share a world
 
