@@ -167,6 +167,7 @@ export const SEASHELL_LOTTERY: CaseDef = {
         anchors: 1910,
         reveal: {
           prompt: { en: 'Draw one shell from each basket.' },
+          look: 'shells',
           draws: [
             { label: { en: 'White shell · a family' }, value: { en: 'Meir & Zina Dizengoff' }, tone: 'light' },
             { label: { en: 'Grey shell · a plot' }, value: { en: 'Plot 43' }, tone: 'dark' },
@@ -193,7 +194,7 @@ export const SEASHELL_LOTTERY: CaseDef = {
         title: { en: 'The house on plot 43' },
         gist: { en: 'The Dizengoffs’ new home. One day it will be the most important room in Israel.' },
         text: {
-          en: 'Meir Dizengoff became the first mayor of Tel Aviv. After his wife Zina died he gave the house to the city; it became the Tel Aviv Museum of Art in 1936, and on 14 May 1948 the State of Israel was declared in its hall.',
+          en: 'Meir Dizengoff became the first mayor of Tel Aviv. After his wife Zina died he gave the house to the city; it opened as the Tel Aviv Museum of Art in 1932, and on 14 May 1948 the State of Israel was declared in its hall.',
         },
         sources: [
           { label: 'Independence Hall – Wikipedia', url: W('Independence_Hall_(Israel)') },

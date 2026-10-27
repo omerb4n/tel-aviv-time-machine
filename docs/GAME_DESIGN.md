@@ -170,6 +170,38 @@ Tzedek before 1914).
 Honesty: the exact spot of the lottery on the dune is not documented, so the crowd's placement is
 illustrative; accounts differ on who drew the shells, so that clue is marked *approximate*.
 
+## 6c. Case 3: *The House on Plot 43*
+
+Why was the State of Israel declared in an art museum? The case follows one building through
+four moments and ends inside the hall on 14 May 1948. It closes the opening arc: the lottery
+(Case 2) → the house → the museum → the declaration.
+
+| # | Lead | Trigger | Clue → reward |
+| --- | --- | --- | --- |
+| 0 | *Intro:* 16 Rothschild Blvd, 2025: Independence Hall. | | |
+| 1 | **Independence Hall** | Examine the building (2025) | Built as a home in 1910 → **slip to 1910** |
+| 2 | **The Dizengoffs' home** | Examine the house (1910–1931) | He gives it to the city for art → **1936 anchored** |
+| 3 | **The museum** | Examine the museum sign (1932–1947) | The Tel Aviv Museum of Art → **1948 anchored** |
+| 4 | **Friday, 14 May 1948** | Examine the door, **open the invitation** | A secret ceremony → **step into the hall** |
+| 5 | **Four o'clock** | Rephotograph Weissenstein's picture *inside the hall* | Ben-Gurion reads the Declaration |
+| — | **Deduction**: why a Tel Aviv art museum? | 3 choices | Case closed |
+
+New in this case:
+- **An interior.** A point of interest can be a `room` (a box inside a building, local +z = door).
+  A lead's `enter` steps the player through the door after its clue. Inside, collision is the room's
+  walls; a *Step outside* button appears by the door; time travel is paused ("this room only exists
+  in this moment"). The hall is built procedurally: the leaders' table, Herzl's portrait between two
+  flags, paintings on the walls, rows of seated guests. It is self-lit (soft emissive materials) rather than lit by extra lights, which would make every material in the scene costlier on phones.
+- **People of 1948**: shirt sleeves, suits, coloured dresses, and seated figures.
+- The invitation reuses the hands-on reveal from Case 2.
+
+Optional field notes: *Photographer's eye*, *Two houses in one* (peek from the museum back into
+1910), *Waiting outside* (stand with the crowd on the boulevard in 1948).
+
+Honesty: the museum opening (1932) and its rebuilding (by 1936) are both given; the reason for
+choosing this building comes mostly from guides and memoirs, so that clue is *approximate*; the
+hall and portrait are stylised reconstructions, labelled as such.
+
 ### Cases share a world
 
 Every case's props stand in the world in their years (the 1909 crowd is there in Case 1 too); only
@@ -181,7 +213,6 @@ its status, and the menu has *Choose a case*.
 
 | Case | Question | Signature moment |
 | --- | --- | --- |
-| **The House on Plot 43** | Why did a mayor's house become the most important room in Israel? | Rephotograph 14 May 1948 at 16 Rothschild. |
 | **The White City** | Find the five features of the International Style on one street. | Style-stamp scavenger hunt; peek 1936 vs 1985 vs 2010 restoration. |
 | **The Lost Water Tower** | What was the first thing in town taller than a house? | Find the Founders' Monument and peek back. |
 | **Tents on the Boulevard** | What were thousands of people doing on Rothschild in 2011? | A moving crowd, a present-day lead. |

@@ -23,7 +23,7 @@ export interface Clue {
    * A small hands-on moment before the clue card: the player draws items one by one
    * (e.g. a white shell and a grey shell in the seashell lottery) and each reveals a value.
    */
-  reveal?: { prompt: Localized; draws: { label: Localized; value: Localized; tone: 'light' | 'dark' }[] };
+  reveal?: { prompt: Localized; look: 'shells' | 'cards'; draws: { label: Localized; value: Localized; tone: 'light' | 'dark' }[] };
 }
 
 /** How a lead is completed. */
@@ -57,10 +57,12 @@ export interface Lead {
   years?: [number, number];
   /** Travel to the anchored year as soon as the clue is found (used for the first one). */
   autoTravel?: boolean;
+  /** After the clue, step into this room (the id of a point of interest with a `room`). */
+  enter?: string;
 }
 
 /** Procedural props (see Interactables.ts). */
-export type PropKind = 'mosaic' | 'hoarding' | 'crowd' | 'shells' | 'camera';
+export type PropKind = 'mosaic' | 'hoarding' | 'crowd' | 'crowd48' | 'shells' | 'camera' | 'sign' | 'hall';
 
 /** A small examinable thing placed in the world for some years. */
 export interface Poi {
@@ -74,6 +76,11 @@ export interface Poi {
   to?: number;
   /** Optional prop model that stands here in those years. */
   prop?: { kind: PropKind; rot: number };
+  /**
+   * An interior the player can step into (a room inside a building), centred on (x, z) and
+   * turned by `prop.rot`; local +z is the door side. Width and depth in metres.
+   */
+  room?: { w: number; d: number };
 }
 
 /** An archival-style photograph to stand inside (rephotography). */

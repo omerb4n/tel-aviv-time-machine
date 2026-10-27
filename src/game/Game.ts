@@ -146,6 +146,8 @@ export class Game {
   private full: FullMap;
   private layer?: YearLayer;
   private caseTab: 'case' | 'finds' = 'case';
+  /** The room the player is inside (a point of interest with a `room`), if any. */
+  private room?: Poi;
 
   /** The case being played. */
   def: CaseDef;
@@ -432,7 +434,11 @@ export class Game {
     const where = resume ? this.state.where : undefined;
     const year = where?.year ?? this.def.start.year;
     this.w.jumpTo(year);
-    if (where) rig.teleport(where.x, where.z, where.yaw);
+    this.room = undefined;
+    if (where) {
+      rig.teleport(where.x, where.z, where.yaw);
+      this.findRoom();
+    }
     else {
       const p = this.def.start.pose;
       rig.teleport(p.x, p.z, p.yaw, p.pitch);
@@ -570,6 +576,7 @@ export class Game {
   /** Slip to another anchored year with an expanding lens. */
   travel(year: number, done?: () => void) {
     if (this.lens.kind !== 'idle' || !this.state.anchors.has(year) || year === Math.floor(this.w.time.year)) return;
+    if (this.room) return this.ui.toast('Step outside first — this room only exists in this moment.');
     this.closePhoto();
     this.closeMap();
     this.lastYear = Math.floor(this.w.time.year);
@@ -582,6 +589,7 @@ export class Game {
   /** Look into another anchored year through a small lens, without leaving. */
   peek(year: number) {
     if (this.lens.kind !== 'idle' || year === Math.floor(this.w.time.year)) return;
+    if (this.room) return this.ui.toast('Step outside first — this room only exists in this moment.');
     this.w.post.wipe.capture();
     this.lens = { kind: 'peek-capture', year, base: Math.floor(this.w.time.year) };
     this.sfx.whoosh(true, 0.6);
@@ -832,6 +840,12 @@ export class Game {
     const c = this.w.camera.position;
     const tr = lead.trigger;
     const label = `Examine ${lead.examine?.en ?? 'it'}`;
+    // inside a room, only things in that room are in reach (not the street through the wall)
+    if (this.room?.room && tr.kind !== 'rephoto') {
+      const t = tr.kind === 'poi' ? this.def.pois.find((p) => p.id === tr.poiId) : undefined;
+      const { lx, lz } = t ? this.roomLocal(this.room, t.x, t.z) : { lx: Infinity, lz: 0 };
+      if (Math.abs(lx) > this.room.room.w / 2 || Math.abs(lz) > this.room.room.d / 2) return undefined;
+    }
     if (tr.kind === 'site') {
       const site = LANDMARKS.find((s) => s.id === tr.siteId);
       if (!site) return undefined;
@@ -850,9 +864,91 @@ export class Game {
   /** Examine the current lead's target if it is in reach. Returns whether it was. */
   private examineHere(): boolean {
     const reach = this.inReach();
-    if (!reach) return false;
-    this.completeLead(reach.lead);
-    return true;
+    if (reach) {
+      this.completeLead(reach.lead);
+      return true;
+    }
+    if (this.atRoomDoor()) {
+      this.exitRoom();
+      return true;
+    }
+    return false;
+  }
+
+  // ------------------------------------------------------------------ interiors
+
+  /** A point in a room's local frame (local +z is the door side). */
+  private roomLocal(poi: Poi, x: number, z: number) {
+    const r = poi.prop?.rot ?? 0;
+    const c = Math.cos(r);
+    const s = Math.sin(r);
+    const dx = x - poi.x;
+    const dz = z - poi.z;
+    return { lx: dx * c - dz * s, lz: dx * s + dz * c };
+  }
+
+  /** A room-local point → world. */
+  private roomWorld(poi: Poi, lx: number, lz: number) {
+    const r = poi.prop?.rot ?? 0;
+    const c = Math.cos(r);
+    const s = Math.sin(r);
+    return { x: poi.x + lx * c + lz * s, z: poi.z - lx * s + lz * c };
+  }
+
+  private roomPoi(id: string) {
+    return this.cases.flatMap((c) => c.pois).find((p) => p.id === id && p.room);
+  }
+
+  /** Collision for the walking camera: buildings outside, the walls inside a room. */
+  blocked(x: number, z: number): boolean {
+    const poi = this.room;
+    if (!poi?.room) return this.w.buildings.blockedAt(x, z);
+    const { lx, lz } = this.roomLocal(poi, x, z);
+    return Math.abs(lx) > poi.room.w / 2 - 0.45 || Math.abs(lz) > poi.room.d / 2 - 0.45;
+  }
+
+  private atRoomDoor() {
+    const poi = this.room;
+    if (!poi?.room || this.lens.kind !== 'idle' || this.ui.modalOpen) return false;
+    const c = this.w.camera.position;
+    return this.roomLocal(poi, c.x, c.z).lz > poi.room.d / 2 - 2.1;
+  }
+
+  /** Step through the door into a room (it must exist in the current year). */
+  private enterRoom(id: string) {
+    const poi = this.roomPoi(id);
+    if (!poi?.room || !this.inter.present(poi.id)) return;
+    const inside = this.roomWorld(poi, 0, poi.room.d / 2 - 1.4);
+    const deep = this.roomWorld(poi, 0, -poi.room.d / 2);
+    this.room = poi;
+    this.ui.root.classList.add('dim');
+    window.setTimeout(() => this.ui.root.classList.remove('dim'), 700);
+    this.w.rig.teleport(inside.x, inside.z, Math.atan2(-(deep.x - inside.x), -(deep.z - inside.z)), 0.06);
+    this.sfx.tick();
+  }
+
+  private exitRoom() {
+    const poi = this.room;
+    if (!poi?.room) return;
+    const out = this.roomWorld(poi, 0, poi.room.d / 2 + 4);
+    const far = this.roomWorld(poi, 0, poi.room.d / 2 + 20);
+    this.room = undefined;
+    this.ui.root.classList.add('dim');
+    window.setTimeout(() => this.ui.root.classList.remove('dim'), 700);
+    this.w.rig.teleport(out.x, out.z, Math.atan2(-(far.x - out.x), -(far.z - out.z)), 0.04);
+    this.sfx.tick();
+  }
+
+  /** On resume: are we standing inside a room that exists this year? */
+  private findRoom() {
+    const c = this.w.camera.position;
+    this.room = this.cases
+      .flatMap((cs) => cs.pois)
+      .find((p) => {
+        if (!p.room || !this.inter.present(p.id)) return false;
+        const { lx, lz } = this.roomLocal(p, c.x, c.z);
+        return Math.abs(lx) < p.room.w / 2 && Math.abs(lz) < p.room.d / 2;
+      });
   }
 
   private note(id: string) {
@@ -877,6 +973,7 @@ export class Game {
     if (!r) return next();
     this.ui.showReveal(
       r.prompt.en,
+      r.look,
       r.draws.map((d) => ({ label: d.label.en, value: d.value.en, tone: d.tone })),
       () => this.sfx.tick(),
       next,
@@ -887,6 +984,7 @@ export class Game {
     const c = lead.clue;
     const after = () => {
       this.ui.closeModal();
+      if (lead.enter) this.enterRoom(lead.enter);
       if (this.state.readyToSolve) this.deduce();
     };
     const actions =
@@ -1073,7 +1171,7 @@ export class Game {
     const c = this.w.camera.position;
     const year = this.lens.kind === 'peek' ? this.lens.base : Math.floor(this.w.time.year);
     if (this.lens.kind === 'idle') this.state.walk(c.x, c.z);
-    this.ui.setStreet(streetAt(c.x, c.z, year));
+    this.ui.setStreet(this.room ? undefined : streetAt(c.x, c.z, year));
     if (!this.full.open) this.mini.draw(this.yearLayer(), this.mapOverlay());
     this.noteTimer += dt;
     if (this.noteTimer > 0.4 && this.lens.kind === 'idle') {
@@ -1101,7 +1199,7 @@ export class Game {
       else if (lead.years && (year < lead.years[0] || year > lead.years[1]) && d < 60) prompt = `Not in ${year} — try another year`;
     }
     this.ui.setPrompt(prompt);
-    this.ui.setExamine(reach?.label);
+    this.ui.setExamine(reach?.label ?? (this.atRoomDoor() ? 'Step outside' : undefined));
     this.ui.root.classList.toggle('near-spot', nearSpot);
 
     if (!lead || this.state.hintTier(lead.id) < lead.hints.length - 1 || this.holding) return this.ui.placeMarker(undefined);

@@ -12,6 +12,10 @@ clues through 1962 and 1965, and work out what happened.
 dune in 1909, where 66 families divide the land with two baskets of seashells. Stand where the
 photographer stood, draw the shells yourself and find the house on plot 43.
 
+**Case 3 · The House on Plot 43:** follow one building from a family home (1910) to the city's art
+museum (1936) to the afternoon of 14 May 1948. Open a secret invitation, step inside the hall and
+stand where the only photographer stood as the State of Israel is declared.
+
 The original "scroll through time" experience is still there as **Free explore**: orbit above
 the city, scrub the timeline from sand dunes (1900) to today's towers (2025), and click any
 building to hear its life story. See [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md) for the design.
@@ -29,6 +33,10 @@ building to hear its life story. See [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md) 
 | Case 2 · the lottery table on the 1909 dune | Lining up Soskin's photograph | Draw a shell from each basket |
 | --- | --- | --- |
 | ![shells](docs/screenshots/c2-shells.png) | ![photo](docs/screenshots/c2-photo.png) | ![draw](docs/screenshots/c2-draw.png) |
+
+| Case 3 · the Dizengoffs' home, 1910 | A secret invitation, 14 May 1948 | Inside the museum hall |
+| --- | --- | --- |
+| ![1910](docs/screenshots/c3-1910.png) | ![invitation](docs/screenshots/c3-invitation.png) | ![hall](docs/screenshots/c3-hall.png) |
 
 The interface design and the research behind it are in [docs/UI_DESIGN.md](docs/UI_DESIGN.md).
 

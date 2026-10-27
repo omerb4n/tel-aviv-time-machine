@@ -31,7 +31,9 @@ The first build felt like a museum. The project is now an exploration game (see
 - ⏭ Playtest with 5–10 people and tune hints, distances and pacing (targets in GAME_DESIGN §8).
 - ✅ Case 2 *The Seashell Lottery*: a crowd on the 1909 dune, Soskin's photo, drawing the shells.
   Cases share one world, with a save per case and shared collections.
-- ⏭ Case 3 *The House on Plot 43* (14 May 1948 at 16 Rothschild).
+- ✅ Case 3 *The House on Plot 43*: one building from 1910 to 14 May 1948, ending inside the
+  museum hall (the first walk-in interior).
+- ⏭ Case 4 *The White City* (style-stamp hunt on one street, 1936 / 1985 / 2010).
 
 ## Milestone 0.6 — Street-level realism (on a GPU workstation)
 

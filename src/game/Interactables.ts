@@ -96,16 +96,180 @@ function sparkTexture() {
   });
 }
 
+function museumSignTexture() {
+  return canvasTexture(512, 300, (g) => {
+    g.fillStyle = '#f3f0e8';
+    g.fillRect(0, 0, 512, 300);
+    g.fillStyle = '#1f3d5a';
+    g.fillRect(0, 0, 512, 64);
+    g.fillStyle = '#c8452f';
+    g.fillRect(28, 96, 18, 150);
+    g.fillStyle = '#f3f0e8';
+    g.font = 'bold 40px "Frank Ruhl Libre", serif';
+    g.textAlign = 'center';
+    g.fillText('מוזיאון תל-אביב', 256, 46);
+    g.fillStyle = '#1d1a15';
+    g.font = 'bold 44px Heebo, sans-serif';
+    g.fillText('TEL-AVIV MUSEUM', 280, 140);
+    g.font = '30px Heebo, sans-serif';
+    g.fillText('Paintings · Sculpture', 280, 190);
+    g.font = 'bold 26px Heebo, sans-serif';
+    g.fillText('16 Rothschild Blvd', 280, 248);
+  });
+}
+
+/** A stylised portrait of Theodor Herzl: dark ground, a bearded profile in light. Not a copy. */
+function portraitTexture() {
+  return canvasTexture(256, 320, (g) => {
+    g.fillStyle = '#2a2622';
+    g.fillRect(0, 0, 256, 320);
+    g.fillStyle = '#c9b18a';
+    g.fillRect(0, 0, 256, 10);
+    g.fillRect(0, 310, 256, 10);
+    g.fillRect(0, 0, 10, 320);
+    g.fillRect(246, 0, 10, 320);
+    g.fillStyle = '#9c8466';
+    g.beginPath();
+    g.ellipse(128, 128, 48, 60, 0, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = '#15120f';
+    g.beginPath(); // hair
+    g.ellipse(128, 86, 56, 30, 0, Math.PI, Math.PI * 2);
+    g.fill();
+    g.beginPath(); // the long dark beard
+    g.moveTo(80, 140);
+    g.quadraticCurveTo(128, 300, 176, 140);
+    g.quadraticCurveTo(128, 170, 80, 140);
+    g.fill();
+    g.fillStyle = '#1b1d24';
+    g.fillRect(56, 230, 144, 80); // coat
+  });
+}
+
+/** The flag of Israel: two blue stripes and a Star of David on white. */
+function flagTexture() {
+  return canvasTexture(220, 320, (g) => {
+    g.fillStyle = '#f7f7f4';
+    g.fillRect(0, 0, 220, 320);
+    g.fillStyle = '#1f4fa3';
+    g.fillRect(28, 0, 26, 320);
+    g.fillRect(166, 0, 26, 320);
+    g.strokeStyle = '#1f4fa3';
+    g.lineWidth = 9;
+    const tri = (rot: number) => {
+      g.beginPath();
+      for (let i = 0; i < 3; i++) {
+        const a = rot + (i * Math.PI * 2) / 3;
+        const [px, py] = [110 + Math.sin(a) * 44, 160 - Math.cos(a) * 44];
+        if (i === 0) g.moveTo(px, py);
+        else g.lineTo(px, py);
+      }
+      g.closePath();
+      g.stroke();
+    };
+    tri(0);
+    tri(Math.PI);
+  });
+}
+
+function paintingTexture(seed: number) {
+  const r = mulberry32(seed);
+  return canvasTexture(128, 96, (g) => {
+    const pal = ['#c8452f', '#e1b04a', '#3d6b8a', '#6d8a4a', '#efe3c8', '#2b2a28'];
+    g.fillStyle = pal[Math.floor(r() * pal.length)];
+    g.fillRect(0, 0, 128, 96);
+    for (let i = 0; i < 6; i++) {
+      g.fillStyle = pal[Math.floor(r() * pal.length)];
+      g.fillRect(r() * 100, r() * 70, 20 + r() * 50, 12 + r() * 40);
+    }
+  });
+}
+
+/**
+ * The museum hall on 14 May 1948: the leaders' table under Herzl's portrait between two flags,
+ * paintings on the walls, rows of guests facing the table. Local +z is the door.
+ */
+function makeHall(room: { w: number; d: number }): THREE.Object3D {
+  const g = new THREE.Group();
+  const { w, d } = room;
+  const H = 5.2;
+  // The hall is lit by a soft self-illumination instead of lights: extra lights would make
+  // every material in the scene more expensive on phones, not just the room's.
+  const glow = (m: THREE.MeshStandardMaterial) => {
+    m.emissive.copy(m.color).multiplyScalar(0.42);
+    return m;
+  };
+  const mat = (color: string, rough = 0.9) => glow(new THREE.MeshStandardMaterial({ color, roughness: rough }));
+  const box = (sx: number, sy: number, sz: number, x: number, y: number, z: number, m: THREE.Material) => {
+    const b = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), m);
+    b.position.set(x, y, z);
+    g.add(b);
+    return b;
+  };
+  const wall = mat('#ece6d8');
+  box(w, 0.06, d, 0, 0.03, 0, mat('#8a6a48', 0.7)); // wooden floor
+  box(w, 0.1, d, 0, H, 0, mat('#f4f1ea')); // ceiling
+  box(w, H, 0.2, 0, H / 2, -d / 2, wall); // back wall
+  box(w, H, 0.2, 0, H / 2, d / 2, wall); // door wall
+  box(0.2, H, d, -w / 2, H / 2, 0, wall);
+  box(0.2, H, d, w / 2, H / 2, 0, wall);
+  box(1.6, 2.6, 0.06, 0, 1.3, d / 2 - 0.12, mat('#5a4330')); // the double door
+  // Herzl between two long flags
+  const lit = (map: THREE.Texture, extra: THREE.MeshStandardMaterialParameters = {}) =>
+    new THREE.MeshStandardMaterial({ map, emissiveMap: map, emissive: '#ffffff', emissiveIntensity: 0.4, roughness: 0.8, ...extra });
+  const portrait = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 1.65), lit(portraitTexture()));
+  portrait.position.set(0, 3.4, -d / 2 + 0.12);
+  g.add(portrait);
+  for (const fx of [-1.25, 1.25]) {
+    const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.85, 3.3), lit(flagTexture(), { side: THREE.DoubleSide }));
+    flag.position.set(fx, 3.0, -d / 2 + 0.14);
+    g.add(flag);
+  }
+  // paintings on the side walls
+  for (let i = 0; i < 6; i++) {
+    const side = i % 2 ? 1 : -1;
+    const pz = -d / 2 + 2.5 + Math.floor(i / 2) * (d / 3.2);
+    const p = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 1.05), lit(paintingTexture(i + 3)));
+    p.position.set(side * (w / 2 - 0.12), 2.5, pz);
+    p.rotation.y = -side * (Math.PI / 2);
+    g.add(p);
+  }
+  // the leaders' table: a long table with a cloth, microphones in the middle
+  const tz = -d / 2 + 2.2;
+  box(12, 0.8, 1.2, 0, 0.4, tz, mat('#e9e4d6', 1));
+  for (const mx of [-0.25, 0.25]) box(0.04, 0.35, 0.04, mx, 0.98, tz + 0.35, mat('#202020', 0.4));
+  const people = new Figures(mulberry32(14), 1948);
+  for (let i = -6; i <= 6; i++) if (i !== 0) people.add('seated', i * 0.9, tz - 0.75, 0);
+  people.add('man', 0, tz - 0.7, 0); // the speaker, standing at the microphones
+  // rows of guests facing the table, with a centre aisle
+  const chair = mat('#4a3626', 0.8);
+  const rnd = mulberry32(48);
+  for (let row = 0, z = tz + 3; z < d / 2 - 2.2; row++, z += 1.1)
+    for (let x = -w / 2 + 1.4; x <= w / 2 - 1.4; x += 0.75) {
+      if (Math.abs(x) < 1.0) continue;
+      box(0.46, 0.45, 0.44, x, 0.225, z + 0.12, chair);
+      if (rnd() < 0.72) people.add('seated', x, z, Math.PI);
+    }
+  g.add(...people.build(0.3));
+  return g;
+}
+
 // ---------------------------------------------------------------- people of 1909
 
-type Figure = 'man' | 'woman' | 'child';
+type Figure = 'man' | 'woman' | 'child' | 'seated';
 
-/** Instanced low-poly figures in 1909 dress: suits and bowler hats, long dresses and wide hats. */
+/**
+ * Instanced low-poly figures in period dress. 1909: suits and bowler hats, long dresses and
+ * wide hats. 1948: shirt sleeves and suits, few hats, shorter dresses in colour.
+ */
 class Figures {
   private parts = new Map<string, { geo: THREE.BufferGeometry; items: { m: THREE.Matrix4; c: THREE.Color }[] }>();
   private q = new THREE.Quaternion();
 
-  constructor(private rnd: () => number) {}
+  constructor(
+    private rnd: () => number,
+    private era: 1909 | 1948 = 1909,
+  ) {}
 
   private part(key: string, geo: () => THREE.BufferGeometry, x: number, y: number, z: number, s: number, color: string) {
     let p = this.parts.get(key);
@@ -119,6 +283,7 @@ class Figures {
     this.q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
     const skin = ['#d8b08c', '#c99a74', '#e2bf9c'][Math.floor(r() * 3)];
     const dark = ['#2b2a28', '#3a3530', '#28303a', '#4a4036'][Math.floor(r() * 4)];
+    if (this.era === 1948) return this.add48(kind, x, z, yaw, s, skin, dark);
     if (kind === 'woman') {
       const dress = r() < 0.6 ? ['#efe9dc', '#e4dccb', '#d9d2c4'][Math.floor(r() * 3)] : dark;
       this.part('dress', () => new THREE.CylinderGeometry(0.13, 0.36, 1.42, 8), x, 0.71, z, s, dress);
@@ -134,10 +299,35 @@ class Figures {
     }
   }
 
-  build(): THREE.Object3D[] {
+  private add48(kind: Figure, x: number, z: number, yaw: number, s: number, skin: string, dark: string) {
+    const r = this.rnd;
+    const shirt = ['#f1eee6', '#e6dcc4', '#c9d3dc', '#d8cfae'][Math.floor(r() * 4)];
+    if (kind === 'seated') {
+      // on a chair: torso, thighs forward, head; most of the leaders wore dark suits
+      const [fx, fz] = [Math.sin(yaw) * 0.22, Math.cos(yaw) * 0.22];
+      this.part('torso', () => new THREE.CylinderGeometry(0.19, 0.21, 0.7, 8), x, 0.82, z, s, r() < 0.7 ? dark : shirt);
+      this.part('lap', () => new THREE.BoxGeometry(0.36, 0.16, 0.42), x + fx, 0.5, z + fz, s, dark);
+      this.part('head', () => new THREE.SphereGeometry(0.115, 8, 6), x, 1.3, z, s, skin);
+      return;
+    }
+    if (kind === 'woman') {
+      const dress = ['#3d4f6b', '#7a3b33', '#e8e2d2', '#5d6b4a', '#b98d4a'][Math.floor(r() * 5)];
+      this.part('dress48', () => new THREE.CylinderGeometry(0.15, 0.3, 1.0, 8), x, 0.95, z, s, dress);
+      this.part('legs', () => new THREE.CylinderGeometry(0.08, 0.07, 0.45, 6), x, 0.23, z, s, skin);
+      this.part('head', () => new THREE.SphereGeometry(0.115, 8, 6), x, 1.56, z, s, skin);
+      return;
+    }
+    this.part('shirt', () => new THREE.CylinderGeometry(0.2, 0.19, 0.7, 8), x, 1.1, z, s, r() < 0.45 ? dark : shirt);
+    this.part('trousers', () => new THREE.CylinderGeometry(0.19, 0.16, 0.76, 8), x, 0.38, z, s, r() < 0.4 ? '#c8b98f' : dark);
+    this.part('head', () => new THREE.SphereGeometry(0.115, 8, 6), x, 1.58, z, s, skin);
+    if (r() < 0.15) this.part('cap', () => new THREE.CylinderGeometry(0.12, 0.13, 0.07, 8), x, 1.69, z, s, '#5b5446');
+  }
+
+  /** `glow` adds a little self-illumination (for figures indoors, out of the sun). */
+  build(glow = 0): THREE.Object3D[] {
     const out: THREE.Object3D[] = [];
     for (const { geo, items } of this.parts.values()) {
-      const mesh = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ roughness: 0.92 }), items.length);
+      const mesh = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ roughness: 0.92, emissive: new THREE.Color(glow, glow * 0.92, glow * 0.8) }), items.length);
       items.forEach((it, i) => {
         mesh.setMatrixAt(i, it.m);
         mesh.setColorAt(i, it.c);
@@ -249,6 +439,25 @@ export class Interactables {
       const f = new Figures(mulberry32(5));
       f.add('man', 0, -0.6);
       g.add(...f.build());
+    } else if (kind === 'crowd48') {
+      // people waiting on the boulevard on 14 May 1948, facing the museum (local +z)
+      const f = new Figures(mulberry32(1948), 1948);
+      const rnd = mulberry32(514);
+      for (let i = 0; i < 48; i++) f.add(rnd() < 0.62 ? 'man' : 'woman', (rnd() - 0.5) * 16, (rnd() - 0.5) * 6, (rnd() - 0.5) * 0.7);
+      g.add(...f.build());
+    } else if (kind === 'sign') {
+      const board = new THREE.Mesh(new THREE.BoxGeometry(1.9, 1.15, 0.05), wood('#f3f0e8'));
+      board.position.y = 1.6;
+      const face = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.05), new THREE.MeshStandardMaterial({ map: museumSignTexture(), roughness: 0.8 }));
+      face.position.set(0, 1.6, 0.03);
+      g.add(board, face);
+      for (const lx of [-0.8, 0.8]) {
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.1, 0.06), wood('#2b2a28'));
+        post.position.set(lx, 0.55, 0);
+        g.add(post);
+      }
+    } else if (kind === 'hall') {
+      g.add(makeHall(poi.room ?? { w: 18, d: 12 }));
     } else if (kind === 'mosaic') {
       const frame = new THREE.Mesh(new THREE.BoxGeometry(14.4, 3.6, 0.5), new THREE.MeshStandardMaterial({ color: '#cfc6b4', roughness: 0.9 }));
       frame.position.y = 1.8;

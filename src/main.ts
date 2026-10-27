@@ -199,7 +199,7 @@ async function main() {
     terrainDirty = false;
   };
   const game = new Game({ time, rig, camera, canvas, post, buildings, scene, audio, ground, jumpTo }, CASES, $('#ui'));
-  rig.collide = (x, z) => game.active && buildings.blockedAt(x, z);
+  rig.collide = (x, z) => game.active && game.blocked(x, z);
 
   /** The classic free timeline (the original museum-style experience). */
   const enterFree = (fromGame: boolean) => {

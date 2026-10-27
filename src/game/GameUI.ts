@@ -440,7 +440,7 @@ export class GameUI {
    * A hands-on draw before a clue: tap each item (a shell) to turn it over and read it.
    * Continue appears once everything is revealed.
    */
-  showReveal(prompt: string, draws: { label: string; value: string; tone: 'light' | 'dark' }[], onFlip: () => void, done: () => void) {
+  showReveal(prompt: string, look: 'shells' | 'cards', draws: { label: string; value: string; tone: 'light' | 'dark' }[], onFlip: () => void, done: () => void) {
     const box = h('article', { class: 'g-card sheet reveal' });
     const go = h('button', { class: 'g-btn-ink', disabled: '' }, 'Continue') as HTMLButtonElement;
     go.onclick = () => {
@@ -449,7 +449,7 @@ export class GameUI {
     };
     let left = draws.length;
     const items = draws.map((d) => {
-      const b = h('button', { class: `g-shell ${d.tone}`, 'aria-label': d.label }, h('span', { class: 'shell' }), h('small', {}, d.label), h('b', {}, d.value)) as HTMLButtonElement;
+      const b = h('button', { class: `g-shell ${d.tone} ${look}`, 'aria-label': d.label }, h('span', { class: 'shell' }), h('small', {}, d.label), h('b', {}, d.value)) as HTMLButtonElement;
       b.onclick = () => {
         if (b.classList.contains('open')) return;
         b.classList.add('open');

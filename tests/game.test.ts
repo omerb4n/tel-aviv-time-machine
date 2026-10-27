@@ -1,11 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import { LANDMARKS } from '../src/data/landmarks';
 import { CASES } from '../src/game/cases';
+import { HOUSE_PLOT_43 } from '../src/game/cases/housePlot43';
 import { SEASHELL_LOTTERY } from '../src/game/cases/seashellLottery';
+import type { Poi } from '../src/game/types';
 import { VANISHING_SCHOOL as CASE } from '../src/game/cases/vanishingSchool';
 import { GameState } from '../src/game/GameState';
 import { alignment, wrapAngle } from '../src/game/rephoto';
 import { allSites, phaseAt } from '../src/world/fabric';
+
+/** Is (x, z) inside a room point of interest? (Room-local frame, as in Game.roomLocal.) */
+function inRoom(p: Poi, x: number, z: number) {
+  const r = p.prop?.rot ?? 0;
+  const dx = x - p.x;
+  const dz = z - p.z;
+  const lx = dx * Math.cos(r) - dz * Math.sin(r);
+  const lz = dx * Math.sin(r) + dz * Math.cos(r);
+  return !!p.room && Math.abs(lx) < p.room.w / 2 && Math.abs(lz) < p.room.d / 2;
+}
 
 /** Is (x, z) inside any building standing in `year`? Mirrors BuildingManager.blockedAt. */
 function blocked(x: number, z: number, year: number) {
@@ -66,6 +78,9 @@ for (const CASE of CASES)
       for (const l of CASE.leads) {
         if (l.trigger.kind !== 'rephoto') continue;
         const { pose, year } = l.trigger.photo;
+        // an indoor photo (taken inside a room) must be inside that room instead
+        const room = CASE.pois.find((p) => p.room && year >= p.from && (p.to === undefined || year <= p.to) && inRoom(p, pose.x, pose.z));
+        if (room) continue;
         const years = l.years ? [year] : [year, CASE.start.year];
         for (const y of years) expect(blocked(pose.x, pose.z, y), `${l.id} in ${y}`).toBe(false);
       }
@@ -81,7 +96,7 @@ for (const CASE of CASES)
         for (const m of marks) {
           const ahead = (m.x - pose.x) * fx + (m.z - pose.z) * fz;
           const side = (m.x - pose.x) * -fz + (m.z - pose.z) * fx;
-          expect(ahead).toBeGreaterThan(10);
+          expect(ahead).toBeGreaterThan(4);
           // vertical fov 50°, aspect ~0.46 → about ±12° visible
           expect(Math.abs(Math.atan2(side, ahead)) * (180 / Math.PI)).toBeLessThan(10);
         }
@@ -102,6 +117,23 @@ describe('all cases', () => {
     const [a, b] = CASES;
     const st = new GameState(b, { ...new GameState(a).toJSON(), done: [a.leads[0].id] });
     expect(st.done.size).toBe(0);
+  });
+});
+
+describe('case 3 specifics', () => {
+  it('enters the museum hall after the invitation, and photographs inside it', () => {
+    const inv = HOUSE_PLOT_43.leads.find((l) => l.id === 'invitation')!;
+    const hall = HOUSE_PLOT_43.pois.find((p) => p.id === inv.enter)!;
+    expect(hall.room).toBeDefined();
+    const photo = HOUSE_PLOT_43.leads.find((l) => l.id === 'declaration')!.trigger;
+    if (photo.kind !== 'rephoto') throw new Error('expected a photo');
+    expect(inRoom(hall, photo.photo.pose.x, photo.photo.pose.z)).toBe(true);
+    for (const m of photo.photo.marks) expect(inRoom(hall, m.x, m.z), 'marks inside the hall').toBe(true);
+    // the hall fits inside the museum building
+    const museum = LANDMARKS.find((l) => l.id === 'dizengoff-house')!;
+    const phase = phaseAt(museum, 1948)!;
+    expect(hall.room!.w).toBeLessThan(phase.width ?? museum.width);
+    expect(hall.room!.d).toBeLessThan(phase.depth ?? museum.depth);
   });
 });
 

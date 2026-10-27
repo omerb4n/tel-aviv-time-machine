@@ -1632,3 +1632,30 @@ body:not(.mode-free) :is(.brand, .toolbar, #timeline, #help, .yearbox, #labels, 
   border-width: 2.5px;
   background: rgba(255, 255, 255, 0.55);
 }
+
+/* stepping through a door */
+#game.dim::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: #0d0b08;
+  animation: flash 0.7s ease-out forwards;
+  pointer-events: none;
+}
+
+/* the reveal as an envelope / printed card instead of a shell */
+.g-shell.cards .shell {
+  width: 84px;
+  height: 56px;
+  border-radius: 2px;
+  background: linear-gradient(to bottom right, transparent 49%, rgba(0, 0, 0, 0.18) 50%, transparent 52%) 0 0 / 50% 60% no-repeat,
+    linear-gradient(to bottom left, transparent 49%, rgba(0, 0, 0, 0.18) 50%, transparent 52%) 100% 0 / 50% 60% no-repeat, #f6f1e4;
+  border: 1px solid rgba(29, 26, 21, 0.25);
+}
+.g-shell.cards.open .shell {
+  transform: rotateX(180deg) scale(0.85);
+}
+.g-shell.cards b {
+  font-size: 16px;
+  line-height: 1.25;
+}
