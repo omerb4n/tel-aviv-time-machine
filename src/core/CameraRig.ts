@@ -13,10 +13,18 @@ export class CameraRig {
   mode: 'orbit' | 'street' = 'orbit';
   private fly?: { p0: THREE.Vector3; t0: THREE.Vector3; p1: THREE.Vector3; t1: THREE.Vector3; t: number; dur: number; done?: () => void };
   private keys = new Set<string>();
-  private yaw = 0;
-  private pitch = 0;
-  private dragging = false;
+  yaw = 0;
+  pitch = 0;
+  private dragId = -1;
   private last = { x: 0, y: 0 };
+  /** Analogue walk input from a touch joystick: x = strafe, y = forward, each in [-1, 1]. */
+  readonly moveInput = { x: 0, y: 0 };
+  /** Stay at street level (Esc does not fly up). Used by the exploration game. */
+  lockStreet = false;
+  /** When false, walking and looking are ignored (dialogs, peeking). */
+  inputEnabled = true;
+  /** Optional collision test for walking. */
+  collide?: (x: number, z: number) => boolean;
   onModeChange?: (mode: 'orbit' | 'street') => void;
 
   constructor(
@@ -37,22 +45,44 @@ export class CameraRig {
     window.addEventListener('keydown', (e) => {
       if ((e.target as HTMLElement)?.tagName === 'INPUT') return;
       this.keys.add(e.code);
-      if (e.code === 'Escape' && this.mode === 'street') this.setMode('orbit');
+      if (e.code === 'Escape' && this.mode === 'street' && !this.lockStreet) this.setMode('orbit');
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
     window.addEventListener('blur', () => this.keys.clear());
     dom.addEventListener('pointerdown', (e) => {
-      if (this.mode !== 'street') return;
-      this.dragging = true;
+      if (this.mode !== 'street' || this.dragId !== -1) return;
+      this.dragId = e.pointerId;
       this.last = { x: e.clientX, y: e.clientY };
     });
-    window.addEventListener('pointerup', () => (this.dragging = false));
+    const release = (e: PointerEvent) => {
+      if (e.pointerId === this.dragId) this.dragId = -1;
+    };
+    window.addEventListener('pointerup', release);
+    window.addEventListener('pointercancel', release);
     window.addEventListener('pointermove', (e) => {
-      if (this.mode !== 'street' || !this.dragging) return;
-      this.yaw -= (e.clientX - this.last.x) * 0.0032;
-      this.pitch = clamp(this.pitch - (e.clientY - this.last.y) * 0.0032, -1.2, 1.2);
+      if (this.mode !== 'street' || e.pointerId !== this.dragId) return;
+      if (!this.inputEnabled) {
+        this.last = { x: e.clientX, y: e.clientY };
+        return;
+      }
+      const k = e.pointerType === 'touch' ? 0.0055 : 0.0032;
+      this.yaw -= (e.clientX - this.last.x) * k;
+      this.pitch = clamp(this.pitch - (e.clientY - this.last.y) * k, -1.2, 1.2);
       this.last = { x: e.clientX, y: e.clientY };
     });
+  }
+
+  /** Jump straight to a street-level pose. */
+  teleport(x: number, z: number, yaw: number, pitch = 0.04) {
+    this.fly = undefined;
+    this.controls.enabled = false;
+    this.camera.position.set(x, this.ground(x, z) + 1.7, z);
+    this.yaw = yaw;
+    this.pitch = pitch;
+    if (this.mode !== 'street') {
+      this.mode = 'street';
+      this.onModeChange?.('street');
+    }
   }
 
   get busy() {
@@ -127,10 +157,22 @@ export class CameraRig {
       const fwd = new THREE.Vector3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
       const right = new THREE.Vector3(-fwd.z, 0, fwd.x);
       const p = this.camera.position;
-      if (this.keys.has('KeyW')) p.addScaledVector(fwd, speed);
-      if (this.keys.has('KeyS')) p.addScaledVector(fwd, -speed);
-      if (this.keys.has('KeyA')) p.addScaledVector(right, -speed);
-      if (this.keys.has('KeyD')) p.addScaledVector(right, speed);
+      if (this.inputEnabled) {
+        const k = this.keys;
+        let f = this.moveInput.y + (k.has('KeyW') || k.has('ArrowUp') ? 1 : 0) - (k.has('KeyS') || k.has('ArrowDown') ? 1 : 0);
+        let r = this.moveInput.x + (k.has('KeyD') ? 1 : 0) - (k.has('KeyA') ? 1 : 0);
+        const len = Math.hypot(f, r);
+        if (len > 1) {
+          f /= len;
+          r /= len;
+        }
+        const mx = (fwd.x * f + right.x * r) * speed;
+        const mz = (fwd.z * f + right.z * r) * speed;
+        // slide along walls: try each axis separately (and never trap someone already inside)
+        const free = !this.collide || this.collide(p.x, p.z);
+        if (free || !this.collide!(p.x + mx, p.z)) p.x += mx;
+        if (free || !this.collide!(p.x, p.z + mz)) p.z += mz;
+      }
       p.y = this.ground(p.x, p.z) + 1.7;
       const look = new THREE.Vector3(
         p.x - Math.sin(this.yaw) * Math.cos(this.pitch),

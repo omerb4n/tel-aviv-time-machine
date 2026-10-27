@@ -4,6 +4,7 @@ import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { TimeWipePass } from './TimeWipePass';
 
 /**
  * "Period film" grading: sepia toning, desaturation, grain and vignette, driven by
@@ -50,17 +51,22 @@ export class PostFX {
   readonly composer: EffectComposer;
   readonly bloom: UnrealBloomPass;
   readonly grade: ShaderPass;
+  readonly wipe: TimeWipePass;
+  readonly renderPass: RenderPass;
 
   constructor(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera) {
     const size = renderer.getDrawingBufferSize(new THREE.Vector2());
     const rt = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: 4 });
     this.composer = new EffectComposer(renderer, rt);
-    this.composer.addPass(new RenderPass(scene, camera));
+    this.renderPass = new RenderPass(scene, camera);
+    this.composer.addPass(this.renderPass);
     this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x / 2, size.y / 2), 0.18, 0.5, 0.92);
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
     this.grade = new ShaderPass(GradeShader);
     this.composer.addPass(this.grade);
+    this.wipe = new TimeWipePass(size.x, size.y);
+    this.composer.addPass(this.wipe);
   }
 
   setSize(w: number, h: number) {

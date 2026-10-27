@@ -162,6 +162,65 @@ export class BuildingManager {
     }
   }
 
+  /** Builds everything queued and snaps every building to its final state (for instant time travel). */
+  settle() {
+    while (this.queue.length) {
+      const pe = this.queue.shift()!;
+      const entry = this.pending.get(pe)!;
+      this.pending.delete(pe);
+      this.ensureMesh(entry, pe);
+    }
+    for (const entry of this.entries)
+      for (const pe of entry.phases) {
+        if (!pe.mesh) continue;
+        pe.presence = pe.target;
+        pe.mesh.visible = pe.target > 0;
+        pe.mesh.scale.set(1, 1, 1);
+      }
+  }
+
+  /**
+   * True if a walker at (x, z) would be inside a building standing in the current year.
+   * `pad` grows every footprint (a body radius).
+   */
+  blockedAt(x: number, z: number, pad = 0.35): boolean {
+    for (const e of this.nearby(x, z)) {
+      const pe = e.phases.find((p) => p.target > 0);
+      if (!pe || pe.phase.style === 'tent') continue;
+      const w = (pe.phase.width ?? e.site.width) / 2 + pad;
+      const d = (pe.phase.depth ?? e.site.depth) / 2 + pad;
+      const dx = x - e.site.x;
+      const dz = z - e.site.z;
+      const c = Math.cos(e.site.rot);
+      const s = Math.sin(e.site.rot);
+      // world → local (inverse of rotation about Y)
+      const lx = dx * c - dz * s;
+      const lz = dx * s + dz * c;
+      if (Math.abs(lx) < w && Math.abs(lz) < d) return true;
+    }
+    return false;
+  }
+
+  private grid?: Map<string, SiteEntry[]>;
+  private nearby(x: number, z: number): SiteEntry[] {
+    const cell = 40;
+    if (!this.grid) {
+      this.grid = new Map();
+      for (const e of this.entries) {
+        let r = Math.hypot(e.site.width, e.site.depth) / 2;
+        for (const p of e.site.phases) r = Math.max(r, Math.hypot(p.width ?? 0, p.depth ?? 0) / 2);
+        for (let gx = Math.floor((e.site.x - r) / cell); gx <= Math.floor((e.site.x + r) / cell); gx++)
+          for (let gz = Math.floor((e.site.z - r) / cell); gz <= Math.floor((e.site.z + r) / cell); gz++) {
+            const k = `${gx},${gz}`;
+            const list = this.grid.get(k);
+            if (list) list.push(e);
+            else this.grid.set(k, [e]);
+          }
+      }
+    }
+    return this.grid.get(`${Math.floor(x / cell)},${Math.floor(z / cell)}`) ?? [];
+  }
+
   /** True while meshes are still being generated for the current year. */
   get busy() {
     return this.queue.length > 0;

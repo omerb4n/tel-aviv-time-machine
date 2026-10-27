@@ -1,12 +1,16 @@
 # Tel Aviv Time Machine · מכונת הזמן של תל אביב
 
-A web-based 3D simulation of Tel Aviv you can **scroll through time**: stand at the corner of
-Herzl Street and Rothschild Boulevard and watch the same place go from sand dunes (1900) to the
-seashell lottery (1909), the garden suburb, the White City, Independence Hall (1948), the Shalom
-Meir Tower (1965) and today's towers (2025).
+A web-based 3D **time-travel exploration game** set in Tel Aviv. Walk the streets at eye level,
+notice what is missing, stand where old photographs were taken and slip between 1900 and today to
+solve the city's mysteries.
 
-You are an observer: orbit above the city or walk the boulevard, scrub the timeline, and click any
-building to hear its life story.
+**Case 1 · The Vanishing School:** a postcard shows a grand building at the end of Herzl Street,
+but in 2025 a tower stands there. Find where the postcard was taken, step into 1910, follow the
+clues through 1962 and 1965, and work out what happened.
+
+The original "scroll through time" experience is still there as **Free explore**: orbit above
+the city, scrub the timeline from sand dunes (1900) to today's towers (2025), and click any
+building to hear its life story. See [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md) for the design.
 
 | 1912 — Ahuzat Bayit and the Gymnasium | 1940 — Rothschild Blvd, the White City |
 | --- | --- |
@@ -26,6 +30,18 @@ npm run build      # static site in dist/
 Deep links: `http://localhost:5173/#year=1948`.
 
 ## Controls
+
+**Case (game)**
+
+| | |
+| --- | --- |
+| Drag · `W A S D` (touch: stick + drag) | Look · walk (`Shift` to hurry) |
+| Click / tap · `E` | Examine what you are looking at |
+| Time compass: tap a year · hold a year (`Q`) | Slip to that year · peek into it from where you stand |
+| `P` | Hold up the old photo (rephotography) |
+| `J` · `H` · `M` · `Esc` | Journal · hint · sound · menu |
+
+**Free explore (classic timeline)**
 
 | | |
 | --- | --- |
@@ -61,6 +77,7 @@ hand-sketched and will be replaced with GIS data (see the roadmap).
 
 ## Docs
 
+- [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md) — the exploration game: theory, core loop, mechanics, cases
 - [docs/RESEARCH.md](docs/RESEARCH.md) — experience design, story arc, data sources, fun & education
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — technical decisions and module map
 - [docs/ROADMAP.md](docs/ROADMAP.md) — milestones
