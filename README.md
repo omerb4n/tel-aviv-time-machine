@@ -44,7 +44,7 @@ Deep links: `http://localhost:5173/#year=1948`.
 | | |
 | --- | --- |
 | Drag · `W A S D` (touch: stick + drag) | Look · walk (`Shift` to hurry) |
-| Click / tap · `E` | Examine what you are looking at |
+| Click / tap · `E` · **Examine** button | Examine what you are looking at (the button appears when your current lead is in reach) |
 | Time compass: tap a year · hold a year (`Q`) | Slip to that year · peek into it from where you stand |
 | `P` | Hold up the old photo (rephotography) |
 | `J` · `H` · `M` · `Esc` | Journal · hint · sound · menu |

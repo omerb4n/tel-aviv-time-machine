@@ -64,6 +64,9 @@ take **10–15 minutes**.
 - First person at 1.7 m eye height. Buildings are solid (footprint collision).
 - Desktop: drag to look, WASD/arrows to walk, Shift to hurry, click to examine (E for screen centre).
 - Touch: on-screen stick (left) to walk, drag anywhere to look, tap to examine.
+- When the current lead's target is in reach (in the right year), a large **Examine** button
+  appears (E on desktop). Players don't have to discover that the 3D world is tappable.
+- A short *How to play* card follows the intro, and is also in the menu.
 
 ### 5.2 Time compass and anchored years (progression)
 - Time travel is limited to **anchored years**. A case starts with one (the present).
