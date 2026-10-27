@@ -90,6 +90,7 @@ export const ICONS = {
   play: `<path fill="currentColor" d="M8 5v14l11-7z"/>`,
   restart: `<path ${S} d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4h4"/>`,
   free: `<path ${S} d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/>`,
+  fullscreen: `<path ${S} d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>`,
   help: `<circle ${S} cx="12" cy="12" r="9"/><path ${S} d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17.2v.1"/>`,
 };
 

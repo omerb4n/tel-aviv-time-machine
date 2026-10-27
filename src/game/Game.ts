@@ -43,6 +43,7 @@ const saveKey = (caseId: string) => `tlvtm.case.${caseId}.v1`;
 const LEGACY_KEY = 'tlvtm.case.v1';
 /** What carries over between cases: collections, and the last case played. */
 const PROFILE_KEY = 'tlvtm.profile.v1';
+const FULLSCREEN_KEY = 'tlvtm.fullscreen';
 interface Profile {
   landmarks: string[];
   stamps: string[];
@@ -181,7 +182,12 @@ export class Game {
     this.ui.onTravel = (y) => this.travel(y);
     this.ui.onPeek = (y, on) => (on ? this.peek(y) : this.unpeek());
     this.ui.onSolve = () => this.solve();
-    this.ui.onCase = () => (this.state.readyToSolve ? this.solve() : this.caseFile());
+    this.ui.onCase = () => {
+      const next = this.state.solved ? this.nextCase() : undefined;
+      if (next) this.startCase(next);
+      else if (this.state.readyToSolve) this.solve();
+      else this.caseFile();
+    };
     this.ui.onMenu = () => this.menu();
     this.ui.onExamine = () => this.examineHere();
     this.ui.onPostcard = () => this.togglePhoto();
@@ -336,6 +342,7 @@ export class Game {
     const el = h('div', { id: 'title' });
     const go = (def: CaseDef, fresh: boolean) => {
       this.sfx.unlock();
+      this.fullscreen();
       void this.w.audio.enable().then(() => (this.sfx.enabled = this.w.audio.enabled));
       this.selectCase(def);
       if (fresh) this.reset();
@@ -426,6 +433,10 @@ export class Game {
   /** Enter the game (from the title or from free mode). */
   enter(resume = true) {
     const { rig } = this.w;
+    // Photo plates are rendered at load from the title screen. A page opened on a
+    // #year= link skips the title, so render them now, before the case needs them.
+    if (this.photos.size === 0) this.preparePhotos();
+    this.fullscreen();
     this.active = true;
     document.body.classList.add('mode-game');
     document.body.classList.remove('mode-free');
@@ -467,8 +478,8 @@ export class Game {
     const plate = lead.trigger.kind === 'rephoto' ? this.photos.get(lead.trigger.photo.id) : undefined;
     this.ui.showCard({
       kind: 'postcard',
-      kicker: `Case ${this.def.number} · ${this.def.title.en}`,
-      title: 'An old postcard',
+      kicker: plate ? `Case ${this.def.number} · ${this.def.title.en}` : `Case ${this.def.number}`,
+      title: plate ? 'An old postcard' : this.def.title.en,
       gist: this.def.intro.en,
       image: plate?.card,
       actions: [{ label: 'Next', primary: true, run: () => this.howToPlay() }],
@@ -503,7 +514,15 @@ export class Game {
         canHint: tier < lead.hints.length - 1,
       });
     else if (s.readyToSolve) this.ui.renderTag({ kicker: `Case ${this.def.number} · every clue found`, text: 'Tap here to solve the case', steps, canHint: false });
-    else this.ui.renderTag({ kicker: `Case ${this.def.number} · closed`, text: 'Free travel: wander any year', steps, canHint: false });
+    else {
+      const next = this.nextCase();
+      this.ui.renderTag({
+        kicker: `Case ${this.def.number} · closed`,
+        text: next ? `Next: Case ${next.number} · ${next.title.en}` : 'All cases solved — wander any year',
+        steps,
+        canHint: false,
+      });
+    }
 
     const y = this.lens.kind === 'peek' ? this.lens.base : Math.floor(this.w.time.year);
     this.ui.renderYear(y, this.lens.kind === 'peek' ? this.lens.year : undefined);
@@ -1031,6 +1050,7 @@ export class Game {
     this.renderHud();
     const r = this.def.resolution;
     const [gist, rest] = split(r.text.en);
+    const next = this.nextCase();
     this.ui.showCard({
       kicker: 'Case closed',
       title: r.title.en,
@@ -1039,18 +1059,33 @@ export class Game {
       confidence: 'documented',
       ticket: { label: 'Unlocked', value: 'All years' },
       actions: [
+        ...(next ? [{ label: `Next: Case ${next.number} · ${next.title.en}`, primary: true, run: () => this.startCase(next) }] : []),
+        { label: 'Keep walking', primary: !next, run: () => this.ui.closeModal() },
         {
           label: 'Open the full timeline',
-          primary: true,
           run: () => {
             this.ui.closeModal();
             this.exit();
             this.onFreeMode?.(true);
           },
         },
-        { label: 'Keep walking', run: () => this.ui.closeModal() },
       ],
     });
+  }
+
+  /** The next case to play: the first unsolved one after this, else any unsolved one. */
+  private nextCase(): CaseDef | undefined {
+    const i = this.cases.indexOf(this.def);
+    const order = [...this.cases.slice(i + 1), ...this.cases.slice(0, i)];
+    return order.find((c) => !new GameState(c, load(c.id)).solved);
+  }
+
+  /** Switch to a case and start (or resume) it right here. */
+  private startCase(def: CaseDef) {
+    this.ui.closeModal();
+    this.closePhoto();
+    this.selectCase(def);
+    this.enter(true);
   }
 
   // ------------------------------------------------------------------ menus
@@ -1090,6 +1125,9 @@ export class Game {
       { label: 'Resume', icon: 'play', run: () => this.ui.closeModal() },
       { label: sound ? 'Sound: on' : 'Sound: off', icon: sound ? 'sound' : 'mute', run: () => void this.toggleSound().then(() => this.menu()) },
       { label: 'Map', icon: 'map', run: () => this.openMap() },
+      ...(document.fullscreenEnabled
+        ? [{ label: this.fullscreenPref() ? 'Full screen: on' : 'Full screen: off', icon: 'fullscreen' as const, run: () => this.toggleFullscreen() }]
+        : []),
       { label: 'How to play', icon: 'help', run: () => this.howToPlay() },
       { label: 'Choose a case', icon: 'journal', run: () => this.toTitle() },
       {
@@ -1117,6 +1155,28 @@ export class Game {
         },
       },
     ]);
+  }
+
+  // ------------------------------------------------------------------ full screen
+  // On by default on touch devices. Browsers allow it only inside a tap, so it is requested
+  // when the player taps Begin / Continue / Case, and from the menu toggle.
+
+  private fullscreenPref(): boolean {
+    const v = read<boolean>(FULLSCREEN_KEY);
+    return v ?? matchMedia('(pointer: coarse)').matches;
+  }
+
+  private fullscreen() {
+    if (!this.fullscreenPref() || !document.fullscreenEnabled || document.fullscreenElement) return;
+    document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => undefined);
+  }
+
+  private toggleFullscreen() {
+    const on = !this.fullscreenPref();
+    write(FULLSCREEN_KEY, on);
+    if (on) this.fullscreen();
+    else if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
+    this.menu();
   }
 
   private async toggleSound() {

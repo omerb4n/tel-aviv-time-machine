@@ -1659,3 +1659,97 @@ body:not(.mode-free) :is(.brand, .toolbar, #timeline, #help, .yearbox, #labels, 
   font-size: 16px;
   line-height: 1.25;
 }
+
+/* ------------------------------------------------------------------ phones in landscape
+   Little height: everything shrinks and hugs the edges so the street stays visible. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .g-tl {
+    width: min(300px, 38vw);
+    gap: 5px;
+  }
+  .g-sign {
+    padding: 1px 10px 2px;
+    border-width: 2px;
+  }
+  .g-sign b {
+    font-size: 13px;
+  }
+  .g-sign span {
+    font-size: 8px;
+  }
+  .g-tag {
+    padding: 5px 10px 6px 22px;
+  }
+  .g-tag .txt {
+    font-size: 13px;
+  }
+  .g-tag .note {
+    font-size: 11.5px;
+  }
+  .g-hint {
+    width: 30px;
+    height: 30px;
+    font-size: 16px;
+  }
+  .g-minimap {
+    width: 84px;
+    height: 84px;
+  }
+  .g-round {
+    width: 36px;
+    height: 36px;
+  }
+  .g-tools {
+    gap: 6px;
+  }
+  .g-tr {
+    gap: 6px;
+  }
+  .joystick {
+    left: calc(14px + env(safe-area-inset-left));
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    width: 104px;
+    height: 104px;
+  }
+  .joystick-knob {
+    left: 28px;
+    top: 28px;
+  }
+  .g-bottom {
+    bottom: calc(8px + env(safe-area-inset-bottom));
+    gap: 3px;
+  }
+  .g-era {
+    font-size: 9.5px;
+  }
+  .g-ticket {
+    padding: 6px 12px 5px;
+    font-size: 14px;
+    min-width: 56px;
+  }
+  .g-tip {
+    display: none;
+  }
+  .g-postcard {
+    top: auto;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    right: calc(14px + env(safe-area-inset-right));
+    width: 84px;
+  }
+  .g-examine {
+    top: 52%;
+    padding: 10px 18px 10px 14px;
+    font-size: 15px;
+  }
+  .g-modal .g-card {
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+  }
+  .g-card.menu {
+    padding: 12px 18px 8px;
+  }
+  .g-menu-item {
+    padding: 7px 4px;
+    font-size: 15px;
+  }
+}
