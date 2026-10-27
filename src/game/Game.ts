@@ -181,7 +181,12 @@ export class Game {
     this.ui.onTravel = (y) => this.travel(y);
     this.ui.onPeek = (y, on) => (on ? this.peek(y) : this.unpeek());
     this.ui.onSolve = () => this.solve();
-    this.ui.onCase = () => (this.state.readyToSolve ? this.solve() : this.caseFile());
+    this.ui.onCase = () => {
+      const next = this.state.solved ? this.nextCase() : undefined;
+      if (next) this.startCase(next);
+      else if (this.state.readyToSolve) this.solve();
+      else this.caseFile();
+    };
     this.ui.onMenu = () => this.menu();
     this.ui.onExamine = () => this.examineHere();
     this.ui.onPostcard = () => this.togglePhoto();
@@ -467,8 +472,8 @@ export class Game {
     const plate = lead.trigger.kind === 'rephoto' ? this.photos.get(lead.trigger.photo.id) : undefined;
     this.ui.showCard({
       kind: 'postcard',
-      kicker: `Case ${this.def.number} · ${this.def.title.en}`,
-      title: 'An old postcard',
+      kicker: plate ? `Case ${this.def.number} · ${this.def.title.en}` : `Case ${this.def.number}`,
+      title: plate ? 'An old postcard' : this.def.title.en,
       gist: this.def.intro.en,
       image: plate?.card,
       actions: [{ label: 'Next', primary: true, run: () => this.howToPlay() }],
@@ -503,7 +508,15 @@ export class Game {
         canHint: tier < lead.hints.length - 1,
       });
     else if (s.readyToSolve) this.ui.renderTag({ kicker: `Case ${this.def.number} · every clue found`, text: 'Tap here to solve the case', steps, canHint: false });
-    else this.ui.renderTag({ kicker: `Case ${this.def.number} · closed`, text: 'Free travel: wander any year', steps, canHint: false });
+    else {
+      const next = this.nextCase();
+      this.ui.renderTag({
+        kicker: `Case ${this.def.number} · closed`,
+        text: next ? `Next: Case ${next.number} · ${next.title.en}` : 'All cases solved — wander any year',
+        steps,
+        canHint: false,
+      });
+    }
 
     const y = this.lens.kind === 'peek' ? this.lens.base : Math.floor(this.w.time.year);
     this.ui.renderYear(y, this.lens.kind === 'peek' ? this.lens.year : undefined);
@@ -1031,6 +1044,7 @@ export class Game {
     this.renderHud();
     const r = this.def.resolution;
     const [gist, rest] = split(r.text.en);
+    const next = this.nextCase();
     this.ui.showCard({
       kicker: 'Case closed',
       title: r.title.en,
@@ -1039,18 +1053,33 @@ export class Game {
       confidence: 'documented',
       ticket: { label: 'Unlocked', value: 'All years' },
       actions: [
+        ...(next ? [{ label: `Next: Case ${next.number} · ${next.title.en}`, primary: true, run: () => this.startCase(next) }] : []),
+        { label: 'Keep walking', primary: !next, run: () => this.ui.closeModal() },
         {
           label: 'Open the full timeline',
-          primary: true,
           run: () => {
             this.ui.closeModal();
             this.exit();
             this.onFreeMode?.(true);
           },
         },
-        { label: 'Keep walking', run: () => this.ui.closeModal() },
       ],
     });
+  }
+
+  /** The next case to play: the first unsolved one after this, else any unsolved one. */
+  private nextCase(): CaseDef | undefined {
+    const i = this.cases.indexOf(this.def);
+    const order = [...this.cases.slice(i + 1), ...this.cases.slice(0, i)];
+    return order.find((c) => !new GameState(c, load(c.id)).solved);
+  }
+
+  /** Switch to a case and start (or resume) it right here. */
+  private startCase(def: CaseDef) {
+    this.ui.closeModal();
+    this.closePhoto();
+    this.selectCase(def);
+    this.enter(true);
   }
 
   // ------------------------------------------------------------------ menus
