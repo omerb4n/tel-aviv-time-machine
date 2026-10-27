@@ -19,6 +19,11 @@ export interface Clue {
   confidence: Confidence;
   /** A year this clue lets the player travel to ("anchors" it on the time compass). */
   anchors?: number;
+  /**
+   * A small hands-on moment before the clue card: the player draws items one by one
+   * (e.g. a white shell and a grey shell in the seashell lottery) and each reveals a value.
+   */
+  reveal?: { prompt: Localized; draws: { label: Localized; value: Localized; tone: 'light' | 'dark' }[] };
 }
 
 /** How a lead is completed. */
@@ -54,6 +59,9 @@ export interface Lead {
   autoTravel?: boolean;
 }
 
+/** Procedural props (see Interactables.ts). */
+export type PropKind = 'mosaic' | 'hoarding' | 'crowd' | 'shells' | 'camera';
+
 /** A small examinable thing placed in the world for some years. */
 export interface Poi {
   id: string;
@@ -65,7 +73,7 @@ export interface Poi {
   from: number;
   to?: number;
   /** Optional prop model that stands here in those years. */
-  prop?: { kind: 'mosaic' | 'hoarding'; rot: number };
+  prop?: { kind: PropKind; rot: number };
 }
 
 /** An archival-style photograph to stand inside (rephotography). */
@@ -94,7 +102,21 @@ export interface FieldNote {
   id: string;
   title: Localized;
   text: Localized;
+  /** What earns the note. */
+  trigger: NoteTrigger;
 }
+
+export type NoteTrigger =
+  /** Line up the case's photo without any aids. */
+  | { kind: 'eye' }
+  /** Examine a landmark. */
+  | { kind: 'site'; siteId: string }
+  /** Peek into a year in `to` while standing within `r` of (x, z) in a year in `from`. */
+  | { kind: 'peek'; x: number; z: number; r: number; from: [number, number]; to: [number, number] }
+  /** Stand within `r` metres of (x, z) in one of these years. */
+  | { kind: 'area'; x: number; z: number; r: number; years: [number, number] }
+  /** Reach the shoreline in one of these years. */
+  | { kind: 'coast'; years: [number, number] };
 
 export interface CaseDef {
   id: string;

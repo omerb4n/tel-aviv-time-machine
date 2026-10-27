@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mulberry32 } from '../core/math';
 import { baseHeight } from '../data/geography';
 import type { Poi } from './types';
 
@@ -95,6 +96,59 @@ function sparkTexture() {
   });
 }
 
+// ---------------------------------------------------------------- people of 1909
+
+type Figure = 'man' | 'woman' | 'child';
+
+/** Instanced low-poly figures in 1909 dress: suits and bowler hats, long dresses and wide hats. */
+class Figures {
+  private parts = new Map<string, { geo: THREE.BufferGeometry; items: { m: THREE.Matrix4; c: THREE.Color }[] }>();
+  private q = new THREE.Quaternion();
+
+  constructor(private rnd: () => number) {}
+
+  private part(key: string, geo: () => THREE.BufferGeometry, x: number, y: number, z: number, s: number, color: string) {
+    let p = this.parts.get(key);
+    if (!p) this.parts.set(key, (p = { geo: geo(), items: [] }));
+    p.items.push({ m: new THREE.Matrix4().compose(new THREE.Vector3(x, y * s, z), this.q, new THREE.Vector3(s, s, s)), c: new THREE.Color(color) });
+  }
+
+  add(kind: Figure, x: number, z: number, yaw = 0) {
+    const r = this.rnd;
+    const s = kind === 'child' ? 0.62 : 0.92 + r() * 0.14;
+    this.q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+    const skin = ['#d8b08c', '#c99a74', '#e2bf9c'][Math.floor(r() * 3)];
+    const dark = ['#2b2a28', '#3a3530', '#28303a', '#4a4036'][Math.floor(r() * 4)];
+    if (kind === 'woman') {
+      const dress = r() < 0.6 ? ['#efe9dc', '#e4dccb', '#d9d2c4'][Math.floor(r() * 3)] : dark;
+      this.part('dress', () => new THREE.CylinderGeometry(0.13, 0.36, 1.42, 8), x, 0.71, z, s, dress);
+      this.part('head', () => new THREE.SphereGeometry(0.115, 8, 6), x, 1.56, z, s, skin);
+      this.part('brim', () => new THREE.CylinderGeometry(0.27, 0.27, 0.025, 10), x, 1.66, z, s, r() < 0.5 ? '#f2eee4' : '#3a3530');
+    } else {
+      this.part('suit', () => new THREE.CylinderGeometry(0.2, 0.22, 1.45, 8), x, 0.72, z, s, kind === 'child' && r() < 0.5 ? '#efe9dc' : dark);
+      this.part('head', () => new THREE.SphereGeometry(0.115, 8, 6), x, 1.58, z, s, skin);
+      if (kind === 'man') {
+        this.part('crown', () => new THREE.CylinderGeometry(0.11, 0.13, 0.12, 8), x, 1.72, z, s, r() < 0.2 ? '#e8e2d2' : '#1f1d1a');
+        this.part('brim', () => new THREE.CylinderGeometry(0.2, 0.2, 0.02, 10), x, 1.665, z, s, '#1f1d1a');
+      }
+    }
+  }
+
+  build(): THREE.Object3D[] {
+    const out: THREE.Object3D[] = [];
+    for (const { geo, items } of this.parts.values()) {
+      const mesh = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ roughness: 0.92 }), items.length);
+      items.forEach((it, i) => {
+        mesh.setMatrixAt(i, it.m);
+        mesh.setColorAt(i, it.c);
+      });
+      mesh.computeBoundingSphere();
+      out.push(mesh);
+    }
+    return out;
+  }
+}
+
 interface Entry {
   poi: Poi;
   marker: THREE.Sprite;
@@ -136,7 +190,66 @@ export class Interactables {
 
   private makeProp(poi: Poi): THREE.Object3D {
     const g = new THREE.Group();
-    if (poi.prop!.kind === 'mosaic') {
+    const kind = poi.prop!.kind;
+    const wood = (c = '#7d6b52') => new THREE.MeshStandardMaterial({ color: c, roughness: 0.9 });
+    if (kind === 'crowd') {
+      // ~66 people in a loose crescent, facing the photographer (local +z)
+      const f = new Figures(mulberry32(1909));
+      const rnd = mulberry32(411);
+      for (let i = 0; i < 66; i++) {
+        const a = (rnd() - 0.5) * 2.4;
+        const rr = 5.5 + rnd() * 9;
+        const kindOf: Figure = rnd() < 0.1 ? 'child' : rnd() < 0.62 ? 'man' : 'woman';
+        f.add(kindOf, Math.sin(a) * rr, -Math.cos(a) * rr * 0.75, (rnd() - 0.5) * 0.8);
+      }
+      g.add(...f.build());
+    } else if (kind === 'shells') {
+      // a table with two baskets of shells; the organiser behind it and a child beside it
+      const top = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.05, 0.7), wood('#8a7556'));
+      top.position.y = 0.78;
+      g.add(top);
+      for (const [lx, lz] of [[-0.58, -0.3], [0.58, -0.3], [-0.58, 0.3], [0.58, 0.3]]) {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.78, 0.05), wood('#6c5a42'));
+        leg.position.set(lx, 0.39, lz);
+        g.add(leg);
+      }
+      const rnd = mulberry32(43);
+      for (const [bx, shell] of [[-0.32, '#f4efe4'], [0.32, '#8d8a84']] as const) {
+        const basket = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.17, 0.2, 12), wood('#b08d57'));
+        basket.position.set(bx, 0.91, 0);
+        g.add(basket);
+        for (let i = 0; i < 9; i++) {
+          const sh = new THREE.Mesh(new THREE.SphereGeometry(0.045, 6, 4), new THREE.MeshStandardMaterial({ color: shell, roughness: 0.5 }));
+          sh.scale.y = 0.5;
+          sh.position.set(bx + (rnd() - 0.5) * 0.24, 1.02, (rnd() - 0.5) * 0.24);
+          g.add(sh);
+        }
+      }
+      const f = new Figures(mulberry32(7));
+      f.add('man', 0, -0.8);
+      f.add('child', 0.9, 0.1, -0.6);
+      g.add(...f.build());
+    } else if (kind === 'camera') {
+      // a plate camera on a wooden tripod; lens towards local +z; the photographer under his cloth
+      for (let i = 0; i < 3; i++) {
+        const a = (i / 3) * Math.PI * 2;
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.025, 1.5, 5), wood('#6c5a42'));
+        leg.position.set(Math.sin(a) * 0.22, 0.72, Math.cos(a) * 0.22);
+        leg.rotation.set(Math.cos(a) * -0.16, 0, Math.sin(a) * 0.16);
+        g.add(leg);
+      }
+      const box = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.28, 0.36), wood('#5b4128'));
+      box.position.y = 1.52;
+      const lens = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.14, 12), new THREE.MeshStandardMaterial({ color: '#1b1a18', metalness: 0.4, roughness: 0.4 }));
+      lens.rotation.x = Math.PI / 2;
+      lens.position.set(0, 1.52, 0.24);
+      const cloth = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), new THREE.MeshStandardMaterial({ color: '#141312', roughness: 1 }));
+      cloth.position.set(0, 1.45, -0.42);
+      g.add(box, lens, cloth);
+      const f = new Figures(mulberry32(5));
+      f.add('man', 0, -0.6);
+      g.add(...f.build());
+    } else if (kind === 'mosaic') {
       const frame = new THREE.Mesh(new THREE.BoxGeometry(14.4, 3.6, 0.5), new THREE.MeshStandardMaterial({ color: '#cfc6b4', roughness: 0.9 }));
       frame.position.y = 1.8;
       const face = new THREE.Mesh(
@@ -164,6 +277,11 @@ export class Interactables {
       }
     });
     return g;
+  }
+
+  /** Hides the sparkles until the next update (used when rendering photo plates). */
+  hideMarkers() {
+    for (const e of this.entries) e.marker.visible = false;
   }
 
   setYear(year: number) {

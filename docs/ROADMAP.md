@@ -29,7 +29,9 @@ The first build felt like a museum. The project is now an exploration game (see
 - ✅ Rephotography by eye: focus brackets instead of a meter, three optional aids, a mastery note.
 - ✅ Map of the current year: heading-up minimap, full map, trail, clue stamps, hint circles.
 - ⏭ Playtest with 5–10 people and tune hints, distances and pacing (targets in GAME_DESIGN §8).
-- ⏭ Case 2 *The Seashell Lottery* and Case 3 *The House on Plot 43*.
+- ✅ Case 2 *The Seashell Lottery*: a crowd on the 1909 dune, Soskin's photo, drawing the shells.
+  Cases share one world, with a save per case and shared collections.
+- ⏭ Case 3 *The House on Plot 43* (14 May 1948 at 16 Rothschild).
 
 ## Milestone 0.6 — Street-level realism (on a GPU workstation)
 

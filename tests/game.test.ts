@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { LANDMARKS } from '../src/data/landmarks';
+import { CASES } from '../src/game/cases';
+import { SEASHELL_LOTTERY } from '../src/game/cases/seashellLottery';
 import { VANISHING_SCHOOL as CASE } from '../src/game/cases/vanishingSchool';
 import { GameState } from '../src/game/GameState';
 import { alignment, wrapAngle } from '../src/game/rephoto';
@@ -18,41 +20,107 @@ function blocked(x: number, z: number, year: number) {
   });
 }
 
-describe('case: The Vanishing School', () => {
-  it('references leads, sites and points of interest that exist', () => {
-    const ids = new Set(CASE.leads.map((l) => l.id));
-    expect(ids.size).toBe(CASE.leads.length);
-    for (const l of CASE.leads) {
-      for (const r of l.requires) expect(ids.has(r), `${l.id} requires ${r}`).toBe(true);
-      if (l.trigger.kind === 'site') expect(LANDMARKS.some((s) => s.id === (l.trigger as { siteId: string }).siteId)).toBe(true);
-      if (l.trigger.kind === 'poi') expect(CASE.pois.some((p) => p.id === (l.trigger as { poiId: string }).poiId)).toBe(true);
-      expect(l.hints.length).toBeGreaterThanOrEqual(2);
-      if (l.clue.anchors !== undefined) expect(CASE.years).toContain(l.clue.anchors);
-    }
+for (const CASE of CASES)
+  describe(`case ${CASE.number}: ${CASE.title.en}`, () => {
+    it('references leads, sites and points of interest that exist', () => {
+      const ids = new Set(CASE.leads.map((l) => l.id));
+      expect(ids.size).toBe(CASE.leads.length);
+      for (const l of CASE.leads) {
+        for (const r of l.requires) expect(ids.has(r), `${l.id} requires ${r}`).toBe(true);
+        if (l.trigger.kind === 'site') expect(LANDMARKS.some((s) => s.id === (l.trigger as { siteId: string }).siteId)).toBe(true);
+        if (l.trigger.kind === 'poi') expect(CASE.pois.some((p) => p.id === (l.trigger as { poiId: string }).poiId)).toBe(true);
+        expect(l.hints.length).toBeGreaterThanOrEqual(2);
+        expect(l.short.en.length, `${l.id}: the HUD line should be short`).toBeLessThanOrEqual(48);
+        if (l.clue.anchors !== undefined) expect(CASE.years).toContain(l.clue.anchors);
+      }
+      for (const n of CASE.notes) if (n.trigger.kind === 'site') expect(LANDMARKS.some((s) => s.id === (n.trigger as { siteId: string }).siteId)).toBe(true);
+      expect(new Set(CASE.notes.map((n) => n.id)).size).toBe(CASE.notes.length);
+    });
+
+    it('can be finished: every lead has an anchored year to be completed in', () => {
+      const st = new GameState(CASE);
+      let guard = 0;
+      while (st.current && guard++ < 20) {
+        const lead = st.current;
+        const year = [...st.anchors].find((y) => st.canComplete(lead, y));
+        expect(year, `no anchored year lets you complete "${lead.id}"`).toBeDefined();
+        // a point of interest must exist in that year
+        if (lead.trigger.kind === 'poi') {
+          const poi = CASE.pois.find((p) => p.id === (lead.trigger as { poiId: string }).poiId)!;
+          expect(year! >= poi.from && (poi.to === undefined || year! <= poi.to), `${poi.id} is not there in ${year}`).toBe(true);
+        }
+        // a building must stand in that year
+        if (lead.trigger.kind === 'site') {
+          const site = LANDMARKS.find((s) => s.id === (lead.trigger as { siteId: string }).siteId)!;
+          expect(phaseAt(site, year!), `${site.id} does not stand in ${year}`).toBeDefined();
+        }
+        st.complete(lead.id);
+      }
+      expect(st.readyToSolve).toBe(true);
+      expect([...st.anchors].sort()).toEqual([...CASE.years].sort());
+      expect(CASE.deduction.options.filter((o) => o.correct)).toHaveLength(1);
+    });
+
+    it('puts the start and the photographers on open ground, not inside buildings', () => {
+      expect(blocked(CASE.start.pose.x, CASE.start.pose.z, CASE.start.year)).toBe(false);
+      for (const l of CASE.leads) {
+        if (l.trigger.kind !== 'rephoto') continue;
+        const { pose, year } = l.trigger.photo;
+        const years = l.years ? [year] : [year, CASE.start.year];
+        for (const y of years) expect(blocked(pose.x, pose.z, y), `${l.id} in ${y}`).toBe(false);
+      }
+    });
+
+    it('has photo match points in front of the camera and visible on a portrait phone', () => {
+      for (const l of CASE.leads) {
+        if (l.trigger.kind !== 'rephoto') continue;
+        const { pose, marks } = l.trigger.photo;
+        expect(marks.length).toBeGreaterThanOrEqual(2);
+        const fx = -Math.sin(pose.yaw);
+        const fz = -Math.cos(pose.yaw);
+        for (const m of marks) {
+          const ahead = (m.x - pose.x) * fx + (m.z - pose.z) * fz;
+          const side = (m.x - pose.x) * -fz + (m.z - pose.z) * fx;
+          expect(ahead).toBeGreaterThan(10);
+          // vertical fov 50°, aspect ~0.46 → about ±12° visible
+          expect(Math.abs(Math.atan2(side, ahead)) * (180 / Math.PI)).toBeLessThan(10);
+        }
+      }
+    });
   });
 
-  it('can be finished: every lead has an anchored year to be completed in', () => {
-    const st = new GameState(CASE);
-    let guard = 0;
-    while (st.current && guard++ < 20) {
-      const lead = st.current;
-      const year = [...st.anchors].find((y) => st.canComplete(lead, y));
-      expect(year, `no anchored year lets you complete "${lead.id}"`).toBeDefined();
-      st.complete(lead.id);
-    }
-    expect(st.readyToSolve).toBe(true);
-    expect([...st.anchors].sort()).toEqual([...CASE.years].sort());
-    expect(CASE.deduction.options.filter((o) => o.correct)).toHaveLength(1);
+describe('all cases', () => {
+  it('have unique ids, numbers, props and photos', () => {
+    const uniq = (xs: string[]) => expect(new Set(xs).size).toBe(xs.length);
+    uniq(CASES.map((c) => c.id));
+    uniq(CASES.map((c) => String(c.number)));
+    uniq(CASES.flatMap((c) => c.pois.map((p) => p.id)));
+    uniq(CASES.flatMap((c) => c.leads.flatMap((l) => (l.trigger.kind === 'rephoto' ? [l.trigger.photo.id] : []))));
   });
 
-  it('puts the start and the photographer on open ground, not inside buildings', () => {
-    const photo = CASE.leads[0].trigger;
-    expect(photo.kind).toBe('rephoto');
-    if (photo.kind !== 'rephoto') return;
-    expect(blocked(CASE.start.pose.x, CASE.start.pose.z, CASE.start.year)).toBe(false);
-    for (const y of [photo.photo.year, CASE.start.year]) expect(blocked(photo.photo.pose.x, photo.photo.pose.z, y)).toBe(false);
+  it('keep a separate save per case', () => {
+    const [a, b] = CASES;
+    const st = new GameState(b, { ...new GameState(a).toJSON(), done: [a.leads[0].id] });
+    expect(st.done.size).toBe(0);
   });
+});
 
+describe('case 2 specifics', () => {
+  it('draws a family and a plot before the clue', () => {
+    const shells = SEASHELL_LOTTERY.leads.find((l) => l.id === 'shells')!;
+    expect(shells.clue.reveal?.draws.map((d) => d.value.en)).toEqual(['Meir & Zina Dizengoff', 'Plot 43']);
+  });
+  it('can only line up Soskin’s photo in 1909', () => {
+    const st = new GameState(SEASHELL_LOTTERY);
+    const lead = SEASHELL_LOTTERY.leads.find((l) => l.id === 'soskin')!;
+    st.complete('monument');
+    st.complete('crowd');
+    expect(st.canComplete(lead, 1909)).toBe(true);
+    expect(st.canComplete(lead, 2025)).toBe(false);
+  });
+});
+
+describe('case 1 specifics', () => {
   it('places the gymnasium where the postcard is looking', () => {
     const photo = CASE.leads[0].trigger;
     if (photo.kind !== 'rephoto') throw new Error('first lead should be a photo');

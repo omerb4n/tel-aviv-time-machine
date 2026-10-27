@@ -436,6 +436,32 @@ export class GameUI {
     this.open(box, true);
   }
 
+  /**
+   * A hands-on draw before a clue: tap each item (a shell) to turn it over and read it.
+   * Continue appears once everything is revealed.
+   */
+  showReveal(prompt: string, draws: { label: string; value: string; tone: 'light' | 'dark' }[], onFlip: () => void, done: () => void) {
+    const box = h('article', { class: 'g-card sheet reveal' });
+    const go = h('button', { class: 'g-btn-ink', disabled: '' }, 'Continue') as HTMLButtonElement;
+    go.onclick = () => {
+      this.closeModal();
+      done();
+    };
+    let left = draws.length;
+    const items = draws.map((d) => {
+      const b = h('button', { class: `g-shell ${d.tone}`, 'aria-label': d.label }, h('span', { class: 'shell' }), h('small', {}, d.label), h('b', {}, d.value)) as HTMLButtonElement;
+      b.onclick = () => {
+        if (b.classList.contains('open')) return;
+        b.classList.add('open');
+        onFlip();
+        if (--left === 0) go.disabled = false;
+      };
+      return b;
+    });
+    box.append(h('div', { class: 'g-kick' }, 'Your turn'), h('h2', {}, prompt), h('div', { class: 'g-shells' }, ...items), h('div', { class: 'g-actions' }, go));
+    this.open(box, false);
+  }
+
   /** How to play: four pictograms, a few words each. */
   showHowTo(touch: boolean, done: () => void) {
     const tile = (ic: keyof typeof ICONS, title: string, sub: string) => h('div', { class: 'g-how' }, icon(ic), h('b', {}, title), h('small', {}, sub));

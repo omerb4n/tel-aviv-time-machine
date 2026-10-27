@@ -139,11 +139,48 @@ take **10–15 minutes**.
 Optional field notes: *Double exposure* (peek into the past from the foot of the tower),
 the first kiosk, and Dizengoff House (setting up Case 3).
 
+## 6b. Case 2: *The Seashell Lottery*
+
+How did 66 families decide who got which plot, on an empty dune? The case teaches the founding
+of Tel Aviv (11 April 1909) and sets up Case 3 (the house on plot 43).
+
+| # | Lead | Trigger | Clue → reward |
+| --- | --- | --- | --- |
+| 0 | *Intro:* Rothschild Blvd, 2025, by the fountain. | | |
+| 1 | **The fountain on the boulevard** | Examine the Founders' Monument (1951+) | It honours the founding families of 1909 → **slip to 1909** |
+| 2 | **People on the dune** | Examine the crowd (1909) | 66 families have come to divide the land |
+| 3 | **The photographer** | Rephotograph Soskin's picture, *only in 1909* | The best-known image of the founding |
+| 4 | **Two baskets** | Examine the shells, then **draw a white and a grey shell** | The lottery: names on white shells, plot numbers on grey → **1910 anchored** |
+| 5 | **Plot 43** | Examine Dizengoff House (1910+) | The Dizengoffs' home, later Independence Hall |
+| — | **Deduction**: how were plots assigned? | 3 choices | Case closed |
+
+New mechanics in this case:
+- **A hands-on draw** (`Clue.reveal`): before the clue card, the player turns over a white shell and
+  a grey shell. It is a re-enactment ("one of the draws that day"), so the player *does* the lottery
+  rather than reading about it.
+- **A photo that only lines up in its year**: Soskin's photograph shows the crowd, so it locks only in
+  1909. In other years the photo view says "this is the spot, but the photo was taken in 1909".
+- **People of 1909**: an instanced crowd in period dress, a table with two baskets, and the
+  photographer under his cloth beside a plate camera on a tripod.
+
+Optional field notes: *Photographer's eye*, *Where the shells came from* (reach the beach in the
+early years), *Water for the suburb* (the first water tower), *Out of the old town* (visit Neve
+Tzedek before 1914).
+
+Honesty: the exact spot of the lottery on the dune is not documented, so the crowd's placement is
+illustrative; accounts differ on who drew the shells, so that clue is marked *approximate*.
+
+### Cases share a world
+
+Every case's props stand in the world in their years (the 1909 crowd is there in Case 1 too); only
+the current case's leads make them glimmer. Each case has its own save; style stamps and landmarks
+are shared across cases (`tlvtm.profile.v1`). The title poster lists each case as a ticket with
+its status, and the menu has *Choose a case*.
+
 ## 7. Future cases (each one is a place, a question and a few years)
 
 | Case | Question | Signature moment |
 | --- | --- | --- |
-| **The Seashell Lottery** | How were the first plots handed out with seashells on a sand dune — and who got which? | Stand among the 1909 crowd on the dune; find the shells. |
 | **The House on Plot 43** | Why did a mayor's house become the most important room in Israel? | Rephotograph 14 May 1948 at 16 Rothschild. |
 | **The White City** | Find the five features of the International Style on one street. | Style-stamp scavenger hunt; peek 1936 vs 1985 vs 2010 restoration. |
 | **The Lost Water Tower** | What was the first thing in town taller than a house? | Find the Founders' Monument and peek back. |

@@ -8,6 +8,10 @@ solve the city's mysteries.
 but in 2025 a tower stands there. Find where the postcard was taken, step into 1910, follow the
 clues through 1962 and 1965, and work out what happened.
 
+**Case 2 · The Seashell Lottery:** a fountain on Rothschild Boulevard leads you back to an empty
+dune in 1909, where 66 families divide the land with two baskets of seashells. Stand where the
+photographer stood, draw the shells yourself and find the house on plot 43.
+
 The original "scroll through time" experience is still there as **Free explore**: orbit above
 the city, scrub the timeline from sand dunes (1900) to today's towers (2025), and click any
 building to hear its life story. See [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md) for the design.
@@ -21,6 +25,10 @@ building to hear its life story. See [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md) 
 | On a phone: the title | Examine the school | A clue anchors 1962 |
 | --- | --- | --- |
 | ![title](docs/screenshots/g-phone-title.png) | ![examine](docs/screenshots/g-phone-examine.png) | ![clue 1962](docs/screenshots/g-phone-clue.png) |
+
+| Case 2 · the lottery table on the 1909 dune | Lining up Soskin's photograph | Draw a shell from each basket |
+| --- | --- | --- |
+| ![shells](docs/screenshots/c2-shells.png) | ![photo](docs/screenshots/c2-photo.png) | ![draw](docs/screenshots/c2-draw.png) |
 
 The interface design and the research behind it are in [docs/UI_DESIGN.md](docs/UI_DESIGN.md).
 
