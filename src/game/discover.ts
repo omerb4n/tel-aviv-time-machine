@@ -46,6 +46,11 @@ export function onSideWall(site: Pick<BuildingSite, 'x' | 'z' | 'rot' | 'width' 
   return Math.abs(lx) > site.width / 2 - 1.6 && lz < site.depth / 2 - 2.9 && lz > -site.depth / 2 + 0.5;
 }
 
+/** Did a look land on the street front (the façade and its balconies)? */
+export function onFront(site: Pick<BuildingSite, 'x' | 'z' | 'rot' | 'width' | 'depth'>, hx: number, hz: number) {
+  return siteLocal(site, hx, hz).lz > site.depth / 2 - 3.2;
+}
+
 export interface LookHit {
   site: BuildingSite;
   /** Where the look landed. */
@@ -56,7 +61,9 @@ export interface LookHit {
 export function lookFinds(t: Extract<Trigger, { kind: 'look' }>, hit: LookHit, x: number, z: number, year: number) {
   if (!inYears(year, t.years) || !matchSite(t.match, hit.site, year)) return false;
   if (footprintDist(hit.site, x, z) > t.maxDist) return false;
-  return !t.side || onSideWall(hit.site, hit.point.x, hit.point.z);
+  if (t.wall === 'side') return onSideWall(hit.site, hit.point.x, hit.point.z);
+  if (t.wall === 'front') return onFront(hit.site, hit.point.x, hit.point.z);
+  return true;
 }
 
 /**

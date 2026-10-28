@@ -37,7 +37,7 @@ export const DISCOVERIES: Discovery[] = [
     title: { en: 'Ribbon balconies' },
     riddle: { en: 'Long horizontal bands that shade a white wall.' },
     nudge: { en: 'Any building of the 1930s will do, in a year when it is well kept. Get close and look at its front.' },
-    trigger: { kind: 'look', match: WHITE, maxDist: 22, years: [1931, 2025] },
+    trigger: { kind: 'look', match: WHITE, maxDist: 22, years: [1931, 2025], wall: 'front' },
     gist: { en: 'Long balconies run across the front: each one shades the floor below from the sun.' },
     text: {
       en: 'Tel Aviv’s International Style buildings wrap their fronts in long horizontal balconies. Each balcony shades the windows below, and their solid parapets give the façade its stripes. In Europe the style favoured big windows; here architects made windows smaller and balconies deeper, to keep homes cool on a hot, bright coast.',
@@ -51,7 +51,7 @@ export const DISCOVERIES: Discovery[] = [
     title: { en: 'Thermometer windows' },
     riddle: { en: 'A tall, narrow strip of glass running up a wall.' },
     nudge: { en: 'Walk round to the side of a 1930s building, where its stairs are.' },
-    trigger: { kind: 'look', match: { style: 'bauhaus' }, maxDist: 18, years: [1931, 2025], side: true },
+    trigger: { kind: 'look', match: { style: 'bauhaus' }, maxDist: 18, years: [1931, 2025], wall: 'side' },
     gist: { en: 'A narrow vertical window lights the staircase from bottom to top. Locals call it a thermometer window.' },
     text: {
       en: 'Many White City stairwells are lit by one tall slot of glass running the height of the building. From the street it looks like the column of a thermometer. It brings daylight to every landing while letting in little heat, and it shows from outside where the stairs are: the building explains itself.',
@@ -183,12 +183,12 @@ export const DISCOVERIES: Discovery[] = [
     collection: 'building-city',
     title: { en: 'A street aimed at a school' },
     riddle: { en: 'An old photograph: a long street and a grand building at its end. Where was it taken?' },
-    nudge: { en: 'Herzl Street, north of the boulevard, before the 1920s.' },
+    nudge: { en: 'Herzl Street, north of the boulevard, before the 1920s. The photographer was up on a roof: rise to see it as he did.' },
     area: { x: HERZL_PHOTO.pose.x, z: HERZL_PHOTO.pose.z, r: 70 },
     trigger: { kind: 'photo', photo: HERZL_PHOTO, years: [1910, 1925] },
     gist: { en: 'Herzl Street was laid out to lead straight to the Herzliya Gymnasium, the first Hebrew high school (1910).' },
     text: {
-      en: 'The planners gave the new town a focus: its first street ran straight to the school, whose temple-like façade Joseph Barsky modelled on reconstructions of Solomon’s Temple. The real photograph was taken in 1913, from a rooftop.',
+      en: 'The planners gave the new town a focus: its first street ran straight to the school, whose temple-like façade Joseph Barsky modelled on reconstructions of Solomon’s Temple. The photograph was taken in 1913 from a rooftop, looking down on the street.',
     },
     sources: [AHUZAT_BAYIT, WIKI('Herzliya Hebrew Gymnasium', 'Herzliya_Hebrew_Gymnasium')],
     confidence: 'documented',

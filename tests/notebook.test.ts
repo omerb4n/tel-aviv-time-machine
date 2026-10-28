@@ -3,7 +3,7 @@ import { LANDMARKS } from '../src/data/landmarks';
 import { streetById } from '../src/data/streets';
 import type { BuildingSite } from '../src/data/types';
 import { COLLECTIONS, DISCOVERIES, HERZL_PHOTO, POIS, SECTIONS, SOSKIN_PHOTO, START, YEARS } from '../src/game/content';
-import { compareFinds, footprintDist, inYears, lookFinds, matchSite, onSideWall, siteLocal } from '../src/game/discover';
+import { compareFinds, footprintDist, inYears, lookFinds, matchSite, onFront, onSideWall, siteLocal } from '../src/game/discover';
 import { NotebookState, TRAIL_MAX, TRAIL_STEP } from '../src/game/NotebookState';
 import { wrapAngle } from '../src/game/rephoto';
 import type { Discovery, Trigger } from '../src/game/types';
@@ -128,6 +128,20 @@ describe('noticing', () => {
     const front = onSite(s as BuildingSite, 0, s.depth / 2 - 2.7);
     expect(onSideWall(s, side.x, side.z)).toBe(true);
     expect(onSideWall(s, front.x, front.z)).toBe(false);
+    expect(onFront(s, front.x, front.z)).toBe(true);
+    expect(onFront(s, side.x, side.z)).toBe(false);
+  });
+
+  it('teaches ribbon balconies from the front and thermometer windows from the side', () => {
+    const look = (id: string) => DISCOVERIES.find((d) => d.id === id)!.trigger as Extract<Trigger, { kind: 'look' }>;
+    const s = sites.find((x) => matchSite(look('ribbon-balconies').match, x, 1936))!;
+    const front = { site: s, point: onSite(s, 0, s.depth / 2 - 2.7) };
+    const side = { site: s, point: onSite(s, s.width / 2 - 0.5, -1) };
+    const at = inFront(s, 5);
+    expect(lookFinds(look('ribbon-balconies'), front, at.x, at.z, 1936)).toBe(true);
+    expect(lookFinds(look('ribbon-balconies'), side, at.x, at.z, 1936)).toBe(false);
+    expect(lookFinds(look('thermometer-windows'), side, at.x, at.z, 1936)).toBe(true);
+    expect(lookFinds(look('thermometer-windows'), front, at.x, at.z, 1936)).toBe(false);
   });
 });
 

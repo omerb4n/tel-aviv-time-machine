@@ -68,6 +68,10 @@ Boulevard today, is surrounded by International Style buildings.
   works). WASD/arrows to walk, Shift to hurry. A dot marks the centre; a click examines what it
   is on (E does the same).
 - Touch: on-screen stick to walk, drag to look, tap to examine.
+- **Rise and come down** (R / F, or the ▲ ▼ buttons): up to rooftops and beyond (120 m), to see
+  the street plan from above or stand where a photographer stood on a roof. Below roof height
+  buildings stay solid; above a building's roof you can pass over it, and coming down lands on
+  the roof.
 
 ### 5.2 Time: seven years, open from the start
 - The year tickets are **1909, 1922, 1936, 1960, 1985, 2011 and 2025**: the founding, the
@@ -98,7 +102,8 @@ Boulevard today, is surrounded by International Style buildings.
   button, P, or *Hold up* in the notebook), find where it was taken and in which year, and line
   it up by eye.
 - **No meter.** Focus brackets appear when you are close and lock when the view matches; the
-  shutter clicks. The photo only locks in a year when the scene looks like the photo (the
+  shutter clicks. Height counts too: the Herzl Street photograph was taken from a rooftop (about
+  9 m up), so it only locks once you rise to it. The photo only locks in a year when the scene looks like the photo (the
   lottery crowd is there only in 1909; Herzl Street looks like 1913 until the 1920s).
 - Optional aids, one at a time: the photo's outlines, match points, then directions. Matching
   with no aids is marked *by eye* in the notebook.

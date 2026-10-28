@@ -16,8 +16,8 @@ export interface SaveData {
   nudged: string[];
   stamps: string[];
   landmarks: string[];
-  /** Where the player was when last saved. */
-  where?: { year: number; x: number; z: number; yaw: number };
+  /** Where the player was when last saved (`h`: eye height above the ground). */
+  where?: { year: number; x: number; z: number; yaw: number; h?: number };
   /** The walked trail, flattened [x0, z0, x1, z1, …] in whole metres. */
   trail?: number[];
   /** One-time things the player has already done or been taught (e.g. 'travel', 'peek'). */

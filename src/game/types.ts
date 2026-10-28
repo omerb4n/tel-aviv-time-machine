@@ -6,6 +6,8 @@ export interface Pose {
   z: number;
   yaw: number;
   pitch: number;
+  /** Eye height above the ground in metres (1.7 when standing; more from a rooftop). */
+  height?: number;
 }
 
 /** Procedural props (see Interactables.ts). */
@@ -78,9 +80,10 @@ export type SiteMatch = { site: string } | { style: BuildingStyle; test?: (phase
 export type Trigger =
   /**
    * Look closely at a building (hold it in the centre of the view, or tap it), from within
-   * `maxDist` metres of its footprint, in these years. `side`: only its side walls count.
+   * `maxDist` metres of its footprint, in these years. `wall`: only its front (with the
+   * balconies) or only its side walls count.
    */
-  | { kind: 'look'; match: SiteMatch; maxDist: number; years: Years; side?: boolean }
+  | { kind: 'look'; match: SiteMatch; maxDist: number; years: Years; wall?: 'front' | 'side' }
   /** Look closely at a prop (a point of interest) while it stands. */
   | { kind: 'poi'; poi: string; maxDist: number }
   /**

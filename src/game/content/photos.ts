@@ -21,15 +21,16 @@ const gym = (lx: number, y: number, lz: number) => {
   return { x: GYM.x + lx * c + lz * s, y, z: GYM.z - lx * s + lz * c };
 };
 
-// Where the photographer stood: on Herzl St north of Rothschild Blvd, looking up the street with
-// the school right of centre and looking down a little, as in the 1913 photograph (taken from a
-// rooftop).
+// Where the photographer stood: on a rooftop over Herzl St north of Rothschild Blvd, about 9 m up,
+// looking up the street with the school right of centre and looking down a little, as in the 1913
+// photograph. (The Gymnasium's towers, 17.6 m, span a quarter of the print above its base, which
+// puts the camera at roughly 8–10 m.)
 const shot = frameAt(streetById('herzl'), 550);
 
 export const HERZL_PHOTO: PhotoDef = {
   id: 'herzl-1910',
   year: 1910,
-  pose: { x: shot.x, z: shot.z, yaw: facing(shot.x, shot.z, GYM.x, GYM.z) + 0.22, pitch: -0.06 },
+  pose: { x: shot.x, z: shot.z, yaw: facing(shot.x, shot.z, GYM.x, GYM.z) + 0.22, pitch: -0.1, height: 9 },
   title: { en: 'Herzl Street, 1913' },
   caption: { en: 'Tel-Aviv · Herzl Street' },
   reference: { label: 'The photograph – Wikimedia Commons', url: COMMONS('THE_HERZL_"GYMNASIA"_(SECONDARY_SCHOOL)_AT_THE_ENDOF_HERZL_STRREET_IN_TEL_AVIV._רחוב_הרצל_בתל_אביב..jpg') },

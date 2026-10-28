@@ -168,6 +168,19 @@ export class Game {
       if (this.active) this.renderHud();
     });
     if (matchMedia('(pointer: coarse)').matches) new Joystick(this.ui.root, w.rig.moveInput);
+    // rise above the roofs and come down again (R / F on a keyboard)
+    const lift = (dir: 1 | -1) => {
+      const b = h('button', { class: 'g-lift', title: dir > 0 ? 'Rise (R)' : 'Come down (F)', 'aria-label': dir > 0 ? 'Rise' : 'Come down' }, dir > 0 ? '▲' : '▼') as HTMLButtonElement;
+      b.onpointerdown = (e) => {
+        e.preventDefault();
+        b.setPointerCapture(e.pointerId);
+        w.rig.moveInput.up = dir;
+      };
+      b.onpointerup = b.onpointercancel = () => (w.rig.moveInput.up = 0);
+      b.oncontextmenu = (e) => e.preventDefault();
+      return b;
+    };
+    this.ui.root.append(h('div', { class: 'g-lifts' }, lift(1), lift(-1)));
 
     this.ui.mapSlot.append(this.mini.el);
     this.full = new FullMap(this.ui.root);
@@ -235,7 +248,7 @@ export class Game {
       const p = photoOf(d);
       if (!p) continue;
       this.w.jumpTo(p.year);
-      rig.teleport(p.pose.x, p.pose.z, p.pose.yaw, p.pose.pitch);
+      rig.teleport(p.pose.x, p.pose.z, p.pose.yaw, p.pose.pitch, p.pose.height);
       rig.update(0);
       this.inter.hideMarkers();
       this.photos.set(p.id, this.renderPlate(p));
@@ -479,7 +492,7 @@ export class Game {
     rig.lockStreet = true;
     const where = resume ? this.state.where : undefined;
     this.w.jumpTo(where?.year ?? START.year);
-    if (where) rig.teleport(where.x, where.z, where.yaw);
+    if (where) rig.teleport(where.x, where.z, where.yaw, undefined, where.h);
     else rig.teleport(START.pose.x, START.pose.z, START.pose.yaw, START.pose.pitch);
     this.mini.invalidate();
     this.renderHud();
@@ -527,7 +540,7 @@ export class Game {
 
   private save() {
     const c = this.w.camera.position;
-    this.state.where = { year: this.year, x: c.x, z: c.z, yaw: this.w.rig.yaw };
+    this.state.where = { year: this.year, x: c.x, z: c.z, yaw: this.w.rig.yaw, h: Math.round(this.w.rig.lift * 10) / 10 };
     write(SAVE_KEY, this.state.toJSON());
   }
 
@@ -870,7 +883,7 @@ export class Game {
     const H = this.holding;
     if (!H) return;
     const { rig, camera } = this.w;
-    const view = { x: camera.position.x, z: camera.position.z, yaw: rig.yaw, pitch: rig.pitch };
+    const view = { x: camera.position.x, z: camera.position.z, yaw: rig.yaw, pitch: rig.pitch, height: rig.lift };
     const a = alignment(H.photo.pose, view);
     // a photo lines up only in the years when the place looked like it (the 1909 crowd)
     const rightYear = inYears(Math.floor(this.w.time.year), H.years);
@@ -904,7 +917,8 @@ export class Game {
         const rel = wrapAngle(Math.atan2(-dx, -dz) - view.yaw) * (180 / Math.PI);
         const dir = Math.abs(rel) < 35 ? 'ahead' : Math.abs(rel) > 145 ? 'behind you' : rel > 0 ? 'to your left' : 'to your right';
         advice = a.dist > 45 ? 'Find the street in the photo first.' : `The photographer stood a bit ${dir}.`;
-      } else if (a.yawErr > MATCH.yaw) advice = wrapAngle(H.photo.pose.yaw - view.yaw) > 0 ? 'Turn a little left.' : 'Turn a little right.';
+      } else if (a.heightErr > MATCH.height) advice = (H.photo.pose.height ?? 1.7) > rig.lift ? 'The photographer stood higher up: rise (R, or ▲).' : 'Come down a little (F, or ▼).';
+      else if (a.yawErr > MATCH.yaw) advice = wrapAngle(H.photo.pose.yaw - view.yaw) > 0 ? 'Turn a little left.' : 'Turn a little right.';
       else if (a.pitchErr > MATCH.pitch) advice = H.photo.pose.pitch > view.pitch ? 'Look up a little.' : 'Look down a little.';
       else advice = 'Hold still…';
     }
@@ -1004,9 +1018,9 @@ export class Game {
     });
   }
 
-  /** Collision for the walking camera. */
-  blocked(x: number, z: number): boolean {
-    return this.w.buildings.blockedAt(x, z);
+  /** Collision for the walking camera, at an eye height above the ground. */
+  blocked(x: number, z: number, eye = 0): boolean {
+    return this.w.buildings.blockedAt(x, z, 0.35, eye);
   }
 
   // ------------------------------------------------------------------ menus

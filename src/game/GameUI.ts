@@ -444,7 +444,16 @@ export class GameUI {
         tile('ticket', 'Travel', 'tap a year ticket'),
         tile('peek', 'Peek', 'hold a year ticket'),
       ),
-      h('p', { class: 'g-how-foot' }, icon('journal'), h('span', {}, 'your notebook'), icon('map'), h('span', {}, 'tap the map to open it')),
+      h(
+        'p',
+        { class: 'g-how-foot' },
+        icon('journal'),
+        h('span', {}, 'your notebook'),
+        h('b', { class: 'q' }, '▲'),
+        h('span', {}, touch ? 'rise above the roofs' : 'rise · R / F'),
+        icon('map'),
+        h('span', {}, 'the map'),
+      ),
       h('div', { class: 'g-actions' }, go),
     );
     this.open(box, false);

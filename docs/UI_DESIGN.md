@@ -118,7 +118,9 @@ New:
 
 Why: matching becomes perception (the core of rephotography) rather than optimisation, and the
 fallback ladder means nobody gets stuck. Tolerances: match at ≤ 6 m, ≤ 9° yaw and pitch;
-brackets at ≤ 14 m, ≤ 20° yaw, ≤ 18° pitch.
+brackets at ≤ 14 m, ≤ 20° yaw, ≤ 18° pitch. Eye height must be within 3 m to match (8 m for
+the brackets): a photo taken from a rooftop needs the player to rise (R / ▲), and the third aid
+says so.
 
 Technical notes:
 - **The camera is cropped to the print.** The whole photograph is shown at its own shape, as

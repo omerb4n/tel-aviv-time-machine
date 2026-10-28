@@ -4,10 +4,15 @@ import { clamp, easeInOutCubic } from './math';
 
 export type GroundFn = (x: number, z: number) => number;
 
+/** Eye height when walking, and the highest the walker can rise (above the ground). */
+export const EYE = 1.7;
+export const MAX_LIFT = 120;
+
 /**
  * Observer camera: orbit / pan / zoom from above, cinematic fly-to for tours,
  * and a street-level walking mode (drag to look, WASD to walk). With a mouse, one click
- * captures it and looking follows the mouse with no button held (Esc frees it).
+ * captures it and looking follows the mouse with no button held (Esc frees it). At street
+ * level the walker can also rise above the roofs and come down again (R / F).
  */
 export class CameraRig {
   readonly controls: OrbitControls;
@@ -18,14 +23,16 @@ export class CameraRig {
   pitch = 0;
   private dragId = -1;
   private last = { x: 0, y: 0 };
-  /** Analogue walk input from a touch joystick: x = strafe, y = forward, each in [-1, 1]. */
-  readonly moveInput = { x: 0, y: 0 };
+  /** Analogue input from touch controls: x = strafe, y = forward, up = rise, each in [-1, 1]. */
+  readonly moveInput = { x: 0, y: 0, up: 0 };
+  /** Eye height above the ground at street level: EYE when walking, more when risen. */
+  lift = EYE;
   /** Stay at street level (Esc does not fly up). Used by the exploration game. */
   lockStreet = false;
   /** When false, walking and looking are ignored (dialogs, peeking). */
   inputEnabled = true;
-  /** Optional collision test for walking. */
-  collide?: (x: number, z: number) => boolean;
+  /** Optional collision test for walking, at an eye height above the ground. */
+  collide?: (x: number, z: number, eye: number) => boolean;
   onModeChange?: (mode: 'orbit' | 'street') => void;
   /** Click to capture the mouse for looking (a computer with a mouse, not touch). */
   mouseLook = matchMedia('(pointer: fine)').matches;
@@ -124,11 +131,12 @@ export class CameraRig {
     if (this.looking) document.exitPointerLock();
   }
 
-  /** Jump straight to a street-level pose. */
-  teleport(x: number, z: number, yaw: number, pitch = 0.04) {
+  /** Jump straight to a street-level pose (`lift`: eye height above the ground). */
+  teleport(x: number, z: number, yaw: number, pitch = 0.04, lift = EYE) {
     this.fly = undefined;
     this.controls.enabled = false;
-    this.camera.position.set(x, this.ground(x, z) + 1.7, z);
+    this.lift = lift;
+    this.camera.position.set(x, this.ground(x, z) + lift, z);
     this.yaw = yaw;
     this.pitch = pitch;
     if (this.mode !== 'street') {
@@ -163,7 +171,8 @@ export class CameraRig {
       const dir = new THREE.Vector3().subVectors(t, this.camera.position).setY(0).normalize();
       this.yaw = Math.atan2(-dir.x, -dir.z);
       this.pitch = 0.05;
-      const eye = new THREE.Vector3(t.x, this.ground(t.x, t.z) + 1.7, t.z);
+      this.lift = EYE;
+      const eye = new THREE.Vector3(t.x, this.ground(t.x, t.z) + EYE, t.z);
       const look = eye.clone().addScaledVector(dir, 10);
       this.controls.enabled = false;
       const enter = () => (this.mode = 'street');
@@ -222,12 +231,19 @@ export class CameraRig {
         }
         const mx = (fwd.x * f + right.x * r) * speed;
         const mz = (fwd.z * f + right.z * r) * speed;
+        const hit = (x: number, z: number, eye = this.lift) => !!this.collide?.(x, z, eye);
         // slide along walls: try each axis separately (and never trap someone already inside)
-        const free = !this.collide || this.collide(p.x, p.z);
-        if (free || !this.collide!(p.x + mx, p.z)) p.x += mx;
-        if (free || !this.collide!(p.x, p.z + mz)) p.z += mz;
+        const free = hit(p.x, p.z);
+        if (free || !hit(p.x + mx, p.z)) p.x += mx;
+        if (free || !hit(p.x, p.z + mz)) p.z += mz;
+        // rise and come down; land on a roof rather than sink into the building
+        const u = clamp(this.moveInput.up + (k.has('KeyR') || k.has('PageUp') ? 1 : 0) - (k.has('KeyF') || k.has('PageDown') ? 1 : 0), -1, 1);
+        if (u) {
+          const next = clamp(this.lift + u * (k.has('ShiftLeft') || k.has('ShiftRight') ? 24 : 7) * dt, EYE, MAX_LIFT);
+          if (u > 0 || free || !hit(p.x, p.z, next)) this.lift = next;
+        }
       }
-      p.y = this.ground(p.x, p.z) + 1.7;
+      p.y = this.ground(p.x, p.z) + this.lift;
       const look = new THREE.Vector3(
         p.x - Math.sin(this.yaw) * Math.cos(this.pitch),
         p.y + Math.sin(this.pitch),

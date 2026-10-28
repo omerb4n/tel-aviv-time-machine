@@ -70,4 +70,12 @@ describe('rephotography feedback', () => {
     const far = alignment(pose, { ...pose, x: pose.x + NEAR.dist + 2 });
     expect(far).toMatchObject({ matched: false, near: false });
   });
+
+  it('needs the photographer’s height: the Herzl Street print was taken from a rooftop', () => {
+    expect(pose.height).toBeGreaterThan(6);
+    // from the street the brackets show, but it only matches once you rise
+    expect(alignment(pose, { ...pose, height: 1.7 })).toMatchObject({ matched: false, near: true });
+    expect(alignment(pose, { ...pose, height: (pose.height ?? 0) + MATCH.height - 0.5 })).toMatchObject({ matched: true });
+    expect(alignment(pose, { ...pose, height: 40 })).toMatchObject({ near: false });
+  });
 });

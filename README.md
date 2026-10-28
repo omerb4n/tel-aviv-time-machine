@@ -15,7 +15,15 @@ The original "scroll through time" experience is still there as **Free explore**
 the city, scrub the timeline from sand dunes (1900) to today's towers (2025), and click any
 building to hear its life story. See [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md) for the design.
 
-<!--SHOTS-->
+| Rothschild Boulevard today: the start | Noticing: a new page in the notebook |
+| --- | --- |
+| ![intro](docs/screenshots/n-intro.png) | ![discovery](docs/screenshots/n-discovery.png) |
+| **The notebook: riddles, nudges, two photographs to place** | **The map of 1909, with a nudge's search area** |
+| ![notebook](docs/screenshots/n-notebook.png) | ![map](docs/screenshots/n-map.png) |
+
+| On a phone: peek from 1960 into 1985 | Lining up the Herzl Street photograph | Matched by eye |
+| --- | --- | --- |
+| ![peek](docs/screenshots/n-phone-peek.png) | ![photo](docs/screenshots/n-phone-photo.png) | ![card](docs/screenshots/n-phone-photo-card.png) |
 
 The interface design and the research behind it are in [docs/UI_DESIGN.md](docs/UI_DESIGN.md).
 
@@ -46,6 +54,7 @@ Deep links: `http://localhost:5173/#year=1948`.
 | --- | --- |
 | Mouse: click once, then move it (`Esc` frees it) · touch: drag | Look around |
 | `W A S D` (touch: the stick) | Walk (`Shift` to hurry) |
+| `R` · `F` (or the ▲ ▼ buttons) | Rise above the roofs · come back down (some photos were taken from a rooftop) |
 | Hold your look on something · click / tap · `E` | Notice it: a ring fills at the centre, then it goes into the notebook |
 | Year tickets: tap a year (`1`–`7`) · hold a year (`Q`) | Slip to that year · peek into it from where you stand |
 | The postcard · `P` | Hold up an old photo and line it up by eye; `H` while holding adds an aid |

@@ -200,7 +200,7 @@ async function main() {
   const game = new Game({ time, rig, camera, canvas, post, buildings, scene, audio, ground, jumpTo }, $('#ui'));
   // the real archive photographs download while the first year is built
   const archive = game.loadArchive();
-  rig.collide = (x, z) => game.active && game.blocked(x, z);
+  rig.collide = (x, z, eye) => game.active && game.blocked(x, z, eye);
 
   /** The classic free timeline (the original museum-style experience). */
   const enterFree = (fromGame: boolean) => {
