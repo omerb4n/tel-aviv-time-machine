@@ -53,7 +53,7 @@ and brass, laid over the living street.
 | Noticing | **A ring at the centre of the view** | Fills while your look rests on something worth noticing; nothing else in the world is marked. |
 | When am I | **Split-flap board** (Solari) | Time travel = departures. The digits flip through the years in between, with a soft clack. |
 | Where can I go | **Tickets** (notched, perforated) | Seven years, all open. Tap to travel, hold to peek. |
-| The photo | **The postcard in your pocket** (a tilted thumbnail) | Not a "Photo" button: the actual postcard, the next photo still to place. |
+| The photo | **The postcard in your pocket** (a tilted thumbnail) | Not a "Photo" button: the actual postcard, the photo you chose to place. With several found, tapping it lays them out to pick from. Hidden until a photo turns up. |
 | Discoveries | **Archive index cards** (ruled lines, red rule, typed header, rubber stamp) | The confidence badge becomes a stamp: DOCUMENTED / APPROXIMATE / ILLUSTRATIVE. The year you noticed it is a ticket stapled to the card; a new notebook page is a boxed note. |
 | Notebook | **Manila folder** with a tab per section (Architecture · Urbanism · Culture) | Each page opens with what it is about, then found entries (✓) and riddles (?). Style stamps are perforated postage stamps. |
 | Title | **A 1930s poster** with the notebook as a ticket | First impression sets the tone. |
@@ -98,6 +98,8 @@ Old: hold up the photo, watch a percentage and follow "turn left".
 
 New:
 
+0. **The photo turns up** when you notice its subject (the Gymnasium, the crowd on the dune):
+   a postcard card with *Hold it up* or *Later*.
 1. **Find the place** using the photo itself: a long street, a grand building at its end; a crowd
    on bare sand. A nudge in the notebook narrows it down and circles an area on the map.
 2. **Hold it up** (tap the postcard). The photo floats over the view as a translucent ghost.
@@ -105,6 +107,8 @@ New:
 3. **Feedback is coarse and physical**, like a camera:
    - Nothing while you are far.
    - **Focus brackets** appear (with a soft click) when you are within about 14 m and 20°.
+   - Within about 10 m, 14° and 5 m of height, **holding still** lets the view settle into the
+     exact spot over a second or so ("Almost: hold still…"); moving cancels it.
    - The brackets close in and turn brass when the view matches; hold still and the **shutter
      clicks**. You step into the photograph.
 4. **Optional aids**, one at a time (button "Need an aid?", or H):

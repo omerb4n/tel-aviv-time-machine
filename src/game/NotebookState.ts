@@ -24,6 +24,8 @@ export interface SaveData {
   seen?: string[];
   /** The photograph in the pocket (a discovery id). */
   photo?: string;
+  /** Photographs that have turned up (their subject was noticed), by discovery id. */
+  photos?: string[];
 }
 
 /** Trail points are recorded every TRAIL_STEP metres and capped at TRAIL_MAX points. */
@@ -44,6 +46,8 @@ export class NotebookState {
   trail: [number, number][] = [];
   where?: SaveData['where'];
   photo?: string;
+  /** Photographs that have turned up, by discovery id. */
+  readonly photos = new Set<string>();
 
   constructor(
     readonly discoveries: Discovery[],
@@ -56,6 +60,9 @@ export class NotebookState {
     save.landmarks?.forEach((x) => this.landmarks.add(x));
     save.seen?.forEach((x) => this.seen.add(x));
     this.where = save.where;
+    // saves from before photos had to turn up had them all clipped in already
+    const photos = save.photos ?? this.discoveries.filter((d) => d.trigger.kind === 'photo').map((d) => d.id);
+    photos.forEach((x) => this.byId(x) && this.photos.add(x));
     if (save.photo && this.byId(save.photo)) this.photo = save.photo;
     const t = save.trail ?? [];
     for (let i = 0; i + 1 < t.length; i += 2) this.trail.push([t[i], t[i + 1]]);
@@ -99,9 +106,21 @@ export class NotebookState {
     return ids.length ? this.byId(ids[ids.length - 1]) : undefined;
   }
 
-  /** The photographs still to place, in notebook order. */
+  /** A photograph turns up (its subject was noticed). Returns false if it already had. */
+  findPhoto(id: string): boolean {
+    if (this.photos.has(id) || this.byId(id)?.trigger.kind !== 'photo') return false;
+    this.photos.add(id);
+    return true;
+  }
+
+  /** Photographs that have turned up but are not placed yet, in notebook order. */
   get photosLeft(): Discovery[] {
-    return this.missing.filter((d) => d.trigger.kind === 'photo');
+    return this.missing.filter((d) => d.trigger.kind === 'photo' && this.photos.has(d.id));
+  }
+
+  /** Photographs still to turn up. */
+  get photosHidden(): Discovery[] {
+    return this.missing.filter((d) => d.trigger.kind === 'photo' && !this.photos.has(d.id));
   }
 
   /** The photograph in the pocket: the chosen one if still unplaced, else the first left. */
@@ -141,6 +160,7 @@ export class NotebookState {
       trail: this.trail.flat(),
       seen: [...this.seen],
       photo: this.photo,
+      photos: [...this.photos],
     };
   }
 }

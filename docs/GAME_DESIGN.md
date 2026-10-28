@@ -25,7 +25,7 @@ So the cases are gone. The city is open, and a **field notebook** records what y
 
 | Theory | What it says | What we do with it |
 | --- | --- | --- |
-| **Information-gap theory of curiosity** (Loewenstein, 1994) | Curiosity is a *specific* gap that feels closable. | Each undiscovered notebook entry is a one-line riddle ("A house that stands on columns"), and two old photographs are clipped in without saying where they were taken. |
+| **Information-gap theory of curiosity** (Loewenstein, 1994) | Curiosity is a *specific* gap that feels closable. | Each undiscovered notebook entry is a one-line riddle ("A house that stands on columns"), and old photographs turn up, without saying where they were taken, once you notice what is in them. |
 | **Knowledge-based progression** (*Outer Wilds*, *Return of the Obra Dinn*, *Heaven's Vault*) | Progress is what the player knows. | Nothing unlocks; the notebook fills in. Once you know what a thermometer window is, you see them everywhere. |
 | **Self-determination theory** (Ryan, Rigby & Przybylski, 2006) | Autonomy, competence, relatedness. | *Autonomy:* any street, any year, any order. *Competence:* reading façades, dating buildings by eye, matching photos. *Relatedness:* real people, places and photographs. |
 | **MDA** (Hunicke, LeBlanc & Zubek, 2004) | Design back from the aesthetics. | **Discovery** first, then **fantasy** (a time walker) and **narrative** (the city's story). |
@@ -97,14 +97,23 @@ Boulevard today, is surrounded by International Style buildings.
   became Allenby Street; a bare boulevard that became a tunnel of trees.
 
 ### 5.5 Rephotography
-- Two real archive photographs are **clipped into the notebook**, with no location: Herzl
-  Street (1913) and Avraham Soskin's photograph of the lottery (1909). Hold one up (the postcard
-  button, P, or *Hold up* in the notebook), find where it was taken and in which year, and line
-  it up by eye.
+- Real archive photographs **turn up when you notice their subject**: look closely at the
+  Herzliya Gymnasium in its years (1910–1961) and the Herzl Street photograph (1913) is clipped
+  into the notebook; find the crowd on the 1909 dune and Avraham Soskin's photograph of the
+  lottery turns up. Until then the notebook shows only a clue to the subject. Noticing comes
+  first, then the harder search for the spot: two steps, each a small win.
+- **Not a sequence.** Every photograph that has turned up and is not yet placed can be worked
+  on in any order: the postcard button (or P) offers a choice when there is more than one, and
+  each has *Hold up* in the notebook. Find where it was taken and in which year, and line it up
+  by eye.
 - **No meter.** Focus brackets appear when you are close and lock when the view matches; the
   shutter clicks. Height counts too: the Herzl Street photograph was taken from a rooftop (about
   9 m up), so it only locks once you rise to it. The photo only locks in a year when the scene looks like the photo (the
   lottery crowd is there only in 1909; Herzl Street looks like 1913 until the 1920s).
+- **A helping hand when very close.** Nearly lined up (within about 10 m, 14° and 5 m of
+  height) and holding still for a moment, the view settles gently into the photographer's
+  exact spot ("Almost: hold still…"). Finding the place and framing it stays the player's job;
+  the last fiddly degrees do not. Any look or step cancels the settle.
 - Optional aids, one at a time: the photo's outlines, match points, then directions. Matching
   with no aids is marked *by eye* in the notebook.
 - The held print is the whole real photograph, the view is cropped to it, and its empty parts

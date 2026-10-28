@@ -35,6 +35,8 @@ export interface CardSpec {
   aside?: { title: string; text: string };
   /** Card flavour: an index card (default), a postcard or a plain sheet. */
   kind?: 'index' | 'postcard' | 'sheet';
+  /** Pictures to pick from (e.g. which photograph to hold up). */
+  choices?: { image: string; label: string; run: () => void }[];
   actions: { label: string; primary?: boolean; run: () => void }[];
 }
 
@@ -415,6 +417,19 @@ export class GameUI {
     if (spec.image && spec.credit) box.append(h('p', { class: 'g-credit' }, spec.credit));
     box.append(h('p', { class: 'g-gist' }, spec.gist));
     if (spec.aside) box.append(h('div', { class: 'g-aside' }, h('b', {}, spec.aside.title), h('p', {}, spec.aside.text)));
+    if (spec.choices?.length) {
+      box.append(
+        h(
+          'div',
+          { class: 'g-choices' },
+          ...spec.choices.map((c) => {
+            const b = h('button', { class: 'g-choice' }, h('img', { src: c.image, alt: '' }), h('span', {}, c.label)) as HTMLButtonElement;
+            b.onclick = c.run;
+            return b;
+          }),
+        ),
+      );
+    }
     if (spec.confidence) box.append(h('div', { class: `g-stamp ${spec.confidence}` }, STAMP[spec.confidence]));
     const m = spec.more;
     if (m && (m.text || m.facts?.length || m.sources?.length)) {

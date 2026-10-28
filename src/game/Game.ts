@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { Ambience } from '../audio/Ambience';
-import type { CameraRig } from '../core/CameraRig';
+import { type CameraRig, EYE } from '../core/CameraRig';
 import { clamp, easeInOutCubic } from '../core/math';
 import type { TimeController } from '../core/TimeController';
 import { LANDMARKS } from '../data/landmarks';
@@ -18,9 +18,9 @@ import { Joystick } from './Joystick';
 import { hintArea, streetAt, yearLayer, type YearLayer } from './mapData';
 import { FullMap, MiniMap, type MapOverlay } from './MapView';
 import { NotebookState, type Found, type SaveData } from './NotebookState';
-import { alignment, containRect, type Frame, MATCH, printFrame, subjectAlpha, wrapAngle } from './rephoto';
+import { alignment, containRect, type Frame, MATCH, printFrame, settles, subjectAlpha, wrapAngle } from './rephoto';
 import { Sfx } from './sfx';
-import type { Discovery, PhotoDef, Poi, SectionId, Years } from './types';
+import type { Discovery, PhotoDef, Poi, SectionId, Trigger, Years } from './types';
 
 /** What the game needs from the 3D world. */
 export interface WorldApi {
@@ -45,6 +45,10 @@ const FULLSCREEN_KEY = 'tlvtm.fullscreen';
 const TAP_OFFSETS: [number, number][] = [[0, 0], [0, 16], [0, -16], [16, 0], [-16, 0], [12, 12], [-12, 12], [12, -12], [-12, -12], [0, 30], [0, -30], [30, 0], [-30, 0]];
 /** A look must be held this long (seconds) to notice something; the centre is checked this often. */
 const NOTICE_HOLD = 1.1;
+/** Holding still this long (s) near a photo's spot lets the view settle into it… */
+const SETTLE_AFTER = 0.35;
+/** …at this rate (1/s). */
+const SETTLE_RATE = 2.2;
 const NOTICE_EVERY = 0.15;
 
 type Lens =
@@ -83,6 +87,8 @@ interface Holding {
   /** Aids switched on: 1 tracing, 2 match points, 3 directions. */
   aid: number;
   focus: 'none' | 'near' | 'lock';
+  /** Nearly lined up and still: the view is settling into the photographer's spot. */
+  settling?: boolean;
 }
 
 function read<T>(key: string): T | undefined {
@@ -523,7 +529,7 @@ export class Game {
       gist: 'In 1909 this boulevard was a sand dune. Walk the city in seven different years: nothing here is marked, and what you notice yourself goes into your notebook.',
       aside: {
         title: 'Your notebook',
-        text: 'Architecture, urbanism and culture. Each page says what to look for, never where. Two old photographs are clipped inside: find where they were taken.',
+        text: 'Architecture, urbanism and culture. Each page says what to look for, never where. Old photographs turn up when you notice what is in them; then find where each was taken.',
       },
       actions: [{ label: 'Next', primary: true, run: () => this.howToPlay() }],
     });
@@ -596,7 +602,11 @@ export class Game {
             const f = s.found.get(d.id);
             const p = photoOf(d);
             const plate = p && this.photos.get(p.id);
-            if (!f) return { id: d.id, title: d.title.en, found: false, riddle: d.riddle.en, nudge: s.nudged.has(d.id) ? d.nudge.en : undefined, photo: plate?.card };
+            if (!f) {
+              const hidden = d.trigger.kind === 'photo' && !s.photos.has(d.id);
+              const riddle = d.trigger.kind === 'photo' && hidden ? d.trigger.clue.en : d.riddle.en;
+              return { id: d.id, title: d.title.en, found: false, riddle, nudge: s.nudged.has(d.id) ? d.nudge.en : undefined, photo: hidden ? undefined : plate?.card };
+            }
             const st = streetAt(f.x, f.z, f.year);
             return {
               id: d.id,
@@ -628,12 +638,7 @@ export class Game {
           this.mini.el.classList.add('ping');
         }
       },
-      hold: (id) => {
-        this.state.photo = id;
-        this.ui.closeModal();
-        this.renderHud();
-        this.togglePhoto();
-      },
+      hold: (id) => this.holdUp(id),
       close: () => this.ui.closeModal(),
     });
   }
@@ -693,15 +698,58 @@ export class Game {
     });
   }
 
-  /** The first undiscovered look that this view of a building makes. */
-  private lookAt(hit: LookHit, year: number): Discovery | undefined {
-    const c = this.w.camera.position;
-    return this.state.missing.find((d) => d.trigger.kind === 'look' && lookFinds(d.trigger, hit, c.x, c.z, year));
+  /** What noticing finds for this discovery: its own trigger, or for a photograph still to turn up, its subject. */
+  private noticeBy(d: Discovery): Trigger {
+    return d.trigger.kind === 'photo' && !this.state.photos.has(d.id) ? d.trigger.find : d.trigger;
   }
 
-  /** The first undiscovered discovery about this prop, if it is close enough. */
+  /** The first undiscovered look (or photograph subject) that this view of a building makes. */
+  private lookAt(hit: LookHit, year: number): Discovery | undefined {
+    const c = this.w.camera.position;
+    return this.state.missing.find((d) => {
+      const t = this.noticeBy(d);
+      return t.kind === 'look' && lookFinds(t, hit, c.x, c.z, year);
+    });
+  }
+
+  /** The first undiscovered discovery (or photograph subject) about this prop, if it is close enough. */
   private poiFinds(poi: Poi, dist: number): Discovery | undefined {
-    return this.state.missing.find((d) => d.trigger.kind === 'poi' && d.trigger.poi === poi.id && dist <= d.trigger.maxDist && this.inter.present(poi.id));
+    return this.state.missing.find((d) => {
+      const t = this.noticeBy(d);
+      return t.kind === 'poi' && t.poi === poi.id && dist <= t.maxDist && this.inter.present(poi.id);
+    });
+  }
+
+  /** Something was noticed: a discovery, or the subject of a photograph that now turns up. */
+  private noticed(d: Discovery) {
+    if (d.trigger.kind === 'photo' && !this.state.photos.has(d.id)) this.turnUp(d);
+    else this.discover(d);
+  }
+
+  /** A photograph of what was just noticed turns up: it joins the notebook, ready to hold up. */
+  private turnUp(d: Discovery) {
+    if (d.trigger.kind !== 'photo' || !this.state.findPhoto(d.id)) return;
+    this.notice = undefined;
+    this.ui.setNotice(undefined);
+    this.save();
+    this.renderHud();
+    this.sfx.chime();
+    const plate = this.photos.get(d.trigger.photo.id);
+    const card = () =>
+      this.ui.showCard({
+        kind: 'postcard',
+        kicker: 'An old photograph turns up',
+        title: d.trigger.kind === 'photo' ? d.trigger.photo.caption.en : d.title.en,
+        gist: `${d.riddle.en} Stand where the photographer stood, in the right year, and it lines up.`,
+        image: plate?.card,
+        aside: { title: 'Clipped into your notebook', text: 'Hold it up any time with the photograph button (P), or from the notebook.' },
+        actions: [
+          { label: 'Hold it up', primary: true, run: () => this.holdUp(d.id) },
+          { label: 'Later', run: () => (this.ui.closeModal(), this.showNext()) },
+        ],
+      });
+    if (this.ui.modalOpen || this.holding) this.ui.toast('An old photograph turned up: it is in your notebook.');
+    else card();
   }
 
   /** After a peek or a slip from `base` into `other`: did comparing the two years here find anything? */
@@ -743,7 +791,7 @@ export class Game {
     this.notice = this.notice?.id === d.id ? { id: d.id, t: this.notice.t + step } : { id: d.id, t: 0 };
     const t = this.notice.t;
     this.ui.setNotice(t < 0.2 ? undefined : clamp((t - 0.2) / (NOTICE_HOLD - 0.2), 0, 1));
-    if (t >= NOTICE_HOLD) this.discover(d);
+    if (t >= NOTICE_HOLD) this.noticed(d);
   }
 
   // ------------------------------------------------------------------ map
@@ -851,8 +899,39 @@ export class Game {
   // view is roughly right and lock when it matches. Three optional aids, one at a time:
   // the photo's outlines, match points, then plain directions.
 
+  /** The photograph button: put the photo away, hold up the only one, or choose among several. */
   private togglePhoto() {
     if (this.holding) return this.closePhoto();
+    const left = this.state.photosLeft;
+    if (left.length > 1 && this.lens.kind === 'idle') {
+      this.closeMap();
+      return this.ui.showCard({
+        kind: 'sheet',
+        kicker: `Photographs to place · ${left.length}`,
+        title: 'Which one now?',
+        gist: 'Pick a photograph, then stand where it was taken.',
+        choices: left.flatMap((d) => {
+          const p = photoOf(d);
+          const plate = p && this.photos.get(p.id);
+          return p && plate ? [{ image: plate.card, label: p.caption.en, run: () => this.holdUp(d.id) }] : [];
+        }),
+        actions: [{ label: 'Not now', run: () => this.ui.closeModal() }],
+      });
+    }
+    this.holdPocket();
+  }
+
+  /** Puts this photograph in the pocket and holds it up. */
+  private holdUp(id: string) {
+    this.state.photo = id;
+    this.save();
+    this.ui.closeModal();
+    this.renderHud();
+    this.holdPocket();
+  }
+
+  private holdPocket() {
+    if (this.holding) return;
     const disc = this.state.pocket;
     if (!disc || disc.trigger.kind !== 'photo' || this.lens.kind !== 'idle') return;
     const photo = disc.trigger.photo;
@@ -883,10 +962,15 @@ export class Game {
     const H = this.holding;
     if (!H) return;
     const { rig, camera } = this.w;
-    const view = { x: camera.position.x, z: camera.position.z, yaw: rig.yaw, pitch: rig.pitch, height: rig.lift };
-    const a = alignment(H.photo.pose, view);
     // a photo lines up only in the years when the place looked like it (the 1909 crowd)
     const rightYear = inYears(Math.floor(this.w.time.year), H.years);
+    // a helping hand: nearly lined up and holding still, the view settles into the photographer's spot
+    const pose = H.photo.pose;
+    const before = alignment(pose, { x: camera.position.x, z: camera.position.z, yaw: rig.yaw, pitch: rig.pitch, height: rig.lift });
+    H.settling = rightYear && settles(before) && rig.idleFor > SETTLE_AFTER;
+    if (H.settling) rig.ease({ x: pose.x, z: pose.z, yaw: pose.yaw, pitch: pose.pitch, lift: pose.height ?? EYE }, 1 - Math.exp(-SETTLE_RATE * dt));
+    const view = { x: camera.position.x, z: camera.position.z, yaw: rig.yaw, pitch: rig.pitch, height: rig.lift };
+    const a = alignment(pose, view);
     const matched = a.matched && rightYear;
     const focus = matched ? 'lock' : a.near ? 'near' : 'none';
     if (focus !== 'none' && H.focus === 'none') this.sfx.focus();
@@ -922,6 +1006,7 @@ export class Game {
       else if (a.pitchErr > MATCH.pitch) advice = H.photo.pose.pitch > view.pitch ? 'Look up a little.' : 'Look down a little.';
       else advice = 'Hold still…';
     }
+    if (H.settling && !a.matched) advice = 'Almost: hold still…';
     if (a.near && !rightYear) {
       const stop = YEARS.find((y) => inYears(y, H.years));
       advice = `This is the spot, but it doesn’t look like this in ${Math.floor(this.w.time.year)}.${stop ? ` Try ${stop}.` : ''}`;
@@ -968,15 +1053,22 @@ export class Game {
 
   private examinePoi(poi: Poi, dist: number) {
     const d = this.poiFinds(poi, dist);
-    if (d) return this.discover(d);
-    if (dist > 30 && this.state.missing.some((x) => x.trigger.kind === 'poi' && x.trigger.poi === poi.id)) return this.ui.toast('Too far away — walk closer.');
+    if (d) return this.noticed(d);
+    if (
+      dist > 30 &&
+      this.state.missing.some((x) => {
+        const t = this.noticeBy(x);
+        return t.kind === 'poi' && t.poi === poi.id;
+      })
+    )
+      return this.ui.toast('Too far away — walk closer.');
     this.ui.toast(poi.label.en);
   }
 
   private examineSite(site: BuildingSite, point: { x: number; z: number }) {
     const year = Math.floor(this.w.time.year);
     const d = this.lookAt({ site, point }, year);
-    if (d) return this.discover(d);
+    if (d) return this.noticed(d);
     const phase = phaseAt(site, year);
     if (!phase) return;
     const c = this.w.camera.position;

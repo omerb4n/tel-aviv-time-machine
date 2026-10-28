@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { containRect, printFrame, subjectAlpha } from '../src/game/rephoto';
+import { alignment, containRect, MATCH, NEAR, printFrame, SETTLE, settles, subjectAlpha } from '../src/game/rephoto';
 
 describe('fitting a real photograph over the view', () => {
   const view = [
@@ -53,5 +53,24 @@ describe('the see-through print', () => {
       expect(v).toBeGreaterThanOrEqual(0.1 - 1e-6);
       expect(v).toBeLessThanOrEqual(0.7 + 1e-6);
     }
+  });
+});
+
+describe('settling into the photographer’s spot', () => {
+  const photo = { x: 10, z: 20, yaw: 0.5, pitch: -0.1, height: 9 };
+  const deg = Math.PI / 180;
+
+  it('helps only between "nearly there" and a match', () => {
+    for (const k of ['dist', 'yaw', 'pitch', 'height'] as const) {
+      expect(SETTLE[k]).toBeGreaterThan(MATCH[k]);
+      expect(SETTLE[k]).toBeLessThan(NEAR[k]);
+    }
+  });
+
+  it('takes over a few steps and degrees off, not from across the street', () => {
+    expect(settles(alignment(photo, { x: 15, z: 24, yaw: 0.5 + 10 * deg, pitch: 0, height: 6 }))).toBe(true);
+    expect(settles(alignment(photo, { x: 25, z: 20, yaw: 0.5, pitch: -0.1, height: 9 }))).toBe(false);
+    expect(settles(alignment(photo, { x: 10, z: 20, yaw: 0.5 + 25 * deg, pitch: -0.1, height: 9 }))).toBe(false);
+    expect(settles(alignment(photo, { x: 10, z: 20, yaw: 0.5, pitch: -0.1, height: 1.7 }))).toBe(false);
   });
 });

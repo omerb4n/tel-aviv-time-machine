@@ -57,7 +57,7 @@ Deep links: `http://localhost:5173/#year=1948`.
 | `R` · `F` (or the ▲ ▼ buttons) | Rise above the roofs · come back down (some photos were taken from a rooftop) |
 | Hold your look on something · click / tap · `E` | Notice it: a ring fills at the centre, then it goes into the notebook |
 | Year tickets: tap a year (`1`–`7`) · hold a year (`Q`) | Slip to that year · peek into it from where you stand |
-| The postcard · `P` | Hold up an old photo and line it up by eye; `H` while holding adds an aid |
+| The postcard · `P` | Hold up an old photo you have found (choose one if several) and line it up by eye; hold still when close and it settles; `H` adds an aid |
 | The tag · `J` | The notebook (with a *Nudge* for any entry you are stuck on) |
 | The map disc · `M` · `Esc` | The map of the current year · menu |
 
