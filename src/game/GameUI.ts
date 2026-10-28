@@ -26,6 +26,8 @@ export interface CardSpec {
   /** Shown under "More" (full story, facts, sources). */
   more?: { text?: string; facts?: string[]; sources?: SourceRef[] };
   image?: string;
+  /** Who took the photograph in `image`, and its rights. */
+  credit?: string;
   confidence?: Confidence;
   /** A ticket stapled to the card, e.g. a newly anchored year. */
   ticket?: { label: string; value: string };
@@ -64,6 +66,8 @@ export interface PhotoView {
   /** Match points: photo position and live position, in CSS pixels. */
   marks?: { px: number; py: number; lx: number; ly: number; visible: boolean }[];
   advice?: string;
+  /** Where the print sits on screen, in CSS pixels; the world is cropped to it. */
+  rect: { x: number; y: number; w: number; h: number };
 }
 
 const svg = (path: string, vb = '0 0 24 24') => {
@@ -179,8 +183,8 @@ export class GameUI {
       { class: 'g-photo hidden' },
       this.photoImg,
       this.tracing,
-      this.marks,
       frame,
+      this.marks,
       h('div', { class: 'ph-caption' }),
       this.photoAdvice,
       h('div', { class: 'ph-bar' }, this.aidBtn, away),
@@ -323,20 +327,26 @@ export class GameUI {
 
   // ------------------------------------------------------------------ rephotography
 
-  /** Hold up a photo (or put it away with undefined). `ratio` = photo width / height. */
-  showPhoto(p: { src: string; tracing: string; ratio: number; caption: string } | undefined) {
+  /** Hold up a photo (or put it away with undefined). */
+  showPhoto(p: { src: string; tracing: string; caption: string } | undefined) {
     this.photo.classList.toggle('hidden', !p);
     this.root.classList.toggle('holding', !!p);
+    this.photo.dataset.rect = '';
     if (!p) return;
     this.photoImg.src = p.src;
     this.tracing.src = p.tracing;
-    for (const el of [this.photoImg, this.tracing]) el.style.width = `calc(100vh * ${p.ratio})`;
-    (this.photo.querySelector('.ph-frame') as HTMLElement).style.width = `min(100vw, calc(100vh * ${p.ratio}))`;
     (this.photo.querySelector('.ph-caption') as HTMLElement).textContent = p.caption;
   }
 
   renderPhoto(v: PhotoView) {
     this.photo.dataset.focus = v.focus;
+    const { x, y, w, h: ht } = v.rect;
+    const key = `${x} ${y} ${w} ${ht}`;
+    if (this.photo.dataset.rect !== key) {
+      this.photo.dataset.rect = key;
+      for (const el of [this.photoImg, this.tracing, this.photo.querySelector('.ph-frame') as HTMLElement])
+        Object.assign(el.style, { left: `${x}px`, top: `${y}px`, width: `${w}px`, height: `${ht}px` });
+    }
     this.tracing.classList.toggle('hidden', v.aid < 1);
     const label = v.aid >= 3 ? 'All aids on' : v.aid === 0 ? 'Need an aid?' : `Another aid · ${v.aid}/3`;
     if (this.aidBtn.dataset.label !== label) {
@@ -348,7 +358,7 @@ export class GameUI {
     if (v.advice && this.photoAdvice.textContent !== v.advice) this.photoAdvice.textContent = v.advice;
     const NS = 'http://www.w3.org/2000/svg';
     const nodes: SVGElement[] = [];
-    const COLORS = ['#e9b872', '#7fd1c7', '#f08a6c'];
+    const COLORS = ['#e9b872', '#7fd1c7', '#f08a6c', '#c9a6e8'];
     v.marks?.forEach((m, i) => {
       const c = COLORS[i % COLORS.length];
       const el = (tag: string, attrs: Record<string, string | number>) => {
@@ -402,6 +412,7 @@ export class GameUI {
     if (spec.ticket) box.append(h('div', { class: 'g-staple' }, h('small', {}, spec.ticket.label), h('b', {}, spec.ticket.value)));
     box.append(h('h2', {}, spec.title));
     if (spec.image) box.append(h('img', { class: 'g-card-img', src: spec.image, alt: spec.title }));
+    if (spec.image && spec.credit) box.append(h('p', { class: 'g-credit' }, spec.credit));
     box.append(h('p', { class: 'g-gist' }, spec.gist));
     if (spec.confidence) box.append(h('div', { class: `g-stamp ${spec.confidence}` }, STAMP[spec.confidence]));
     const m = spec.more;

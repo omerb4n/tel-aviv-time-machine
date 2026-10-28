@@ -1,7 +1,10 @@
-import { frameAt, sideNormal, streetById } from '../../data/streets';
+import { LANDMARKS } from '../../data/landmarks';
+import { frameAt, streetById } from '../../data/streets';
+import herzl1913 from '../../assets/archive/herzl-1913.jpg';
 import type { CaseDef, Pose } from '../types';
 
 const W = (title: string) => `https://en.wikipedia.org/wiki/${title}`;
+const COMMONS = (file: string) => `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(file)}`;
 
 /** Facing from (x, z) towards (tx, tz), in CameraRig yaw convention. */
 function facing(x: number, z: number, tx: number, tz: number) {
@@ -11,18 +14,24 @@ function facing(x: number, z: number, tx: number, tz: number) {
 // The Gymnasium / Shalom Meir Tower site at the head of Herzl Street.
 const SITE = { x: -14, z: -176 };
 
-// Where the postcard photographer stood: in the middle of Herzl St, just north of Rothschild Blvd.
-const herzl = streetById('herzl');
-const shot = frameAt(herzl, 520);
-const POSTCARD: Pose = { x: shot.x, z: shot.z, yaw: facing(shot.x, shot.z, SITE.x, SITE.z), pitch: 0.03 };
-
-// Match points for the photo aid: the school's entrance at the end of the street and both kerbs ahead.
-const kerb = (s: number, side: 'L' | 'R') => {
-  const f = frameAt(herzl, s);
-  const [nx, nz] = sideNormal(f, side);
-  return { x: f.x + nx * (herzl.width / 2), y: 0, z: f.z + nz * (herzl.width / 2) };
+// The Gymnasium in its own axes (local +z faces down Herzl Street) → world. Matches siteRect.
+const GYM = LANDMARKS.find((l) => l.id === 'herzliya-gymnasium')!;
+const gym = (lx: number, y: number, lz: number) => {
+  const c = Math.cos(GYM.rot);
+  const s = Math.sin(GYM.rot);
+  return { x: GYM.x + lx * c + lz * s, y, z: GYM.z - lx * s + lz * c };
 };
-const MARKS = [{ x: SITE.x, y: 8, z: SITE.z + 12 }, kerb(575, 'L'), kerb(585, 'R')];
+
+// Where the postcard photographer stood: on Herzl St north of Rothschild Blvd, looking up the
+// street with the school right of centre and looking down a little, as in the 1913 photograph
+// (taken from a rooftop).
+const herzl = streetById('herzl');
+const shot = frameAt(herzl, 550);
+const POSTCARD: Pose = { x: shot.x, z: shot.z, yaw: facing(shot.x, shot.z, SITE.x, SITE.z) + 0.22, pitch: -0.06 };
+
+// Match points, in the model and in the photograph: the tops of the two towers and the arch.
+const MARKS = [gym(-7, 17.6, 8.2), gym(7, 17.6, 8.2), gym(0, 9, 10.1)];
+const ARCHIVE_MARKS: [number, number][] = [[0.694, 0.203], [0.781, 0.197], [0.737, 0.374]];
 
 // The player starts further down Herzl, south of the boulevard, glancing up the street.
 const startF = frameAt(herzl, 420);
@@ -52,17 +61,22 @@ export const VANISHING_SCHOOL: CaseDef = {
           id: 'herzl-1910',
           year: 1910,
           pose: POSTCARD,
-          title: { en: 'Herzl Street, c. 1910' },
+          title: { en: 'Herzl Street, 1913' },
           caption: { en: 'Tel-Aviv · Herzl Street' },
-          reference: { label: 'Herzliya Hebrew Gymnasium – photos on Wikipedia', url: W('Herzliya_Hebrew_Gymnasium') },
+          reference: { label: 'The photograph – Wikimedia Commons', url: COMMONS('THE_HERZL_"GYMNASIA"_(SECONDARY_SCHOOL)_AT_THE_ENDOF_HERZL_STRREET_IN_TEL_AVIV._רחוב_הרצל_בתל_אביב..jpg') },
           marks: MARKS,
+          archive: {
+            src: herzl1913,
+            marks: ARCHIVE_MARKS,
+            credit: { en: 'Herzl Street, 1913. Photographer unknown. National Photo Collection of Israel; public domain.' },
+          },
         },
       },
       clue: {
         title: { en: 'Herzl Street, 1910' },
         gist: { en: 'You stepped into the postcard: Herzl Street was built to lead to one grand building.' },
         text: {
-          en: 'The postcard comes alive. A year after the seashell lottery, Herzl Street is a sandy track between new garden houses — and it was laid out to lead straight to one building: a school with a temple-like façade.',
+          en: 'The postcard comes alive. A year after the seashell lottery, Herzl Street is a sandy track between new garden houses — and it was laid out to lead straight to one building: a school with a temple-like façade. The real photograph was taken in 1913, from a rooftop.',
         },
         sources: [{ label: 'Ahuzat Bayit – Wikipedia', url: W('Ahuzat_Bayit') }],
         confidence: 'documented',
@@ -70,7 +84,7 @@ export const VANISHING_SCHOOL: CaseDef = {
       },
       hints: [
         { en: 'The photo looks up a long street to a grand building.' },
-        { en: 'Herzl St, just past the boulevard. Circled on your map.' },
+        { en: 'Herzl St, north of the boulevard. Circled on your map.' },
         { en: 'Marked on your screen and map.' },
       ],
       target: { x: POSTCARD.x, z: POSTCARD.z, y: 1.7 },
