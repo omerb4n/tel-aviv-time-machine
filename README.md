@@ -1,42 +1,21 @@
 # Tel Aviv Time Machine · מכונת הזמן של תל אביב
 
-A web-based 3D **time-travel exploration game** set in Tel Aviv. Walk the streets at eye level,
-notice what is missing, stand where old photographs were taken and slip between 1900 and today to
-solve the city's mysteries.
+A web-based 3D **time-travel exploration game** set in Tel Aviv. Walk the streets at eye level in
+seven different years, from the sand dunes of 1909 to today, and keep a **field notebook** of what
+you notice about how the city was built.
 
-**Case 1 · The Vanishing School:** a postcard shows a grand building at the end of Herzl Street,
-but in 2025 a tower stands there. Find where the postcard was taken, step into 1910, follow the
-clues through 1962 and 1965, and work out what happened.
-
-**Case 2 · The Seashell Lottery:** a fountain on Rothschild Boulevard leads you back to an empty
-dune in 1909, where 66 families divide the land with two baskets of seashells. Stand where the
-photographer stood, draw the shells yourself and find the house on plot 43.
-
-**Case 3 · The House on Plot 43:** follow one building from a family home (1910) to the city's art
-museum (1936) to the afternoon of 14 May 1948. Open a secret invitation, step inside the hall and
-stand where the only photographer stood as the State of Israel is declared.
+Nothing is marked. The notebook has three sections: **architecture**, **urbanism** and
+**culture**. Each page says what to look for, never where: ribbon balconies and thermometer
+windows, a house on columns, a grey building that turned white again, a school that became a
+tower, the trees of Rothschild Boulevard. You notice things by looking closely, by comparing two
+years in one place (slip or peek through a time lens), and by standing where two real archive
+photographs were taken.
 
 The original "scroll through time" experience is still there as **Free explore**: orbit above
 the city, scrub the timeline from sand dunes (1900) to today's towers (2025), and click any
 building to hear its life story. See [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md) for the design.
 
-| Street sign, objective tag, split-flap year and year tickets | Lining up the postcard, with two aids on |
-| --- | --- |
-| ![HUD](docs/screenshots/g-hud.png) | ![photo aids](docs/screenshots/g-photo-aids.png) |
-| **A clue: an archive index card** | **The map of 1910, drawn as a survey map** |
-| ![clue](docs/screenshots/g-clue.png) | ![map 1910](docs/screenshots/g-map-1910.png) |
-
-| On a phone: the title | Examine the school | A clue anchors 1962 |
-| --- | --- | --- |
-| ![title](docs/screenshots/g-phone-title.png) | ![examine](docs/screenshots/g-phone-examine.png) | ![clue 1962](docs/screenshots/g-phone-clue.png) |
-
-| Case 2 · the lottery table on the 1909 dune | Lining up Soskin's photograph | Draw a shell from each basket |
-| --- | --- | --- |
-| ![shells](docs/screenshots/c2-shells.png) | ![photo](docs/screenshots/c2-photo.png) | ![draw](docs/screenshots/c2-draw.png) |
-
-| Case 3 · the Dizengoffs' home, 1910 | A secret invitation, 14 May 1948 | Inside the museum hall |
-| --- | --- | --- |
-| ![1910](docs/screenshots/c3-1910.png) | ![invitation](docs/screenshots/c3-invitation.png) | ![hall](docs/screenshots/c3-hall.png) |
+<!--SHOTS-->
 
 The interface design and the research behind it are in [docs/UI_DESIGN.md](docs/UI_DESIGN.md).
 
@@ -61,16 +40,17 @@ Deep links: `http://localhost:5173/#year=1948`.
 
 ## Controls
 
-**Case (game)**
+**Exploring (game)**
 
 | | |
 | --- | --- |
-| Drag · `W A S D` (touch: stick + drag) | Look · walk (`Shift` to hurry) |
-| Click / tap · `E` · **Examine** button | Examine what you are looking at (the button appears when your current lead is in reach) |
-| Year tickets: tap a year · hold a year (`Q`) | Slip to that year · peek into it from where you stand |
-| The postcard · `P` | Hold up the old photo and line it up by eye; `H` while holding adds an aid |
-| The map disc · `M` | Open the full map of the current year |
-| The tag · `J` · `?` · `H` · `Esc` | Case file · hint · hint · menu |
+| Mouse: click once, then move it (`Esc` frees it) · touch: drag | Look around |
+| `W A S D` (touch: the stick) | Walk (`Shift` to hurry) |
+| Hold your look on something · click / tap · `E` | Notice it: a ring fills at the centre, then it goes into the notebook |
+| Year tickets: tap a year (`1`–`7`) · hold a year (`Q`) | Slip to that year · peek into it from where you stand |
+| The postcard · `P` | Hold up an old photo and line it up by eye; `H` while holding adds an aid |
+| The tag · `J` | The notebook (with a *Nudge* for any entry you are stuck on) |
+| The map disc · `M` · `Esc` | The map of the current year · menu |
 
 **Free explore (classic timeline)**
 
@@ -87,6 +67,8 @@ Deep links: `http://localhost:5173/#year=1948`.
 
 ## What's inside
 
+- A field notebook of 21 discoveries in four collections (*The White City*, *Before the White
+  City*, *Building a city*, *City life*), plus style stamps and landmarks, all sourced.
 - 1900–2025 with 9 eras, 21 sourced events and a 9-stop guided tour.
 - 16 landmark sites (Herzliya Gymnasium, Shalom Meir Tower, Dizengoff House/Independence Hall,
   first kiosk, water tower, Founders' Monument, Great Synagogue, Pagoda House, Engel House, Jaffa
@@ -98,8 +80,8 @@ Deep links: `http://localhost:5173/#year=1948`.
 - Pedestrians in period dress, camels, carts, buses and cars; trees that grow for decades;
   dunes that flatten as the city spreads; day/night; period film grading; procedural sound.
 
-Everything is generated in the browser. The only binary assets are the three archive
-photographs used in the cases (see Credits).
+Everything is generated in the browser. The only binary assets are the two archive photographs
+in the notebook (see Credits).
 
 ## Honesty
 
@@ -109,18 +91,16 @@ hand-sketched and will be replaced with GIS data (see the roadmap).
 
 ## Credits
 
-The case photographs are public domain and come from Wikimedia Commons:
+The notebook's photographs are public domain and come from Wikimedia Commons:
 
 - [Herzl Street and the Herzliya Gymnasium, 1913](https://commons.wikimedia.org/wiki/File:THE_HERZL_%22GYMNASIA%22_(SECONDARY_SCHOOL)_AT_THE_ENDOF_HERZL_STRREET_IN_TEL_AVIV._%D7%A8%D7%97%D7%95%D7%91_%D7%94%D7%A8%D7%A6%D7%9C_%D7%91%D7%AA%D7%9C_%D7%90%D7%91%D7%99%D7%91..jpg)
   — photographer unknown, National Photo Collection of Israel.
 - [The lottery of Ahuzat Bayit, 11 April 1909](https://commons.wikimedia.org/wiki/File:TelAviv-Founding.jpg)
   — Avraham Soskin.
-- [The Declaration of Independence, 14 May 1948](https://commons.wikimedia.org/wiki/File:Declaration_of_State_of_Israel_1948.jpg)
-  — Rudi Weissenstein, National Photo Collection of Israel.
 
 ## Docs
 
-- [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md) — the exploration game: theory, core loop, mechanics, cases
+- [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md) — the exploration game: theory, core loop, mechanics, the notebook's content
 - [docs/RESEARCH.md](docs/RESEARCH.md) — experience design, story arc, data sources, fun & education
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — technical decisions and module map
 - [docs/ROADMAP.md](docs/ROADMAP.md) — milestones

@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { frameAt, streetById } from '../src/data/streets';
-import { VANISHING_SCHOOL as CASE } from '../src/game/cases/vanishingSchool';
-import { GameState, TRAIL_MAX, TRAIL_STEP } from '../src/game/GameState';
+import { DISCOVERIES, HERZL_PHOTO } from '../src/game/content';
 import { distToPolyline, hintArea, streetAt, yearLayer } from '../src/game/mapData';
 import { alignment, MATCH, NEAR } from '../src/game/rephoto';
 import { allSites } from '../src/world/fabric';
@@ -49,46 +48,20 @@ describe('map of a year', () => {
     expect(distToPolyline(-4, 3, [[0, 0], [10, 0]])).toBeCloseTo(5);
   });
 
-  it('circles the hint area around the target without centring on it', () => {
-    for (const l of CASE.leads) {
-      const a = hintArea(l.target, l.id);
-      const d = Math.hypot(a.x - l.target.x, a.z - l.target.z);
-      expect(d).toBeLessThan(a.r);
-      expect(d).toBeGreaterThan(a.r * 0.2);
-      expect(hintArea(l.target, l.id)).toEqual(a); // stable between frames
+  it('circles a nudge’s search area around the spot without centring on it', () => {
+    for (const d of DISCOVERIES) {
+      if (!d.area) continue;
+      const a = hintArea(d.area, d.id, d.area.r);
+      const dist = Math.hypot(a.x - d.area.x, a.z - d.area.z);
+      expect(dist).toBeLessThan(a.r);
+      expect(dist).toBeGreaterThan(a.r * 0.2);
+      expect(hintArea(d.area, d.id, d.area.r)).toEqual(a); // stable between frames
     }
   });
 });
 
-describe('walked trail', () => {
-  it('records a point every few metres and survives a save', () => {
-    const st = new GameState(CASE);
-    expect(st.walk(0, 0)).toBe(true);
-    expect(st.walk(1, 1)).toBe(false);
-    expect(st.walk(TRAIL_STEP + 0.5, 0)).toBe(true);
-    st.seen.add('travel');
-    const back = new GameState(CASE, JSON.parse(JSON.stringify(st.toJSON())));
-    expect(back.trail).toEqual(st.trail);
-    expect(back.seen.has('travel')).toBe(true);
-  });
-
-  it('keeps only the most recent points', () => {
-    const st = new GameState(CASE);
-    for (let i = 0; i < TRAIL_MAX + 50; i++) st.walk(i * TRAIL_STEP, 0);
-    expect(st.trail.length).toBe(TRAIL_MAX);
-    expect(st.trail[0][0]).toBe(50 * TRAIL_STEP);
-  });
-
-  it('loads older saves without a trail', () => {
-    const st = new GameState(CASE, { v: 1, caseId: CASE.id, done: [], anchors: [], landmarks: [], stamps: [], notes: [], solved: false, hints: {} });
-    expect(st.trail).toEqual([]);
-  });
-});
-
 describe('rephotography feedback', () => {
-  const photo = CASE.leads[0].trigger;
-  if (photo.kind !== 'rephoto') throw new Error('first lead should be a photo');
-  const pose = photo.photo.pose;
+  const pose = HERZL_PHOTO.pose;
 
   it('is "near" before it is "matched", and both at the exact spot', () => {
     expect(alignment(pose, pose)).toMatchObject({ matched: true, near: true });

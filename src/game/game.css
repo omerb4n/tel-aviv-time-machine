@@ -235,47 +235,8 @@ body:not(.mode-free) :is(.brand, .toolbar, #timeline, #help, .yearbox, #labels, 
   text-transform: uppercase;
   color: var(--clay);
 }
-.g-tag .dots {
-  display: inline-flex;
-  gap: 3px;
-}
-.g-tag .dots i {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  border: 1.5px solid rgba(29, 26, 21, 0.4);
-}
-.g-tag .dots i.done {
-  background: var(--cobalt);
-  border-color: var(--cobalt);
-}
-.g-tag .dots i.now {
-  border-color: var(--clay);
-  background: var(--clay);
-  animation: blink 1.6s ease-in-out infinite;
-}
 .g-tag .txt {
   font: 700 15.5px/1.25 var(--f-text);
-}
-.g-tag .note {
-  margin-top: 3px;
-  padding-top: 5px;
-  border-top: 1px dashed rgba(29, 26, 21, 0.3);
-  font: italic 400 13px/1.35 var(--f-typed);
-  color: var(--pencil);
-}
-.g-hint {
-  flex: none;
-  width: 34px;
-  height: 34px;
-  margin-top: 4px;
-  border-radius: 50%;
-  border: 2px solid var(--paper);
-  background: var(--ink);
-  color: var(--paper);
-  font: 400 18px/1 var(--f-display);
-  box-shadow: var(--shadow);
-  cursor: pointer;
 }
 @keyframes blink {
   50% {
@@ -523,10 +484,6 @@ body:not(.mode-free) :is(.brand, .toolbar, #timeline, #help, .yearbox, #labels, 
 .g-postcard:hover {
   transform: rotate(0) scale(1.04);
 }
-#game.near-spot .g-postcard {
-  animation: nudge 1.4s ease-in-out infinite;
-  box-shadow: 0 0 0 3px var(--clay), var(--shadow);
-}
 @keyframes nudge {
   0%,
   100% {
@@ -599,42 +556,6 @@ body:not(.mode-free) :is(.brand, .toolbar, #timeline, #help, .yearbox, #labels, 
     opacity: 0;
     transform: translate(-50%, -10px) rotate(1deg);
   }
-}
-.g-marker {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 0;
-  height: 0;
-  pointer-events: none;
-}
-.g-marker::before {
-  content: '';
-  position: absolute;
-  left: -16px;
-  top: -16px;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 3px solid var(--clay);
-  background: rgba(180, 68, 47, 0.2);
-  box-shadow: 0 0 0 2px var(--paper), 0 0 18px rgba(180, 68, 47, 0.7);
-  animation: marker-pulse 1.4s ease-in-out infinite;
-}
-.g-marker span {
-  position: absolute;
-  left: 50%;
-  top: 22px;
-  transform: translateX(-50%);
-  padding: 2px 8px;
-  background: var(--paper);
-  color: var(--ink);
-  font: 700 11.5px/1.3 var(--f-typed);
-  white-space: nowrap;
-  box-shadow: var(--shadow);
-}
-.g-marker.edge::before {
-  border-style: dashed;
 }
 @keyframes marker-pulse {
   50% {
@@ -749,7 +670,7 @@ body:not(.mode-free) :is(.brand, .toolbar, #timeline, #help, .yearbox, #labels, 
   gap: 10px;
   pointer-events: auto;
 }
-#game.holding :is(.g-tl, .g-tr, .g-bottom, .g-postcard, .g-examine, .g-marker, .g-prompt) {
+#game.holding :is(.g-tl, .g-tr, .g-bottom, .g-postcard, .g-examine, .g-notice, .g-prompt) {
   display: none;
 }
 #game.holding .joystick {
@@ -942,51 +863,6 @@ body:not(.mode-free) :is(.brand, .toolbar, #timeline, #help, .yearbox, #labels, 
   clear: both;
 }
 
-/* deduction */
-.g-options {
-  display: flex;
-  flex-direction: column;
-  margin-top: 6px;
-}
-.g-option {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  width: 100%;
-  padding: 12px 2px;
-  border: 0;
-  border-bottom: 1px dashed rgba(29, 26, 21, 0.3);
-  background: none;
-  color: var(--ink);
-  font: 500 16px/1.4 var(--f-text);
-  text-align: left;
-  cursor: pointer;
-}
-.g-option i {
-  flex: none;
-  width: 18px;
-  height: 18px;
-  margin-top: 2px;
-  border: 2px solid var(--ink);
-  border-radius: 2px;
-}
-.g-option.right i {
-  background: var(--cobalt);
-  border-color: var(--cobalt);
-  box-shadow: inset 0 0 0 3px var(--paper);
-}
-.g-option.wrong span {
-  text-decoration: line-through;
-  text-decoration-color: var(--clay);
-  color: var(--ink-2);
-}
-.g-feedback {
-  min-height: 1.4em;
-  margin: 12px 0 0;
-  font: 700 13.5px/1.4 var(--f-typed);
-  color: var(--ink-2);
-}
-
 /* how to play */
 .g-how-grid {
   display: grid;
@@ -1140,17 +1016,6 @@ body:not(.mode-free) :is(.brand, .toolbar, #timeline, #help, .yearbox, #labels, 
 .g-page h3:first-child {
   margin-top: 2px;
 }
-.g-question {
-  font: 400 18px/1.35 var(--f-display);
-  color: var(--cobalt);
-  margin: 0 0 12px;
-}
-.g-years {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 8px;
-}
 .g-trail {
   list-style: none;
   margin: 10px 0 0;
@@ -1217,34 +1082,6 @@ body:not(.mode-free) :is(.brand, .toolbar, #timeline, #help, .yearbox, #labels, 
   font: italic 400 13px/1.4 var(--f-typed);
   color: var(--pencil);
 }
-.g-notes {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-.g-note {
-  padding: 9px 10px;
-  border: 1.5px dashed rgba(29, 26, 21, 0.3);
-}
-.g-note b {
-  display: block;
-  font: 700 14px/1.25 var(--f-text);
-  color: rgba(29, 26, 21, 0.45);
-}
-.g-note.got {
-  border-style: solid;
-  border-color: var(--cobalt);
-  background: rgba(28, 58, 120, 0.05);
-}
-.g-note.got b {
-  color: var(--cobalt);
-}
-.g-note small {
-  display: block;
-  margin-top: 3px;
-  font: 400 12.5px/1.35 var(--f-text);
-  color: var(--ink-2);
-}
 /* style stamps as perforated postage stamps */
 .g-postage {
   display: grid;
@@ -1286,6 +1123,99 @@ body:not(.mode-free) :is(.brand, .toolbar, #timeline, #help, .yearbox, #labels, 
   font: 400 12.5px/1.4 var(--f-typed);
   color: var(--ink-2);
   margin: 6px 0 0;
+}
+
+/* ------------------------------------------------------------------ the field notebook */
+.g-card.folder.notebook {
+  width: min(560px, 100%);
+}
+.g-tab small {
+  font-weight: 400;
+  letter-spacing: 0;
+  opacity: 0.75;
+}
+.g-page h3 {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.g-page h3 small {
+  font: 700 12px/1 var(--f-typed);
+  letter-spacing: 0;
+  color: var(--cobalt);
+}
+.g-intro {
+  margin: 0 0 4px;
+  font: 400 14.5px/1.45 var(--f-text);
+  color: var(--ink-2);
+}
+.g-page .g-intro + .g-small {
+  margin: 0 0 8px;
+  color: var(--cobalt);
+}
+.g-trail li.now b {
+  font-weight: 600;
+  font-style: italic;
+}
+.g-thumb {
+  display: block;
+  width: min(220px, 100%);
+  margin: 6px 0 2px;
+  box-shadow: var(--shadow);
+  transform: rotate(-1.2deg);
+}
+.g-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+.g-btn-paper.small {
+  padding: 7px 11px;
+  font-size: 13px;
+}
+.g-btn-paper.small svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* a boxed note on a card: a new notebook page and what it is about */
+.g-aside {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--cobalt);
+  background: rgba(28, 58, 120, 0.07);
+}
+.g-aside b {
+  display: block;
+  font: 700 12px/1.2 var(--f-typed);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cobalt);
+}
+.g-aside p {
+  margin: 4px 0 0;
+  font: 400 14px/1.45 var(--f-text);
+  color: var(--ink-2);
+}
+
+/* noticing: a ring at the centre of the view fills while a look is held */
+.g-notice {
+  --p: 0;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 46px;
+  height: 46px;
+  margin: -23px 0 0 -23px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: conic-gradient(var(--paper) calc(var(--p) * 360deg), rgba(243, 234, 214, 0.18) 0);
+  -webkit-mask: radial-gradient(circle, #0000 17px, #000 18px);
+  mask: radial-gradient(circle, #0000 17px, #000 18px);
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.6));
+  transition: opacity 0.2s;
 }
 
 /* ------------------------------------------------------------------ full map */
@@ -1483,26 +1413,6 @@ body:not(.mode-free) :is(.brand, .toolbar, #timeline, #help, .yearbox, #labels, 
 .pt-body .g-actions {
   margin-top: 12px;
 }
-.poster-next {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 6px;
-  padding: 0 14px;
-}
-.poster-next span {
-  padding: 4px 9px;
-  border: 1px dashed rgba(29, 26, 21, 0.4);
-  font: 600 12.5px/1.25 var(--f-text);
-  color: var(--ink-2);
-}
-.poster-next small {
-  display: block;
-  font: 700 9.5px/1.2 var(--f-typed);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  opacity: 0.75;
-}
 
 /* ------------------------------------------------------------------ bigger screens */
 @media (min-width: 900px) {
@@ -1548,68 +1458,6 @@ body:not(.mode-free) :is(.brand, .toolbar, #timeline, #help, .yearbox, #labels, 
   white-space: nowrap;
 }
 
-/* ------------------------------------------------------------------ reveal: draw the shells */
-.g-shells {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-top: 12px;
-}
-.g-shell {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  min-height: 150px;
-  padding: 14px 8px 12px;
-  border: 1.5px dashed rgba(29, 26, 21, 0.35);
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.3);
-  color: var(--ink);
-  cursor: pointer;
-}
-.g-shell .shell {
-  width: 72px;
-  height: 62px;
-  border-radius: 50% 50% 42% 42% / 64% 64% 36% 36%;
-  background: repeating-conic-gradient(from 180deg at 50% 100%, rgba(0, 0, 0, 0.14) 0 3deg, transparent 3deg 14deg), radial-gradient(circle at 50% 100%, #fbf8f1, #e9e1cf);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
-  transition: transform 0.45s ease;
-}
-.g-shell.dark .shell {
-  background: repeating-conic-gradient(from 180deg at 50% 100%, rgba(0, 0, 0, 0.22) 0 3deg, transparent 3deg 14deg), radial-gradient(circle at 50% 100%, #a9a59d, #77736c);
-}
-.g-shell small {
-  font: 700 11px/1.3 var(--f-typed);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--ink-2);
-}
-.g-shell b {
-  font: 400 20px/1.15 var(--f-display);
-  color: var(--cobalt);
-  opacity: 0;
-  transform: translateY(6px);
-  transition: all 0.35s ease 0.2s;
-}
-.g-shell.open {
-  border-style: solid;
-  border-color: var(--cobalt);
-  cursor: default;
-}
-.g-shell.open .shell {
-  transform: rotateY(180deg) scale(0.85);
-}
-.g-shell.open b {
-  opacity: 1;
-  transform: none;
-}
-.g-shell:not(.open) {
-  animation: blink 2s ease-in-out infinite;
-}
-.g-card.reveal .g-actions {
-  justify-content: center;
-}
 .g-btn-ink:disabled {
   opacity: 0.35;
   box-shadow: none;
@@ -1634,33 +1482,6 @@ body:not(.mode-free) :is(.brand, .toolbar, #timeline, #help, .yearbox, #labels, 
   background: rgba(255, 255, 255, 0.55);
 }
 
-/* stepping through a door */
-#game.dim::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background: #0d0b08;
-  animation: flash 0.7s ease-out forwards;
-  pointer-events: none;
-}
-
-/* the reveal as an envelope / printed card instead of a shell */
-.g-shell.cards .shell {
-  width: 84px;
-  height: 56px;
-  border-radius: 2px;
-  background: linear-gradient(to bottom right, transparent 49%, rgba(0, 0, 0, 0.18) 50%, transparent 52%) 0 0 / 50% 60% no-repeat,
-    linear-gradient(to bottom left, transparent 49%, rgba(0, 0, 0, 0.18) 50%, transparent 52%) 100% 0 / 50% 60% no-repeat, #f6f1e4;
-  border: 1px solid rgba(29, 26, 21, 0.25);
-}
-.g-shell.cards.open .shell {
-  transform: rotateX(180deg) scale(0.85);
-}
-.g-shell.cards b {
-  font-size: 16px;
-  line-height: 1.25;
-}
-
 /* ------------------------------------------------------------------ phones in landscape
    Little height: everything shrinks and hugs the edges so the street stays visible. */
 @media (orientation: landscape) and (max-height: 500px) {
@@ -1683,14 +1504,6 @@ body:not(.mode-free) :is(.brand, .toolbar, #timeline, #help, .yearbox, #labels, 
   }
   .g-tag .txt {
     font-size: 13px;
-  }
-  .g-tag .note {
-    font-size: 11.5px;
-  }
-  .g-hint {
-    width: 30px;
-    height: 30px;
-    font-size: 16px;
   }
   .g-minimap {
     width: 84px;

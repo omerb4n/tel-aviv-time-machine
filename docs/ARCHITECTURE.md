@@ -48,9 +48,10 @@ src/
     PostFX.ts             bloom + period film grading
     textures.ts, materials.ts  procedural textures and shared materials
   game/                   the exploration game (see GAME_DESIGN.md §9)
-    cases/                case content (leads, clues, props, deduction)
-    GameState.ts          pure progress state + save/load
-    Game.ts, GameUI.ts    orchestration (time lens, rephotography, examining) and HUD (see UI_DESIGN.md)
+    content/              the notebook's content: collections, discoveries, photos, props
+    NotebookState.ts      pure progress state + save/load
+    discover.ts           pure tests for noticing and comparing
+    Game.ts, GameUI.ts    orchestration (time lens, noticing, rephotography, notebook) and HUD (see UI_DESIGN.md)
     Flap.ts               split-flap year board
     mapData.ts, MapView.ts  the map of a year (pure data) and its canvas minimap / full map
   ui/                     timeline, info panel, labels, toasts, tour (free-explore mode)

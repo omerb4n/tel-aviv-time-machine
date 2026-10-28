@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import './game/game.css';
 import { Ambience } from './audio/Ambience';
-import { CASES } from './game/cases';
 import { Game } from './game/Game';
 import { CameraRig } from './core/CameraRig';
 import { TimeController } from './core/TimeController';
@@ -198,7 +197,7 @@ async function main() {
     terrain.setYear(time.year);
     terrainDirty = false;
   };
-  const game = new Game({ time, rig, camera, canvas, post, buildings, scene, audio, ground, jumpTo }, CASES, $('#ui'));
+  const game = new Game({ time, rig, camera, canvas, post, buildings, scene, audio, ground, jumpTo }, $('#ui'));
   // the real archive photographs download while the first year is built
   const archive = game.loadArchive();
   rig.collide = (x, z) => game.active && game.blocked(x, z);
@@ -232,7 +231,7 @@ async function main() {
   if (hashYear === undefined) {
     await archive;
     game.preparePhotos();
-    const p = game.def.start.pose;
+    const p = game.start.pose;
     rig.teleport(p.x, p.z, p.yaw, p.pitch);
   }
   progress(1);

@@ -798,6 +798,8 @@ a {
   box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.45);
 }
 .look-hint[data-state='hint'] {
+  /* below the centre, where the game's noticing ring fills */
+  top: calc(50% + 52px);
   padding: 6px 12px;
   border-radius: 999px;
   background: rgba(20, 16, 12, 0.55);

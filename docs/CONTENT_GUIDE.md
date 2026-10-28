@@ -67,6 +67,19 @@ it a tour stop.
 Add a `Street` to `STREETS` with its polyline, widths, `opened` and `paved` years. Add `fabric`
 to grow procedural buildings along it.
 
+## Adding a notebook discovery
+
+Discoveries live in `src/game/content/discoveries.ts` (pages in `collections.ts`). Each one needs:
+
+- a **riddle** that says what to look for, never where, and a **nudge** that narrows it down;
+- a **trigger**: `look` (a landmark by id, or any building of a style, optionally with a test on
+  its phase, such as weathered or restored), `compare` (two year ranges at a spot, on a street, or
+  by a building that changes), `photo` (an archive photograph) or `poi` (a prop);
+- a one-sentence **gist**, the story, **sources** and a **confidence**.
+
+`tests/notebook.test.ts` fails if a discovery cannot be made in any of the seven ticket years, so
+check that the buildings it needs actually stand in one of them. See GAME_DESIGN.md §9.
+
 ## Replacing procedural fabric with real data (milestone 1)
 
 1. Export footprints (OSM / municipal GIS) for an area as GeoJSON.

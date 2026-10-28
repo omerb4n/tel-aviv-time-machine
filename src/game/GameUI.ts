@@ -1,5 +1,5 @@
 import { eraAt } from '../data/eras';
-import type { Confidence, Localized, SourceRef, Street } from '../data/types';
+import type { Confidence, SourceRef, Street } from '../data/types';
 import { h } from '../ui/dom';
 import { Flap } from './Flap';
 
@@ -7,8 +7,8 @@ import { Flap } from './Flap';
  * All DOM for the exploration game. Game.ts decides what to show; this only renders.
  *
  * Visual language (docs/UI_DESIGN.md): a time walker's kit made of period objects.
- * A ceramic street sign, a paper objective tag, a split-flap year board, punched
- * tickets for anchored years, typed archive index cards with rubber stamps.
+ * A ceramic street sign, a paper notebook tag, a split-flap year board, punched
+ * tickets for the years, typed archive index cards with rubber stamps, a field notebook.
  */
 
 const STAMP: Record<Confidence, string> = {
@@ -18,7 +18,7 @@ const STAMP: Record<Confidence, string> = {
 };
 
 export interface CardSpec {
-  /** Typed line at the top, e.g. "Clue 2 / 5". */
+  /** Typed line at the top, e.g. "Architecture · The White City · 2 / 6". */
   kicker: string;
   title: string;
   /** The one sentence the card says up front. */
@@ -29,8 +29,10 @@ export interface CardSpec {
   /** Who took the photograph in `image`, and its rights. */
   credit?: string;
   confidence?: Confidence;
-  /** A ticket stapled to the card, e.g. a newly anchored year. */
+  /** A ticket stapled to the card, e.g. the year something was noticed. */
   ticket?: { label: string; value: string };
+  /** A boxed note under the gist, e.g. a new notebook page and what it is about. */
+  aside?: { title: string; text: string };
   /** Card flavour: an index card (default), a postcard or a plain sheet. */
   kind?: 'index' | 'postcard' | 'sheet';
   actions: { label: string; primary?: boolean; run: () => void }[];
@@ -39,23 +41,34 @@ export interface CardSpec {
 export interface TagSpec {
   kicker: string;
   text: string;
-  /** Lead steps: 'done' | 'now' | ''. */
-  steps: ('done' | 'now' | '')[];
-  hint?: string;
-  canHint: boolean;
 }
 
-export interface CaseFileSpec {
-  number: number;
+/** One line of the notebook. */
+export interface NotebookEntry {
+  id: string;
   title: string;
-  question: string;
-  years: { year: number; locked: boolean }[];
-  leads: { state: 'done' | 'now' | 'locked'; title: string; gist?: string; text?: string; hint?: string; year?: number }[];
-  solved: boolean;
-  readyToSolve: boolean;
-  notes: { title: string; text: string; got: boolean }[];
-  stamps: { name: string; got: boolean }[];
-  landmarks: { names: string[]; total: number };
+  found: boolean;
+  /** Before it is found: what to look for, and the nudge if asked for. */
+  riddle?: string;
+  nudge?: string;
+  /** After: the gist, the story, and when and where it was noticed. */
+  gist?: string;
+  text?: string;
+  where?: string;
+  sources?: SourceRef[];
+  /** A photograph to place (or the placed print). */
+  photo?: string;
+  /** Matched with no aids. */
+  eye?: boolean;
+}
+
+export interface NotebookSpec {
+  sections: { id: string; title: string; found: number; total: number }[];
+  total: [number, number];
+  collections: { title: string; intro: string; start?: string; found: number; total: number; entries: NotebookEntry[] }[];
+  /** Collections filled by examining: style stamps (architecture) or landmarks (culture). */
+  stamps?: { name: string; got: boolean }[];
+  landmarks?: { names: string[]; total: number };
 }
 
 export interface PhotoView {
@@ -106,14 +119,13 @@ export class GameUI {
   readonly mapSlot: HTMLElement;
   private sign: HTMLElement;
   private tag: HTMLButtonElement;
-  private hintBtn: HTMLButtonElement;
   private flap = new Flap();
   private era: HTMLElement;
   private tickets: HTMLElement;
   private tip: HTMLElement;
   private postcard: HTMLButtonElement;
   private prompt: HTMLElement;
-  private marker: HTMLElement;
+  private notice: HTMLElement;
   private toastEl: HTMLElement;
   private toastTimer = 0;
   private photo: HTMLElement;
@@ -126,14 +138,12 @@ export class GameUI {
   private signKey = '';
   private compassKey = '';
 
-  onHint?: () => void;
-  onCase?: () => void;
+  onNotebook?: () => void;
   onMenu?: () => void;
   onExamine?: () => void;
   onPostcard?: () => void;
   onAid?: () => void;
   onPhotoClose?: () => void;
-  onSolve?: () => void;
   /** Tap on a year ticket. */
   onTravel?: (year: number) => void;
   /** Press-and-hold on a year ticket. */
@@ -146,19 +156,18 @@ export class GameUI {
 
     // top left: where am I, what am I doing
     this.sign = h('div', { class: 'g-sign hidden', 'aria-live': 'polite' });
-    this.tag = h('button', { class: 'g-tag', 'aria-label': 'Open the case file' }) as HTMLButtonElement;
-    this.hintBtn = h('button', { class: 'g-hint', title: 'Hint (H)', 'aria-label': 'Hint' }, '?') as HTMLButtonElement;
-    const topLeft = h('div', { class: 'g-tl' }, this.sign, h('div', { class: 'g-tag-row' }, this.tag, this.hintBtn));
+    this.tag = h('button', { class: 'g-tag', 'aria-label': 'Open the notebook' }) as HTMLButtonElement;
+    const topLeft = h('div', { class: 'g-tl' }, this.sign, h('div', { class: 'g-tag-row' }, this.tag));
 
     // top right: map and tools
     this.mapSlot = h('div', { class: 'g-map-slot' });
-    const journal = h('button', { class: 'g-round', title: 'Case file (J)', 'aria-label': 'Case file' }, icon('journal')) as HTMLButtonElement;
+    const journal = h('button', { class: 'g-round', title: 'Notebook (J)', 'aria-label': 'Notebook' }, icon('journal')) as HTMLButtonElement;
     const menu = h('button', { class: 'g-round', title: 'Menu (Esc)', 'aria-label': 'Menu' }, icon('menu')) as HTMLButtonElement;
     const topRight = h('div', { class: 'g-tr' }, this.mapSlot, h('div', { class: 'g-tools' }, journal, menu));
 
     // bottom: the year board and tickets
     this.era = h('div', { class: 'g-era' });
-    this.tickets = h('div', { class: 'g-tickets', role: 'group', 'aria-label': 'Anchored years' });
+    this.tickets = h('div', { class: 'g-tickets', role: 'group', 'aria-label': 'Years' });
     this.tip = h('div', { class: 'g-tip hidden' });
     const bottom = h('div', { class: 'g-bottom' }, this.flap.el, this.era, this.tickets, this.tip);
     this.flap.onStep = () => this.onFlapStep?.();
@@ -166,7 +175,7 @@ export class GameUI {
     this.postcard = h('button', { class: 'g-postcard hidden', title: 'Hold up the postcard (P)', 'aria-label': 'Hold up the postcard' }) as HTMLButtonElement;
     this.examineBtn = h('button', { class: 'g-examine hidden' }) as HTMLButtonElement;
     this.prompt = h('div', { class: 'g-prompt hidden' });
-    this.marker = h('div', { class: 'g-marker hidden' }, h('span', {}, ''));
+    this.notice = h('div', { class: 'g-notice hidden', 'aria-hidden': 'true' });
     this.toastEl = h('div', { class: 'g-toast hidden', 'aria-live': 'polite' });
 
     // the held-up photograph
@@ -192,12 +201,11 @@ export class GameUI {
 
     this.modal = h('div', { class: 'g-modal hidden', role: 'dialog' });
 
-    this.root.append(this.photo, topLeft, topRight, this.marker, this.prompt, this.examineBtn, this.postcard, bottom, this.toastEl, this.modal);
+    this.root.append(this.photo, topLeft, topRight, this.notice, this.prompt, this.examineBtn, this.postcard, bottom, this.toastEl, this.modal);
     parent.append(this.root);
 
-    this.tag.onclick = () => this.onCase?.();
-    this.hintBtn.onclick = () => this.onHint?.();
-    journal.onclick = () => this.onCase?.();
+    this.tag.onclick = () => this.onNotebook?.();
+    journal.onclick = () => this.onNotebook?.();
     menu.onclick = () => this.onMenu?.();
     this.examineBtn.onclick = () => this.onExamine?.();
     this.postcard.onclick = () => this.onPostcard?.();
@@ -221,9 +229,7 @@ export class GameUI {
   }
 
   renderTag(t: TagSpec) {
-    const dots = h('span', { class: 'dots' }, ...t.steps.map((s) => h('i', { class: s })));
-    this.tag.replaceChildren(h('span', { class: 'k' }, h('span', {}, t.kicker), dots), h('span', { class: 'txt' }, t.text), t.hint ? h('span', { class: 'note' }, t.hint) : '');
-    this.hintBtn.classList.toggle('hidden', !t.canHint);
+    this.tag.replaceChildren(h('span', { class: 'k' }, h('span', {}, t.kicker)), h('span', { class: 'txt' }, t.text));
   }
 
   renderYear(year: number, peeking?: number) {
@@ -233,7 +239,7 @@ export class GameUI {
     this.era.textContent = peeking !== undefined ? `Peeking · ${eraAt(y).title.en}` : eraAt(y).title.en;
   }
 
-  /** Anchored years as tickets; locked years as blank stubs. */
+  /** The years as tickets (a locked year is a blank stub). */
   renderCompass(slots: { year: number; locked: boolean }[], current: number, tip?: string) {
     this.tip.classList.toggle('hidden', !tip);
     if (tip) this.tip.textContent = tip;
@@ -313,16 +319,10 @@ export class GameUI {
     }
   }
 
-  /** Places the on-screen marker for the final hint tier (or hides it). */
-  placeMarker(sx: number | undefined, sy = 0, label = '', edge = false) {
-    if (sx === undefined) {
-      this.marker.classList.add('hidden');
-      return;
-    }
-    this.marker.classList.remove('hidden');
-    this.marker.classList.toggle('edge', edge);
-    this.marker.style.transform = `translate(${sx}px, ${sy}px)`;
-    (this.marker.firstChild as HTMLElement).textContent = label;
+  /** The noticing ring at the centre of the view: 0 … 1 while a look is held, or hidden. */
+  setNotice(p: number | undefined) {
+    this.notice.classList.toggle('hidden', p === undefined);
+    if (p !== undefined) this.notice.style.setProperty('--p', p.toFixed(3));
   }
 
   // ------------------------------------------------------------------ rephotography
@@ -390,7 +390,7 @@ export class GameUI {
     this.modal.replaceChildren(box);
     this.modal.classList.remove('hidden');
     this.modal.onclick = closable ? (e) => e.target === this.modal && this.closeModal() : null;
-    (box.querySelector('.g-btn-ink, button') as HTMLButtonElement | null)?.focus({ preventScroll: true });
+    (box.querySelector<HTMLButtonElement>('.g-btn-ink') ?? box.querySelector<HTMLButtonElement>('.g-tab.on') ?? box.querySelector('button'))?.focus({ preventScroll: true });
   }
 
   private actions(list: CardSpec['actions']) {
@@ -414,6 +414,7 @@ export class GameUI {
     if (spec.image) box.append(h('img', { class: 'g-card-img', src: spec.image, alt: spec.title }));
     if (spec.image && spec.credit) box.append(h('p', { class: 'g-credit' }, spec.credit));
     box.append(h('p', { class: 'g-gist' }, spec.gist));
+    if (spec.aside) box.append(h('div', { class: 'g-aside' }, h('b', {}, spec.aside.title), h('p', {}, spec.aside.text)));
     if (spec.confidence) box.append(h('div', { class: `g-stamp ${spec.confidence}` }, STAMP[spec.confidence]));
     const m = spec.more;
     if (m && (m.text || m.facts?.length || m.sources?.length)) {
@@ -424,53 +425,6 @@ export class GameUI {
       box.append(h('details', { class: 'g-more' }, h('summary', {}, 'More'), body));
     }
     box.append(this.actions(spec.actions));
-    this.open(box, false);
-  }
-
-  showDeduction(question: Localized, options: { text: Localized; correct?: boolean; feedback: Localized }[], done: () => void) {
-    const box = h('article', { class: 'g-card index' });
-    const fb = h('p', { class: 'g-feedback' });
-    box.append(h('div', { class: 'g-kick' }, 'Solve the case'), h('h2', {}, question.en));
-    const list = h('div', { class: 'g-options' });
-    for (const o of options) {
-      const b = h('button', { class: 'g-option' }, h('i', {}), h('span', {}, o.text.en)) as HTMLButtonElement;
-      b.onclick = () => {
-        fb.textContent = o.feedback.en;
-        b.classList.add(o.correct ? 'right' : 'wrong');
-        if (o.correct) {
-          list.querySelectorAll('button').forEach((x) => ((x as HTMLButtonElement).disabled = true));
-          window.setTimeout(done, 900);
-        }
-      };
-      list.append(b);
-    }
-    box.append(list, fb);
-    this.open(box, true);
-  }
-
-  /**
-   * A hands-on draw before a clue: tap each item (a shell) to turn it over and read it.
-   * Continue appears once everything is revealed.
-   */
-  showReveal(prompt: string, look: 'shells' | 'cards', draws: { label: string; value: string; tone: 'light' | 'dark' }[], onFlip: () => void, done: () => void) {
-    const box = h('article', { class: 'g-card sheet reveal' });
-    const go = h('button', { class: 'g-btn-ink', disabled: '' }, 'Continue') as HTMLButtonElement;
-    go.onclick = () => {
-      this.closeModal();
-      done();
-    };
-    let left = draws.length;
-    const items = draws.map((d) => {
-      const b = h('button', { class: `g-shell ${d.tone} ${look}`, 'aria-label': d.label }, h('span', { class: 'shell' }), h('small', {}, d.label), h('b', {}, d.value)) as HTMLButtonElement;
-      b.onclick = () => {
-        if (b.classList.contains('open')) return;
-        b.classList.add('open');
-        onFlip();
-        if (--left === 0) go.disabled = false;
-      };
-      return b;
-    });
-    box.append(h('div', { class: 'g-kick' }, 'Your turn'), h('h2', {}, prompt), h('div', { class: 'g-shells' }, ...items), h('div', { class: 'g-actions' }, go));
     this.open(box, false);
   }
 
@@ -486,11 +440,11 @@ export class GameUI {
         'div',
         { class: 'g-how-grid' },
         tile('walk', 'Walk & look', touch ? 'stick to walk · drag to look' : 'W A S D · click, then move the mouse to look'),
-        tile('examine', 'Examine', 'what glimmers or is marked'),
+        tile('examine', 'Notice', touch ? 'look closely, or tap' : 'look closely, or click'),
         tile('ticket', 'Travel', 'tap a year ticket'),
         tile('peek', 'Peek', 'hold a year ticket'),
       ),
-      h('p', { class: 'g-how-foot' }, h('b', { class: 'q' }, '?'), h('span', {}, 'hint'), icon('map'), h('span', {}, 'tap the map to open it')),
+      h('p', { class: 'g-how-foot' }, icon('journal'), h('span', {}, 'your notebook'), icon('map'), h('span', {}, 'tap the map to open it')),
       h('div', { class: 'g-actions' }, go),
     );
     this.open(box, false);
@@ -510,46 +464,92 @@ export class GameUI {
     this.open(box, true);
   }
 
-  /** The case file: the question, the trail of clues, and your finds. */
-  showCaseFile(f: CaseFileSpec, tab: 'case' | 'finds', onTab: (t: 'case' | 'finds') => void, close: () => void) {
-    const box = h('article', { class: 'g-card folder' });
+  /**
+   * The field notebook: one tab per section. Each collection opens with what it is about; found
+   * entries show what was noticed, missing ones only their riddle.
+   */
+  showNotebook(
+    f: NotebookSpec,
+    tab: string,
+    on: { tab: (t: string) => void; nudge: (id: string) => void; hold: (id: string) => void; close: () => void },
+  ) {
+    const box = h('article', { class: 'g-card folder notebook' });
     const x = h('button', { class: 'g-x', 'aria-label': 'Close' }, '×') as HTMLButtonElement;
-    x.onclick = close;
-    const tabBtn = (id: 'case' | 'finds', label: string) => {
-      const b = h('button', { class: `g-tab${tab === id ? ' on' : ''}` }, label) as HTMLButtonElement;
-      b.onclick = () => onTab(id);
+    x.onclick = on.close;
+    const tabs = f.sections.map((sec) => {
+      const b = h('button', { class: `g-tab${tab === sec.id ? ' on' : ''}` }, sec.title, h('small', {}, ` ${sec.found}/${sec.total}`)) as HTMLButtonElement;
+      b.onclick = () => on.tab(sec.id);
       return b;
-    };
-    box.append(h('div', { class: 'g-tabs' }, tabBtn('case', `Case ${f.number}`), tabBtn('finds', 'Finds')), x);
+    });
+    box.append(h('div', { class: 'g-tabs' }, ...tabs), x);
     const page = h('div', { class: 'g-page' });
-    if (tab === 'case') {
-      page.append(h('h2', {}, f.title), h('p', { class: 'g-question' }, f.question));
-      page.append(h('div', { class: 'g-years' }, ...f.years.map((y) => h('span', { class: `g-ticket static${y.locked ? ' locked' : ''}` }, y.locked ? '????' : String(y.year)))));
+    for (const c of f.collections) {
+      page.append(h('h3', {}, c.title, h('small', {}, `${c.found} / ${c.total}`)));
+      page.append(h('p', { class: 'g-intro' }, c.intro), c.start ? h('p', { class: 'g-small' }, c.start) : '');
       const list = h('ol', { class: 'g-trail' });
-      f.leads.forEach((l, i) => {
-        if (l.state === 'locked') return list.append(h('li', { class: 'locked' }, h('i', {}, String(i + 1)), h('b', {}, '? ? ?')));
-        if (l.state === 'now')
-          return list.append(h('li', { class: 'now' }, h('i', {}, String(i + 1)), h('b', {}, l.title), h('p', {}, l.text ?? ''), l.hint ? h('p', { class: 'note' }, l.hint) : ''));
-        const more = l.text ? h('details', {}, h('summary', {}, 'More'), h('p', {}, l.text)) : '';
-        list.append(h('li', { class: 'done' }, h('i', {}, '✓'), h('b', {}, l.title, l.year ? h('small', {}, ` · ${l.year}`) : ''), h('p', {}, l.gist ?? ''), more));
-      });
-      page.append(list);
-      if (f.solved) page.append(h('div', { class: 'g-stamp documented big' }, 'Case closed'));
-      if (f.readyToSolve) {
-        const b = h('button', { class: 'g-btn-ink' }, 'Solve the case') as HTMLButtonElement;
-        b.onclick = () => this.onSolve?.();
-        page.append(h('div', { class: 'g-actions' }, b));
+      for (const e of c.entries) {
+        const thumb = e.photo ? h('img', { class: 'g-thumb', src: e.photo, alt: '' }) : '';
+        if (e.found) {
+          const more =
+            e.text || e.sources?.length
+              ? h(
+                  'details',
+                  {},
+                  h('summary', {}, 'More'),
+                  e.text ? h('p', {}, e.text) : '',
+                  e.sources?.length ? h('div', { class: 'g-sources' }, ...e.sources.map((s) => h('a', { href: s.url, target: '_blank', rel: 'noopener' }, s.label))) : '',
+                )
+              : '';
+          list.append(
+            h(
+              'li',
+              { class: 'done' },
+              h('i', {}, '✓'),
+              h('b', {}, e.title, e.eye ? h('small', {}, ' · by eye') : ''),
+              thumb,
+              h('p', {}, e.gist ?? ''),
+              e.where ? h('p', { class: 'note' }, e.where) : '',
+              more,
+            ),
+          );
+          continue;
+        }
+        const actions: HTMLElement[] = [];
+        if (e.photo) {
+          const hold = h('button', { class: 'g-btn-paper small' }, icon('photo'), h('span', {}, 'Hold up')) as HTMLButtonElement;
+          hold.onclick = () => on.hold(e.id);
+          actions.push(hold);
+        }
+        if (!e.nudge) {
+          const nudge = h('button', { class: 'g-btn-text' }, 'Nudge') as HTMLButtonElement;
+          nudge.onclick = () => on.nudge(e.id);
+          actions.push(nudge);
+        }
+        list.append(
+          h(
+            'li',
+            { class: 'now' },
+            h('i', {}, '?'),
+            h('b', {}, e.riddle ?? ''),
+            thumb,
+            e.nudge ? h('p', { class: 'note' }, e.nudge) : '',
+            actions.length ? h('div', { class: 'g-row' }, ...actions) : '',
+          ),
+        );
       }
-    } else {
-      const got = f.notes.filter((n) => n.got).length;
+      page.append(list);
+    }
+    if (f.stamps) {
       page.append(
-        h('h3', {}, `Field notes · ${got}/${f.notes.length}`),
-        h('div', { class: 'g-notes' }, ...f.notes.map((n) => h('div', { class: `g-note${n.got ? ' got' : ''}` }, h('b', {}, n.got ? n.title : '? ? ?'), n.got ? h('small', {}, n.text) : ''))),
-        h('h3', {}, `Style stamps · ${f.stamps.filter((s) => s.got).length}/${f.stamps.length}`),
+        h('h3', {}, 'Styles', h('small', {}, `${f.stamps.filter((s) => s.got).length} / ${f.stamps.length}`)),
         h('div', { class: 'g-postage' }, ...f.stamps.map((s) => h('div', { class: `g-pstamp${s.got ? ' got' : ''}` }, h('span', {}, s.got ? s.name : '?')))),
-        h('p', { class: 'g-small' }, 'Examine ordinary buildings up close to learn their style.'),
-        h('h3', {}, `Landmarks · ${f.landmarks.names.length}/${f.landmarks.total}`),
-        f.landmarks.names.length ? h('div', { class: 'g-chips' }, ...f.landmarks.names.map((n) => h('span', {}, n))) : h('p', { class: 'g-small' }, 'Examine famous buildings to record them.'),
+        h('p', { class: 'g-small' }, 'Tap an ordinary building up close to learn its style.'),
+      );
+    }
+    if (f.landmarks) {
+      page.append(
+        h('h3', {}, 'Landmarks', h('small', {}, `${f.landmarks.names.length} / ${f.landmarks.total}`)),
+        f.landmarks.names.length ? h('div', { class: 'g-chips' }, ...f.landmarks.names.map((n) => h('span', {}, n))) : h('p', { class: 'g-small' }, 'Tap famous buildings to record them.'),
       );
     }
     box.append(page);

@@ -3,24 +3,24 @@ import type { Ambience } from '../audio/Ambience';
 import type { CameraRig } from '../core/CameraRig';
 import { clamp, easeInOutCubic } from '../core/math';
 import type { TimeController } from '../core/TimeController';
-import { seaward } from '../data/geography';
 import { LANDMARKS } from '../data/landmarks';
 import { STYLE_INFO } from '../data/styleInfo';
-import type { BuildingSite, Localized } from '../data/types';
+import type { BuildingSite } from '../data/types';
 import { h } from '../ui/dom';
 import type { BuildingManager } from '../world/buildings/BuildingManager';
 import { phaseAt } from '../world/fabric';
 import type { PostFX } from '../world/PostFX';
-import { GameState, type SaveData } from './GameState';
-import { GameUI, type CaseFileSpec } from './GameUI';
+import { COLLECTIONS, DISCOVERIES, POIS, SECTIONS, START, YEARS } from './content';
+import { compareFinds, inYears, lookFinds, type LookHit } from './discover';
+import { GameUI, type NotebookSpec } from './GameUI';
 import { Interactables } from './Interactables';
 import { Joystick } from './Joystick';
 import { hintArea, streetAt, yearLayer, type YearLayer } from './mapData';
 import { FullMap, MiniMap, type MapOverlay } from './MapView';
+import { NotebookState, type Found, type SaveData } from './NotebookState';
 import { alignment, containRect, type Frame, MATCH, printFrame, subjectAlpha, wrapAngle } from './rephoto';
-import { COMING } from './cases';
 import { Sfx } from './sfx';
-import type { CaseDef, Lead, NoteTrigger, PhotoDef, Poi } from './types';
+import type { Discovery, PhotoDef, Poi, SectionId, Years } from './types';
 
 /** What the game needs from the 3D world. */
 export interface WorldApi {
@@ -38,23 +38,19 @@ export interface WorldApi {
   jumpTo: (year: number) => void;
 }
 
-/** One save per case; the first prototype saved Case 1 under the legacy key. */
-const saveKey = (caseId: string) => `tlvtm.case.${caseId}.v1`;
-const LEGACY_KEY = 'tlvtm.case.v1';
-/** What carries over between cases: collections, and the last case played. */
+const SAVE_KEY = 'tlvtm.notebook.v1';
+/** Style stamps and landmarks collected in the case builds, carried into the notebook. */
 const PROFILE_KEY = 'tlvtm.profile.v1';
 const FULLSCREEN_KEY = 'tlvtm.fullscreen';
-interface Profile {
-  landmarks: string[];
-  stamps: string[];
-  last?: string;
-}
 const TAP_OFFSETS: [number, number][] = [[0, 0], [0, 16], [0, -16], [16, 0], [-16, 0], [12, 12], [-12, 12], [12, -12], [-12, -12], [0, 30], [0, -30], [30, 0], [-30, 0]];
+/** A look must be held this long (seconds) to notice something; the centre is checked this often. */
+const NOTICE_HOLD = 1.1;
+const NOTICE_EVERY = 0.15;
 
 type Lens =
   | { kind: 'idle' }
-  | { kind: 'travel-capture'; year: number; done?: () => void }
-  | { kind: 'travel'; t: number; done?: () => void }
+  | { kind: 'travel-capture'; year: number; from: number }
+  | { kind: 'travel'; t: number; from: number; to: number }
   | { kind: 'peek-capture'; year: number; base: number }
   | { kind: 'peek'; t: number; base: number; year: number; closing: boolean };
 
@@ -79,8 +75,10 @@ interface PhotoPlate {
 const REF = 4 / 3;
 
 interface Holding {
-  lead: Lead;
+  disc: Discovery;
   photo: PhotoDef;
+  /** The years the photo lines up in. */
+  years: Years;
   held: number;
   /** Aids switched on: 1 tracing, 2 match points, 3 directions. */
   aid: number;
@@ -104,19 +102,12 @@ function write(key: string, value: unknown) {
   }
 }
 
-function load(caseId: string): SaveData | undefined {
-  const save = read<SaveData>(saveKey(caseId));
-  if (save) return save;
-  const legacy = read<SaveData>(LEGACY_KEY);
-  return legacy?.caseId === caseId ? legacy : undefined;
-}
-
-/** A case's saved state, with the collections shared across cases merged in. */
-function loadState(def: CaseDef): GameState {
-  const st = new GameState(def, load(def.id));
-  const prof = read<Profile>(PROFILE_KEY);
-  prof?.landmarks.forEach((x) => st.landmarks.add(x));
-  prof?.stamps.forEach((x) => st.stamps.add(x));
+/** The saved notebook, with the style stamps and landmarks of the case builds merged in. */
+function loadState(): NotebookState {
+  const st = new NotebookState(DISCOVERIES, read<SaveData>(SAVE_KEY));
+  const prof = read<{ landmarks?: string[]; stamps?: string[] }>(PROFILE_KEY);
+  prof?.landmarks?.forEach((x) => st.landmarks.add(x));
+  prof?.stamps?.forEach((x) => st.stamps.add(x));
   return st;
 }
 
@@ -126,13 +117,16 @@ function split(text: string): [string, string] {
   return m ? [m[1], m[2]] : [text, ''];
 }
 
+const photoOf = (d: Discovery) => (d.trigger.kind === 'photo' ? d.trigger.photo : undefined);
+
 /**
- * The exploration game: a case to solve on foot, at street level, by noticing things,
- * standing where old photos were taken and slipping through anchored years.
+ * The exploration game: an open city walked at street level in seven years, and a field
+ * notebook that records what the player notices (by looking closely, by comparing two years
+ * in one place, and by standing where old photographs were taken).
  * See docs/GAME_DESIGN.md and docs/UI_DESIGN.md.
  */
 export class Game {
-  state: GameState;
+  state = loadState();
   readonly ui: GameUI;
   readonly inter: Interactables;
   readonly sfx = new Sfx();
@@ -147,7 +141,6 @@ export class Game {
   private holding?: Holding;
   private lastYear?: number;
   private saveTimer = 0;
-  private noteTimer = 0;
   private ray = new THREE.Raycaster();
   private titleEl?: HTMLElement;
   private v = new THREE.Vector3();
@@ -155,24 +148,19 @@ export class Game {
   private mini = new MiniMap();
   private full: FullMap;
   private layer?: YearLayer;
-  private caseTab: 'case' | 'finds' = 'case';
-  /** The room the player is inside (a point of interest with a `room`), if any. */
-  private room?: Poi;
-
-  /** The case being played. */
-  def: CaseDef;
+  private tab: SectionId = 'architecture';
+  /** Discoveries waiting for their card. */
+  private queue: Discovery[] = [];
+  /** What the centre of the view has been resting on, and for how long. */
+  private notice?: { id: string; t: number };
+  private noticeClock = 0;
 
   constructor(
     private w: WorldApi,
-    readonly cases: CaseDef[],
     uiRoot: HTMLElement,
   ) {
-    const last = read<Profile>(PROFILE_KEY)?.last;
-    this.def = cases.find((c) => c.id === last) ?? cases[0];
-    this.state = loadState(this.def);
     this.ui = new GameUI(uiRoot);
-    // every case's props stand in the world; only the current case's leads make them sparkle
-    this.inter = new Interactables(cases.flatMap((c) => c.pois));
+    this.inter = new Interactables(POIS);
     w.scene.add(this.inter.root);
     this.inter.setYear(w.time.year);
     w.time.onChange((y) => {
@@ -187,18 +175,11 @@ export class Game {
     this.mini.el.onclick = () => this.openMap();
     void document.fonts?.ready.then(() => this.mini.invalidate());
 
-    this.ui.onHint = () => this.hint();
     this.ui.onTravel = (y) => this.travel(y);
     this.ui.onPeek = (y, on) => (on ? this.peek(y) : this.unpeek());
-    this.ui.onSolve = () => this.solve();
-    this.ui.onCase = () => {
-      const next = this.state.solved ? this.nextCase() : undefined;
-      if (next) this.startCase(next);
-      else if (this.state.readyToSolve) this.solve();
-      else this.caseFile();
-    };
+    this.ui.onNotebook = () => this.notebook();
     this.ui.onMenu = () => this.menu();
-    this.ui.onExamine = () => this.examineHere();
+    this.ui.onExamine = () => this.tap(window.innerWidth / 2, window.innerHeight / 2);
     this.ui.onPostcard = () => this.togglePhoto();
     this.ui.onAid = () => this.aid();
     this.ui.onPhotoClose = () => this.closePhoto();
@@ -216,6 +197,11 @@ export class Game {
     });
   }
 
+  /** Where a new notebook starts. */
+  get start() {
+    return START;
+  }
+
   // ------------------------------------------------------------------ lifecycle
 
   /**
@@ -223,21 +209,21 @@ export class Game {
    * `timeout` ms: a print that is not there in time is replaced by the reconstruction.
    */
   loadArchive(timeout = 12000): Promise<void> {
-    const jobs = this.cases
-      .flatMap((c) => c.leads)
-      .flatMap((l) => (l.trigger.kind === 'rephoto' && l.trigger.photo.archive ? [l.trigger.photo] : []))
-      .map(
-        (p) =>
-          new Promise<void>((done) => {
-            const img = new Image();
-            img.onload = () => {
-              this.archive.set(p.id, img);
-              done();
-            };
-            img.onerror = () => done();
-            img.src = p.archive!.src;
-          }),
-      );
+    const jobs = DISCOVERIES.flatMap((d) => {
+      const p = photoOf(d);
+      return p?.archive ? [p] : [];
+    }).map(
+      (p) =>
+        new Promise<void>((done) => {
+          const img = new Image();
+          img.onload = () => {
+            this.archive.set(p.id, img);
+            done();
+          };
+          img.onerror = () => done();
+          img.src = p.archive!.src;
+        }),
+    );
     return Promise.race([Promise.all(jobs).then(() => undefined), new Promise<void>((done) => window.setTimeout(done, timeout))]);
   }
 
@@ -245,9 +231,9 @@ export class Game {
   preparePhotos() {
     const { rig, time } = this.w;
     const year = time.year;
-    for (const lead of this.cases.flatMap((c) => c.leads)) {
-      if (lead.trigger.kind !== 'rephoto') continue;
-      const p = lead.trigger.photo;
+    for (const d of DISCOVERIES) {
+      const p = photoOf(d);
+      if (!p) continue;
       this.w.jumpTo(p.year);
       rig.teleport(p.pose.x, p.pose.z, p.pose.yaw, p.pose.pitch);
       rig.update(0);
@@ -401,47 +387,48 @@ export class Game {
     return { overlay, card: pc.toDataURL('image/jpeg', 0.86), tracing: t.toDataURL('image/png'), ratio, frame, marks, real: !!real };
   }
 
-  /** The title screen: a 1930s-style poster with each case as a ticket. */
+  /** The title screen: a 1930s-style poster with the notebook as a ticket. */
   showTitle(parent: HTMLElement) {
     const free = h('button', { class: 'g-btn-text light' }, 'Free explore · the classic timeline') as HTMLButtonElement;
     const el = h('div', { id: 'title' });
-    const go = (def: CaseDef, fresh: boolean) => {
+    const go = (fresh: boolean) => {
       this.sfx.unlock();
       this.fullscreen();
       void this.w.audio.enable().then(() => (this.sfx.enabled = this.w.audio.enabled));
-      this.selectCase(def);
       if (fresh) this.reset();
       el.classList.add('done');
       window.setTimeout(() => el.remove(), 900);
       this.enter(!fresh);
     };
-    const tickets = this.cases.map((def) => {
-      const st = def.id === this.def.id ? this.state : new GameState(def, load(def.id));
-      const started = st.done.size > 0 || st.where !== undefined;
-      const status = st.solved ? 'Solved ✓' : started ? `In progress · ${st.done.size}/${def.leads.length}` : 'New';
-      const begin = h('button', { class: `g-btn-ink${def.id === this.def.id ? ' big' : ''}` }, st.solved ? 'Walk again' : started ? 'Continue' : 'Begin') as HTMLButtonElement;
-      begin.onclick = () => go(def, false);
-      let fresh: HTMLButtonElement | null = null;
-      if (started) {
-        fresh = h('button', { class: 'g-btn-text' }, 'Start over') as HTMLButtonElement;
-        fresh.onclick = () => go(def, true);
-      }
-      return h(
-        'div',
-        { class: `poster-ticket${def.id === this.def.id ? ' current' : ''}` },
-        h('div', { class: 'pt-stub' }, h('small', {}, 'Case'), h('b', {}, String(def.number))),
-        h('div', { class: 'pt-body' }, h('b', {}, def.title.en), h('small', {}, def.tagline.en), h('i', { class: 'pt-status' }, status), h('div', { class: 'g-actions' }, begin, fresh)),
-      );
-    });
+    const [n, total] = this.state.count();
+    const started = n > 0 || this.state.where !== undefined;
+    const begin = h('button', { class: 'g-btn-ink big' }, started ? 'Continue' : 'Begin') as HTMLButtonElement;
+    begin.onclick = () => go(false);
+    let fresh: HTMLButtonElement | null = null;
+    if (started) {
+      fresh = h('button', { class: 'g-btn-text' }, 'Start a new notebook') as HTMLButtonElement;
+      fresh.onclick = () => go(true);
+    }
     el.append(
       h(
         'div',
         { class: 'poster' },
         h('div', { class: 'poster-band', lang: 'he', dir: 'rtl' }, 'מכונת הזמן של תל אביב'),
         h('h1', {}, h('span', {}, 'Tel Aviv'), h('span', {}, 'Time Machine')),
-        h('p', { class: 'poster-sub' }, 'Walk its streets from 1909 to today. Notice what changed — and find out why.'),
-        ...tickets,
-        h('div', { class: 'poster-next' }, ...COMING.map((t, i) => h('span', {}, h('small', {}, `Case ${this.cases.length + i + 1}`), t))),
+        h('p', { class: 'poster-sub' }, 'Walk its streets from 1909 to today. Notice how the city was built, and keep a notebook of what you find.'),
+        h(
+          'div',
+          { class: 'poster-ticket current' },
+          h('div', { class: 'pt-stub' }, h('small', {}, 'Found'), h('b', {}, String(n))),
+          h(
+            'div',
+            { class: 'pt-body' },
+            h('b', {}, 'Field notebook'),
+            h('small', {}, 'Architecture · urbanism · culture'),
+            h('i', { class: 'pt-status' }, started ? `${n} / ${total} noticed` : 'Nothing is marked. What you notice is yours.'),
+            h('div', { class: 'g-actions' }, begin, fresh),
+          ),
+        ),
       ),
       free,
     );
@@ -454,18 +441,7 @@ export class Game {
     };
   }
 
-  /** Switch to another case (its own save; shared collections). */
-  selectCase(def: CaseDef) {
-    if (def.id === this.def.id) return;
-    // only a case that was actually played has a position worth saving
-    if (this.active) this.save();
-    this.def = def;
-    this.state = loadState(def);
-    this.lastYear = undefined;
-    write(PROFILE_KEY, { ...this.profile(), last: def.id });
-  }
-
-  /** Back to the title poster (to choose a case). */
+  /** Back to the title poster. */
   private toTitle() {
     this.exit();
     document.body.classList.remove('mode-free');
@@ -476,30 +452,24 @@ export class Game {
     return !!this.titleEl?.isConnected;
   }
 
+  /** A new, empty notebook. */
   private reset() {
     try {
-      localStorage.removeItem(saveKey(this.def.id));
-      if (read<SaveData>(LEGACY_KEY)?.caseId === this.def.id) localStorage.removeItem(LEGACY_KEY);
+      localStorage.removeItem(SAVE_KEY);
+      localStorage.removeItem(PROFILE_KEY);
     } catch {
       /* private mode */
     }
-    this.state = loadState(this.def);
-  }
-
-  private profile(): Profile {
-    const prof = read<Profile>(PROFILE_KEY) ?? { landmarks: [], stamps: [] };
-    return {
-      landmarks: [...new Set([...prof.landmarks, ...this.state.landmarks])],
-      stamps: [...new Set([...prof.stamps, ...this.state.stamps])],
-      last: this.def.id,
-    };
+    this.state = loadState();
+    this.queue = [];
+    this.lastYear = undefined;
   }
 
   /** Enter the game (from the title or from free mode). */
   enter(resume = true) {
     const { rig } = this.w;
     // Photo plates are rendered at load from the title screen. A page opened on a
-    // #year= link skips the title, so render them now, before the case needs them.
+    // #year= link skips the title, so render them now, before they are needed.
     if (this.photos.size === 0) this.preparePhotos();
     this.fullscreen();
     this.active = true;
@@ -508,20 +478,12 @@ export class Game {
     this.ui.show(true);
     rig.lockStreet = true;
     const where = resume ? this.state.where : undefined;
-    const year = where?.year ?? this.def.start.year;
-    this.w.jumpTo(year);
-    this.room = undefined;
-    if (where) {
-      rig.teleport(where.x, where.z, where.yaw);
-      this.findRoom();
-    }
-    else {
-      const p = this.def.start.pose;
-      rig.teleport(p.x, p.z, p.yaw, p.pitch);
-    }
+    this.w.jumpTo(where?.year ?? START.year);
+    if (where) rig.teleport(where.x, where.z, where.yaw);
+    else rig.teleport(START.pose.x, START.pose.z, START.pose.yaw, START.pose.pitch);
     this.mini.invalidate();
     this.renderHud();
-    if (this.state.done.size === 0 && !where) this.intro();
+    if (!this.state.seen.has('intro')) this.intro();
   }
 
   /** Leave the game for the classic free timeline. */
@@ -531,6 +493,7 @@ export class Game {
     this.closePhoto();
     this.closeMap();
     this.ui.closeModal();
+    this.ui.setNotice(undefined);
     this.ui.show(false);
     this.w.rig.lockStreet = false;
     this.w.rig.inputEnabled = true;
@@ -539,15 +502,16 @@ export class Game {
   }
 
   private intro() {
-    const lead = this.def.leads[0];
-    const plate = lead.trigger.kind === 'rephoto' ? this.photos.get(lead.trigger.photo.id) : undefined;
+    this.state.seen.add('intro');
+    this.save();
     this.ui.showCard({
-      kind: 'postcard',
-      kicker: plate ? `Case ${this.def.number} · ${this.def.title.en}` : `Case ${this.def.number}`,
-      title: plate ? 'An old postcard' : this.def.title.en,
-      gist: this.def.intro.en,
-      image: plate?.card,
-      credit: plate?.real && lead.trigger.kind === 'rephoto' ? lead.trigger.photo.archive?.credit.en : undefined,
+      kicker: 'Rothschild Boulevard · today',
+      title: 'Notice what changed',
+      gist: 'In 1909 this boulevard was a sand dune. Walk the city in seven different years: nothing here is marked, and what you notice yourself goes into your notebook.',
+      aside: {
+        title: 'Your notebook',
+        text: 'Architecture, urbanism and culture. Each page says what to look for, never where. Two old photographs are clipped inside: find where they were taken.',
+      },
       actions: [{ label: 'Next', primary: true, run: () => this.howToPlay() }],
     });
   }
@@ -556,70 +520,223 @@ export class Game {
     this.ui.showHowTo(matchMedia('(pointer: coarse)').matches, () => this.ui.closeModal());
   }
 
+  /** The year the player stands in (not the one they peek into). */
+  private get year() {
+    return this.lens.kind === 'peek' ? this.lens.base : Math.floor(this.w.time.year);
+  }
+
   private save() {
     const c = this.w.camera.position;
-    const year = this.lens.kind === 'peek' ? this.lens.base : Math.floor(this.w.time.year);
-    if (this.state.anchors.has(year)) this.state.where = { year, x: c.x, z: c.z, yaw: this.w.rig.yaw };
-    write(saveKey(this.def.id), this.state.toJSON());
-    write(PROFILE_KEY, this.profile());
+    this.state.where = { year: this.year, x: c.x, z: c.z, yaw: this.w.rig.yaw };
+    write(SAVE_KEY, this.state.toJSON());
   }
 
   // ------------------------------------------------------------------ HUD
 
   private renderHud() {
     const s = this.state;
-    const lead = s.current;
-    const steps = this.def.leads.map((l) => (s.done.has(l.id) ? 'done' : l === lead ? 'now' : '') as 'done' | 'now' | '');
-    const tier = lead ? s.hintTier(lead.id) : -1;
-    if (lead)
-      this.ui.renderTag({
-        kicker: `Case ${this.def.number}`,
-        text: lead.short.en,
-        steps,
-        hint: tier >= 0 ? lead.hints[Math.min(tier, lead.hints.length - 1)].en : undefined,
-        canHint: tier < lead.hints.length - 1,
-      });
-    else if (s.readyToSolve) this.ui.renderTag({ kicker: `Case ${this.def.number} · every clue found`, text: 'Tap here to solve the case', steps, canHint: false });
-    else {
-      const next = this.nextCase();
-      this.ui.renderTag({
-        kicker: `Case ${this.def.number} · closed`,
-        text: next ? `Next: Case ${next.number} · ${next.title.en}` : 'All cases solved — wander any year',
-        steps,
-        canHint: false,
-      });
-    }
-
-    const y = this.lens.kind === 'peek' ? this.lens.base : Math.floor(this.w.time.year);
+    const [n, total] = s.count();
+    const latest = s.latest;
+    this.ui.renderTag({ kicker: `Notebook · ${n} / ${total}`, text: latest ? latest.title.en : 'Look closely. Slip between years.' });
+    const y = this.year;
     this.ui.renderYear(y, this.lens.kind === 'peek' ? this.lens.year : undefined);
-    const anchored = s.compass.filter((c) => !c.locked).length;
-    const tip = anchored < 2 ? undefined : !s.seen.has('travel') ? 'Tap a year to travel' : !s.seen.has('peek') ? 'Hold a year to peek' : undefined;
-    this.ui.renderCompass(s.compass, y, tip);
-    this.inter.wanted = new Set(s.open.flatMap((l) => (l.trigger.kind === 'poi' ? [l.trigger.poiId] : [])));
-    const photoLead = s.open.find((l) => l.trigger.kind === 'rephoto');
-    const plate = photoLead?.trigger.kind === 'rephoto' ? this.photos.get(photoLead.trigger.photo.id) : undefined;
-    this.ui.setPostcard(plate?.card);
+    const tip = !s.seen.has('travel') ? 'Tap a year to travel' : !s.seen.has('peek') ? 'Hold a year to peek' : undefined;
+    this.ui.renderCompass(
+      YEARS.map((year) => ({ year, locked: false })),
+      y,
+      tip,
+    );
+    const pocket = s.pocket;
+    const p = pocket && photoOf(pocket);
+    this.ui.setPostcard(p ? this.photos.get(p.id)?.card : undefined);
   }
 
-  private hint() {
-    const lead = this.state.current;
-    if (!lead) return;
-    const tier = this.state.nextHint(lead.id);
-    this.sfx.tick();
+  // ------------------------------------------------------------------ the notebook
+
+  private notebook(tab: SectionId = this.tab) {
+    this.closeMap();
+    this.tab = tab;
+    const s = this.state;
+    const sectionCount = (id: SectionId) =>
+      COLLECTIONS.filter((c) => c.section === id).reduce(
+        (acc, c) => {
+          const [f, t] = s.count(c.id);
+          return [acc[0] + f, acc[1] + t];
+        },
+        [0, 0],
+      );
+    const spec: NotebookSpec = {
+      sections: SECTIONS.map((sec) => {
+        const [found, total] = sectionCount(sec.id);
+        return { id: sec.id, title: sec.title, found, total };
+      }),
+      total: s.count(),
+      collections: COLLECTIONS.filter((c) => c.section === tab).map((c) => {
+        const [found, total] = s.count(c.id);
+        return {
+          title: c.title.en,
+          intro: c.intro.en,
+          start: c.start?.en,
+          found,
+          total,
+          entries: DISCOVERIES.filter((d) => d.collection === c.id).map((d) => {
+            const f = s.found.get(d.id);
+            const p = photoOf(d);
+            const plate = p && this.photos.get(p.id);
+            if (!f) return { id: d.id, title: d.title.en, found: false, riddle: d.riddle.en, nudge: s.nudged.has(d.id) ? d.nudge.en : undefined, photo: plate?.card };
+            const st = streetAt(f.x, f.z, f.year);
+            return {
+              id: d.id,
+              title: d.title.en,
+              found: true,
+              gist: d.gist.en,
+              text: d.text.en,
+              where: `Noticed in ${f.year}${st ? ` · ${st.name.en}` : ''}`,
+              sources: p ? [p.reference, ...d.sources] : d.sources,
+              photo: plate?.real ? plate.card : undefined,
+              eye: f.eye,
+            };
+          }),
+        };
+      }),
+      stamps: tab === 'architecture' ? Object.entries(STYLE_INFO).map(([id, v]) => ({ name: v!.name.en, got: s.stamps.has(id) })) : undefined,
+      landmarks: tab === 'culture' ? { names: LANDMARKS.filter((l) => s.landmarks.has(l.id)).map((l) => l.name?.en ?? l.id), total: LANDMARKS.length } : undefined,
+    };
+    this.ui.showNotebook(spec, tab, {
+      tab: (t) => this.notebook(t as SectionId),
+      nudge: (id) => {
+        this.state.nudged.add(id);
+        this.save();
+        this.sfx.tick();
+        this.notebook();
+        if (this.state.byId(id)?.area) {
+          this.mini.el.classList.remove('ping');
+          void this.mini.el.offsetWidth;
+          this.mini.el.classList.add('ping');
+        }
+      },
+      hold: (id) => {
+        this.state.photo = id;
+        this.ui.closeModal();
+        this.renderHud();
+        this.togglePhoto();
+      },
+      close: () => this.ui.closeModal(),
+    });
+  }
+
+  // ------------------------------------------------------------------ discovering
+
+  /** Records a discovery and shows its card (after any card already open). */
+  private discover(d: Discovery, extra: Partial<Found> = {}) {
+    const c = this.w.camera.position;
+    if (!this.state.discover(d.id, { year: this.year, x: Math.round(c.x), z: Math.round(c.z), ...extra })) return;
+    this.notice = undefined;
+    this.ui.setNotice(undefined);
     this.save();
     this.renderHud();
-    // from the second hint on, the map shows where to look: draw the eye to it
-    if (tier >= 1) {
-      this.mini.el.classList.remove('ping');
-      void this.mini.el.offsetWidth;
-      this.mini.el.classList.add('ping');
+    this.sfx.chime(true);
+    this.queue.push(d);
+    if (!this.ui.modalOpen && !this.holding) this.showNext();
+  }
+
+  private showNext() {
+    const d = this.queue.shift();
+    if (!d) return;
+    const col = COLLECTIONS.find((c) => c.id === d.collection)!;
+    const sec = SECTIONS.find((x) => x.id === col.section)!;
+    const [k, n] = this.state.count(col.id);
+    const f = this.state.found.get(d.id)!;
+    const p = photoOf(d);
+    const plate = p && this.photos.get(p.id);
+    this.ui.showCard({
+      kicker: `${sec.title} · ${col.title.en} · ${k} / ${n}`,
+      title: d.title.en,
+      gist: d.gist.en,
+      image: plate?.real ? plate.card : undefined,
+      credit: plate?.real ? p?.archive?.credit.en : undefined,
+      aside: this.state.firstIn(col.id) ? { title: `A new page: ${col.title.en}`, text: col.intro.en } : undefined,
+      more: { text: d.text.en, facts: d.facts?.map((x) => x.en), sources: p ? [p.reference, ...d.sources] : d.sources },
+      confidence: d.confidence,
+      ticket: { label: f.eye ? 'By eye, in' : 'Noticed in', value: String(f.year) },
+      actions: [
+        {
+          label: 'Continue',
+          primary: true,
+          run: () => {
+            this.ui.closeModal();
+            this.showNext();
+          },
+        },
+        {
+          label: 'Open the notebook',
+          run: () => {
+            this.ui.closeModal();
+            this.queue = [];
+            this.notebook(sec.id);
+          },
+        },
+      ],
+    });
+  }
+
+  /** The first undiscovered look that this view of a building makes. */
+  private lookAt(hit: LookHit, year: number): Discovery | undefined {
+    const c = this.w.camera.position;
+    return this.state.missing.find((d) => d.trigger.kind === 'look' && lookFinds(d.trigger, hit, c.x, c.z, year));
+  }
+
+  /** The first undiscovered discovery about this prop, if it is close enough. */
+  private poiFinds(poi: Poi, dist: number): Discovery | undefined {
+    return this.state.missing.find((d) => d.trigger.kind === 'poi' && d.trigger.poi === poi.id && dist <= d.trigger.maxDist && this.inter.present(poi.id));
+  }
+
+  /** After a peek or a slip from `base` into `other`: did comparing the two years here find anything? */
+  private compare(base: number, other: number) {
+    const c = this.w.camera.position;
+    for (const d of this.state.missing)
+      if (d.trigger.kind === 'compare' && compareFinds(d.trigger, c.x, c.z, base, other, () => this.w.buildings.sites)) this.discover(d);
+  }
+
+  /**
+   * Noticing: what rests in the centre of the view fills a ring; hold the look and it is
+   * noticed. Only things not yet in the notebook, close enough and in their years count.
+   */
+  private updateNotice(dt: number) {
+    const free = this.lens.kind === 'idle' && !this.ui.modalOpen && !this.full.open && !this.holding;
+    if (!free) {
+      this.notice = undefined;
+      this.ui.setNotice(undefined);
+      return;
     }
+    this.noticeClock += dt;
+    if (this.noticeClock < NOTICE_EVERY) return;
+    const step = this.noticeClock;
+    this.noticeClock = 0;
+    this.ray.setFromCamera(new THREE.Vector2(0, 0), this.w.camera);
+    this.ray.far = 80;
+    const year = Math.floor(this.w.time.year);
+    const poi = this.inter.pick(this.ray);
+    const site = this.w.buildings.pick(this.ray);
+    let d: Discovery | undefined;
+    if (poi && (!site || poi.distance <= site.distance)) d = this.poiFinds(poi.poi, poi.distance);
+    else if (site && !site.object.userData.ghost) d = this.lookAt({ site: site.site, point: site.point }, year);
+    this.ray.far = Infinity;
+    if (!d) {
+      this.notice = undefined;
+      this.ui.setNotice(undefined);
+      return;
+    }
+    this.notice = this.notice?.id === d.id ? { id: d.id, t: this.notice.t + step } : { id: d.id, t: 0 };
+    const t = this.notice.t;
+    this.ui.setNotice(t < 0.2 ? undefined : clamp((t - 0.2) / (NOTICE_HOLD - 0.2), 0, 1));
+    if (t >= NOTICE_HOLD) this.discover(d);
   }
 
   // ------------------------------------------------------------------ map
 
   private yearLayer(): YearLayer {
-    const y = this.lens.kind === 'peek' ? this.lens.base : Math.floor(this.w.time.year);
+    const y = this.year;
     if (!this.layer || this.layer.year !== y) this.layer = yearLayer(y, this.w.buildings.sites);
     return this.layer;
   }
@@ -627,19 +744,12 @@ export class Game {
   private mapOverlay(): MapOverlay {
     const s = this.state;
     const c = this.w.camera.position;
-    const lead = s.current;
-    const tier = lead ? s.hintTier(lead.id) : -1;
-    let hint: MapOverlay['hint'];
-    if (lead && tier >= 1) {
-      const exact = tier >= lead.hints.length - 1;
-      hint = exact ? { x: lead.target.x, z: lead.target.z, r: 0, exact } : { ...hintArea(lead.target, lead.id), exact };
-    }
     return {
       player: { x: c.x, z: c.z, yaw: this.w.rig.yaw },
       trail: s.trail,
       pins: LANDMARKS.filter((l) => s.landmarks.has(l.id)).map((l) => ({ x: l.x, z: l.z, label: l.name?.en ?? '' })),
-      stamps: this.def.leads.flatMap((l, i) => (s.done.has(l.id) ? [{ x: l.target.x, z: l.target.z, n: i + 1 }] : [])),
-      hint,
+      stamps: [...s.found.values()].map((f, i) => ({ x: f.x, z: f.z, n: i + 1 })),
+      hints: s.missing.flatMap((d) => (s.nudged.has(d.id) && d.area ? [hintArea(d.area, d.id, d.area.r)] : [])),
     };
   }
 
@@ -647,7 +757,7 @@ export class Game {
     if (!this.active || this.holding || this.lens.kind !== 'idle') return;
     this.ui.closeModal();
     const c = this.w.camera.position;
-    const st = streetAt(c.x, c.z, Math.floor(this.w.time.year));
+    const st = streetAt(c.x, c.z, this.year);
     this.full.show(this.yearLayer(), this.mapOverlay(), st ? `You are on ${st.name.en}` : 'You are here');
     this.sfx.tick();
   }
@@ -658,23 +768,22 @@ export class Game {
 
   // ------------------------------------------------------------------ time lens
 
-  /** Slip to another anchored year with an expanding lens. */
-  travel(year: number, done?: () => void) {
-    if (this.lens.kind !== 'idle' || !this.state.anchors.has(year) || year === Math.floor(this.w.time.year)) return;
-    if (this.room) return this.ui.toast('Step outside first — this room only exists in this moment.');
+  /** Slip to another year with an expanding lens. */
+  travel(year: number) {
+    const from = Math.floor(this.w.time.year);
+    if (this.lens.kind !== 'idle' || year === from) return;
     this.closePhoto();
     this.closeMap();
-    this.lastYear = Math.floor(this.w.time.year);
+    this.lastYear = from;
     this.w.post.wipe.capture();
-    this.lens = { kind: 'travel-capture', year, done };
-    this.sfx.whoosh(year > this.lastYear);
+    this.lens = { kind: 'travel-capture', year, from };
+    this.sfx.whoosh(year > from);
     this.state.seen.add('travel');
   }
 
-  /** Look into another anchored year through a small lens, without leaving. */
+  /** Look into another year through a small lens, without leaving. */
   peek(year: number) {
     if (this.lens.kind !== 'idle' || year === Math.floor(this.w.time.year)) return;
-    if (this.room) return this.ui.toast('Step outside first — this room only exists in this moment.');
     this.w.post.wipe.capture();
     this.lens = { kind: 'peek-capture', year, base: Math.floor(this.w.time.year) };
     this.sfx.whoosh(true, 0.6);
@@ -691,7 +800,7 @@ export class Game {
     const wipe = this.w.post.wipe;
     if (L.kind === 'travel-capture' && !wipe.capturing) {
       this.w.jumpTo(L.year);
-      this.lens = { kind: 'travel', t: 0, done: L.done };
+      this.lens = { kind: 'travel', t: 0, from: L.from, to: L.year };
       wipe.radius = 0.001;
       this.renderHud();
     } else if (L.kind === 'travel') {
@@ -702,14 +811,14 @@ export class Game {
         wipe.radius = 0;
         this.lens = { kind: 'idle' };
         this.save();
-        L.done?.();
+        this.compare(L.from, L.to);
       }
     } else if (L.kind === 'peek-capture' && !wipe.capturing) {
       this.w.jumpTo(L.year);
       this.lens = { kind: 'peek', t: 0, base: L.base, year: L.year, closing: false };
       wipe.radius = 0.001;
       this.renderHud();
-      this.noteOn((t) => t.kind === 'peek' && this.inYears(L.base, t.from) && this.inYears(L.year, t.to) && this.within(t));
+      this.compare(L.base, L.year);
     } else if (L.kind === 'peek') {
       L.t = clamp(L.t + (L.closing ? -dt * 1.6 : dt), 0, 0.45);
       wipe.radius = 0.001 + easeInOutCubic(L.t / 0.45) * 0.3;
@@ -723,29 +832,6 @@ export class Game {
     this.w.rig.inputEnabled = !this.ui.modalOpen && !this.full.open && (this.lens.kind === 'idle' || this.lens.kind === 'travel');
   }
 
-  // ------------------------------------------------------------------ field notes
-
-  private inYears(y: number, [a, b]: [number, number]) {
-    return y >= a && y <= b;
-  }
-
-  private within(t: { x: number; z: number; r: number }) {
-    const c = this.w.camera.position;
-    return Math.hypot(c.x - t.x, c.z - t.z) <= t.r;
-  }
-
-  /** Awards every note of the current case whose trigger matches. */
-  private noteOn(match: (t: NoteTrigger) => boolean) {
-    for (const n of this.def.notes) if (!this.state.notes.has(n.id) && match(n.trigger)) this.note(n.id);
-  }
-
-  /** Notes earned by being somewhere (checked a few times a second). */
-  private checkPlaceNotes() {
-    const year = Math.floor(this.w.time.year);
-    const c = this.w.camera.position;
-    this.noteOn((t) => (t.kind === 'area' && this.inYears(year, t.years) && this.within(t)) || (t.kind === 'coast' && this.inYears(year, t.years) && seaward(c.x, c.z) > -25));
-  }
-
   // ------------------------------------------------------------------ rephotography
   //
   // No meter: you line the photo up by eye. Camera-style corner brackets appear when the
@@ -754,14 +840,15 @@ export class Game {
 
   private togglePhoto() {
     if (this.holding) return this.closePhoto();
-    const lead = this.state.open.find((l) => l.trigger.kind === 'rephoto');
-    if (!lead || lead.trigger.kind !== 'rephoto' || this.lens.kind !== 'idle') return;
-    const plate = this.photos.get(lead.trigger.photo.id);
+    const disc = this.state.pocket;
+    if (!disc || disc.trigger.kind !== 'photo' || this.lens.kind !== 'idle') return;
+    const photo = disc.trigger.photo;
+    const plate = this.photos.get(photo.id);
     if (!plate) return;
     this.closeMap();
     this.ui.closeModal();
-    this.holding = { lead, photo: lead.trigger.photo, held: 0, aid: 0, focus: 'none' };
-    this.ui.showPhoto({ src: plate.overlay, tracing: plate.tracing, caption: `${lead.trigger.photo.caption.en} · line it up by eye` });
+    this.holding = { disc, photo, years: disc.trigger.years, held: 0, aid: 0, focus: 'none' };
+    this.ui.showPhoto({ src: plate.overlay, tracing: plate.tracing, caption: `${photo.caption.en} · line it up by eye` });
     this.sfx.tick();
   }
 
@@ -785,8 +872,8 @@ export class Game {
     const { rig, camera } = this.w;
     const view = { x: camera.position.x, z: camera.position.z, yaw: rig.yaw, pitch: rig.pitch };
     const a = alignment(H.photo.pose, view);
-    // a photo of 1909 lines up only in 1909: the crowd, the dune and the light must be there
-    const rightYear = this.state.canComplete(H.lead, Math.floor(this.w.time.year));
+    // a photo lines up only in the years when the place looked like it (the 1909 crowd)
+    const rightYear = inYears(Math.floor(this.w.time.year), H.years);
     const matched = a.matched && rightYear;
     const focus = matched ? 'lock' : a.near ? 'near' : 'none';
     if (focus !== 'none' && H.focus === 'none') this.sfx.focus();
@@ -821,18 +908,20 @@ export class Game {
       else if (a.pitchErr > MATCH.pitch) advice = H.photo.pose.pitch > view.pitch ? 'Look up a little.' : 'Look down a little.';
       else advice = 'Hold still…';
     }
-    if (a.near && !rightYear) advice = `This is the spot, but the photo was taken in ${H.photo.year}.`;
+    if (a.near && !rightYear) {
+      const stop = YEARS.find((y) => inYears(y, H.years));
+      advice = `This is the spot, but it doesn’t look like this in ${Math.floor(this.w.time.year)}.${stop ? ` Try ${stop}.` : ''}`;
+    }
     this.ui.renderPhoto({ focus, aid: H.aid, marks, advice, rect });
 
     H.held = matched ? H.held + dt : 0;
     if (H.held > 0.7) {
-      const { lead, aid } = H;
+      const { disc, aid } = H;
       this.sfx.shutter();
       this.ui.root.classList.add('flash');
       window.setTimeout(() => this.ui.root.classList.remove('flash'), 500);
       this.closePhoto();
-      if (aid === 0) this.noteOn((t) => t.kind === 'eye');
-      this.completeLead(lead);
+      this.discover(disc, aid === 0 ? { eye: true } : {});
     }
   }
 
@@ -852,42 +941,36 @@ export class Game {
       site = this.w.buildings.pick(this.ray);
       if (poi || site) break;
     }
-    if (poi && (!site || poi.distance <= this.ray.ray.origin.distanceTo(site.object.getWorldPosition(this.v)))) {
+    if (poi && (!site || poi.distance <= site.distance)) {
       this.examinePoi(poi.poi, poi.distance);
       return true;
     }
     if (site && !site.object.userData.ghost) {
-      const c = this.w.camera.position;
-      // distance to the footprint edge, roughly
-      const d = Math.max(0, Math.hypot(c.x - site.site.x, c.z - site.site.z) - Math.min(site.site.width, site.site.depth) / 2);
-      this.examineSite(site.site, d);
+      this.examineSite(site.site, site.point);
       return true;
     }
     return false;
   }
 
   private examinePoi(poi: Poi, dist: number) {
-    const year = Math.floor(this.w.time.year);
-    const lead = this.state.def.leads.find((l) => l.trigger.kind === 'poi' && l.trigger.poiId === poi.id);
-    if (dist > 30) return this.ui.toast('Too far away — walk closer.');
-    if (lead && this.state.canComplete(lead, year)) return this.completeLead(lead);
-    if (lead && this.state.done.has(lead.id)) return this.ui.toast(`${lead.clue.title.en} — in your case file.`);
-    this.ui.toast(`${poi.label.en}. Remember it…`);
+    const d = this.poiFinds(poi, dist);
+    if (d) return this.discover(d);
+    if (dist > 30 && this.state.missing.some((x) => x.trigger.kind === 'poi' && x.trigger.poi === poi.id)) return this.ui.toast('Too far away — walk closer.');
+    this.ui.toast(poi.label.en);
   }
 
-  private examineSite(site: BuildingSite, dist: number) {
+  private examineSite(site: BuildingSite, point: { x: number; z: number }) {
     const year = Math.floor(this.w.time.year);
-    const lead = this.state.open.find((l) => l.trigger.kind === 'site' && l.trigger.siteId === site.id && this.state.canComplete(l, year));
-    if (lead && lead.trigger.kind === 'site') {
-      if (dist > lead.trigger.maxDist) return this.ui.toast('Get closer for a good look.');
-      return this.completeLead(lead);
-    }
+    const d = this.lookAt({ site, point }, year);
+    if (d) return this.discover(d);
     const phase = phaseAt(site, year);
     if (!phase) return;
+    const c = this.w.camera.position;
+    // distance to the footprint edge, roughly
+    const dist = Math.max(0, Math.hypot(c.x - site.x, c.z - site.z) - Math.min(site.width, site.depth) / 2);
     if (site.landmark && site.info) {
       if (dist > 140) return this.ui.toast(`${site.name?.en ?? 'A landmark'} — walk closer.`);
       const isNew = this.state.collect('landmarks', site.id);
-      this.noteOn((t) => t.kind === 'site' && t.siteId === site.id);
       if (!isNew) return this.ui.toast(`${site.name?.en} · ${phase.from}`);
       this.sfx.chime();
       this.save();
@@ -903,7 +986,7 @@ export class Game {
       });
     }
     const style = STYLE_INFO[phase.style];
-    if (!style) return;
+    if (!style) return site.info ? this.ui.toast(split(site.info.summary.en)[0]) : undefined;
     if (dist > 60) return this.ui.toast('Too far to make out the details — walk closer.');
     const isNew = this.state.collect('stamps', phase.style);
     if (!isNew) return this.ui.toast(`${style.name.en} · built ${phase.from}`);
@@ -911,7 +994,7 @@ export class Game {
     this.save();
     const [gist, rest] = split(style.text.en);
     this.ui.showCard({
-      kicker: `Style stamp ${this.state.stamps.size} / ${Object.keys(STYLE_INFO).length}`,
+      kicker: `Style ${this.state.stamps.size} / ${Object.keys(STYLE_INFO).length}`,
       title: style.name.en,
       gist,
       more: { text: rest, facts: style.look.map((l) => `Look for: ${l}`), sources: style.sources },
@@ -921,276 +1004,12 @@ export class Game {
     });
   }
 
-  /** The current lead, if its target can be examined from where the player stands right now. */
-  private inReach(): { lead: Lead; label: string } | undefined {
-    const lead = this.state.current;
-    if (!lead || this.lens.kind !== 'idle' || this.ui.modalOpen || this.holding || this.full.open) return undefined;
-    if (!this.state.canComplete(lead, Math.floor(this.w.time.year))) return undefined;
-    const c = this.w.camera.position;
-    const tr = lead.trigger;
-    const label = `Examine ${lead.examine?.en ?? 'it'}`;
-    // inside a room, only things in that room are in reach (not the street through the wall)
-    if (this.room?.room && tr.kind !== 'rephoto') {
-      const t = tr.kind === 'poi' ? this.def.pois.find((p) => p.id === tr.poiId) : undefined;
-      const { lx, lz } = t ? this.roomLocal(this.room, t.x, t.z) : { lx: Infinity, lz: 0 };
-      if (Math.abs(lx) > this.room.room.w / 2 || Math.abs(lz) > this.room.room.d / 2) return undefined;
-    }
-    if (tr.kind === 'site') {
-      const site = LANDMARKS.find((s) => s.id === tr.siteId);
-      if (!site) return undefined;
-      // distance to the footprint edge, roughly (as for taps)
-      const d = Math.max(0, Math.hypot(c.x - site.x, c.z - site.z) - Math.min(site.width, site.depth) / 2);
-      return d <= Math.min(tr.maxDist, 40) ? { lead, label } : undefined;
-    }
-    if (tr.kind === 'poi') {
-      const poi = this.def.pois.find((p) => p.id === tr.poiId);
-      if (!poi || !this.inter.present(poi.id)) return undefined;
-      return Math.hypot(c.x - poi.x, c.z - poi.z) < 16 ? { lead, label } : undefined;
-    }
-    return undefined;
-  }
-
-  /** Examine the current lead's target if it is in reach. Returns whether it was. */
-  private examineHere(): boolean {
-    const reach = this.inReach();
-    if (reach) {
-      this.completeLead(reach.lead);
-      return true;
-    }
-    if (this.atRoomDoor()) {
-      this.exitRoom();
-      return true;
-    }
-    return false;
-  }
-
-  // ------------------------------------------------------------------ interiors
-
-  /** A point in a room's local frame (local +z is the door side). */
-  private roomLocal(poi: Poi, x: number, z: number) {
-    const r = poi.prop?.rot ?? 0;
-    const c = Math.cos(r);
-    const s = Math.sin(r);
-    const dx = x - poi.x;
-    const dz = z - poi.z;
-    return { lx: dx * c - dz * s, lz: dx * s + dz * c };
-  }
-
-  /** A room-local point → world. */
-  private roomWorld(poi: Poi, lx: number, lz: number) {
-    const r = poi.prop?.rot ?? 0;
-    const c = Math.cos(r);
-    const s = Math.sin(r);
-    return { x: poi.x + lx * c + lz * s, z: poi.z - lx * s + lz * c };
-  }
-
-  private roomPoi(id: string) {
-    return this.cases.flatMap((c) => c.pois).find((p) => p.id === id && p.room);
-  }
-
-  /** Collision for the walking camera: buildings outside, the walls inside a room. */
+  /** Collision for the walking camera. */
   blocked(x: number, z: number): boolean {
-    const poi = this.room;
-    if (!poi?.room) return this.w.buildings.blockedAt(x, z);
-    const { lx, lz } = this.roomLocal(poi, x, z);
-    return Math.abs(lx) > poi.room.w / 2 - 0.45 || Math.abs(lz) > poi.room.d / 2 - 0.45;
-  }
-
-  private atRoomDoor() {
-    const poi = this.room;
-    if (!poi?.room || this.lens.kind !== 'idle' || this.ui.modalOpen) return false;
-    const c = this.w.camera.position;
-    return this.roomLocal(poi, c.x, c.z).lz > poi.room.d / 2 - 2.1;
-  }
-
-  /** Step through the door into a room (it must exist in the current year). */
-  private enterRoom(id: string) {
-    const poi = this.roomPoi(id);
-    if (!poi?.room || !this.inter.present(poi.id)) return;
-    const inside = this.roomWorld(poi, 0, poi.room.d / 2 - 1.4);
-    const deep = this.roomWorld(poi, 0, -poi.room.d / 2);
-    this.room = poi;
-    this.ui.root.classList.add('dim');
-    window.setTimeout(() => this.ui.root.classList.remove('dim'), 700);
-    this.w.rig.teleport(inside.x, inside.z, Math.atan2(-(deep.x - inside.x), -(deep.z - inside.z)), 0.06);
-    this.sfx.tick();
-  }
-
-  private exitRoom() {
-    const poi = this.room;
-    if (!poi?.room) return;
-    const out = this.roomWorld(poi, 0, poi.room.d / 2 + 4);
-    const far = this.roomWorld(poi, 0, poi.room.d / 2 + 20);
-    this.room = undefined;
-    this.ui.root.classList.add('dim');
-    window.setTimeout(() => this.ui.root.classList.remove('dim'), 700);
-    this.w.rig.teleport(out.x, out.z, Math.atan2(-(far.x - out.x), -(far.z - out.z)), 0.04);
-    this.sfx.tick();
-  }
-
-  /** On resume: are we standing inside a room that exists this year? */
-  private findRoom() {
-    const c = this.w.camera.position;
-    this.room = this.cases
-      .flatMap((cs) => cs.pois)
-      .find((p) => {
-        if (!p.room || !this.inter.present(p.id)) return false;
-        const { lx, lz } = this.roomLocal(p, c.x, c.z);
-        return Math.abs(lx) < p.room.w / 2 && Math.abs(lz) < p.room.d / 2;
-      });
-  }
-
-  private note(id: string) {
-    if (!this.state.collect('notes', id)) return;
-    this.save();
-    const n = this.def.notes.find((x) => x.id === id);
-    if (!n) return;
-    this.sfx.chime();
-    this.ui.toast(`Field note · ${n.title.en}`, 3500);
-  }
-
-  private completeLead(lead: Lead) {
-    const newYear = this.state.complete(lead.id);
-    this.save();
-    this.renderHud();
-    const next = () => {
-      this.sfx.chime(true);
-      if (lead.autoTravel && newYear !== undefined) this.travel(newYear, () => this.showClue(lead, newYear, true));
-      else this.showClue(lead, newYear, false);
-    };
-    const r = lead.clue.reveal;
-    if (!r) return next();
-    this.ui.showReveal(
-      r.prompt.en,
-      r.look,
-      r.draws.map((d) => ({ label: d.label.en, value: d.value.en, tone: d.tone })),
-      () => this.sfx.tick(),
-      next,
-    );
-  }
-
-  private showClue(lead: Lead, newYear: number | undefined, traveled: boolean) {
-    const c = lead.clue;
-    const after = () => {
-      this.ui.closeModal();
-      if (lead.enter) this.enterRoom(lead.enter);
-      if (this.state.readyToSolve) this.deduce();
-    };
-    const actions =
-      newYear !== undefined && !traveled
-        ? [
-            {
-              label: `Travel to ${newYear}`,
-              primary: true,
-              run: () => {
-                this.ui.closeModal();
-                this.travel(newYear);
-              },
-            },
-            { label: 'Later', run: after },
-          ]
-        : [{ label: 'Continue', primary: true, run: after }];
-    const n = this.def.leads.indexOf(lead) + 1;
-    // after a photograph: the real print, credited, with a link to it
-    const photo = lead.trigger.kind === 'rephoto' ? lead.trigger.photo : undefined;
-    const plate = photo && this.photos.get(photo.id);
-    this.ui.showCard({
-      kicker: `Clue ${n} / ${this.def.leads.length}`,
-      title: c.title.en,
-      gist: c.gist.en,
-      image: plate?.real ? plate.card : undefined,
-      credit: plate?.real ? photo?.archive?.credit.en : undefined,
-      more: { text: c.text.en, sources: photo ? [photo.reference, ...(c.sources ?? [])] : c.sources },
-      confidence: c.confidence,
-      ticket: newYear !== undefined ? { label: traveled ? 'You are now in' : 'New year', value: String(newYear) } : undefined,
-      actions,
-    });
-  }
-
-  private deduce() {
-    const d = this.def.deduction;
-    this.ui.showDeduction(d.question, d.options, () => this.solved());
-  }
-
-  private solve() {
-    if (!this.state.readyToSolve) return;
-    this.ui.closeModal();
-    this.deduce();
-  }
-
-  private solved() {
-    this.state.solved = true;
-    this.save();
-    this.sfx.chime(true);
-    this.renderHud();
-    const r = this.def.resolution;
-    const [gist, rest] = split(r.text.en);
-    const next = this.nextCase();
-    this.ui.showCard({
-      kicker: 'Case closed',
-      title: r.title.en,
-      gist,
-      more: { text: rest, facts: r.facts.map((f) => f.en), sources: r.sources },
-      confidence: 'documented',
-      ticket: { label: 'Unlocked', value: 'All years' },
-      actions: [
-        ...(next ? [{ label: `Next: Case ${next.number} · ${next.title.en}`, primary: true, run: () => this.startCase(next) }] : []),
-        { label: 'Keep walking', primary: !next, run: () => this.ui.closeModal() },
-        {
-          label: 'Open the full timeline',
-          run: () => {
-            this.ui.closeModal();
-            this.exit();
-            this.onFreeMode?.(true);
-          },
-        },
-      ],
-    });
-  }
-
-  /** The next case to play: the first unsolved one after this, else any unsolved one. */
-  private nextCase(): CaseDef | undefined {
-    const i = this.cases.indexOf(this.def);
-    const order = [...this.cases.slice(i + 1), ...this.cases.slice(0, i)];
-    return order.find((c) => !new GameState(c, load(c.id)).solved);
-  }
-
-  /** Switch to a case and start (or resume) it right here. */
-  private startCase(def: CaseDef) {
-    this.ui.closeModal();
-    this.closePhoto();
-    this.selectCase(def);
-    this.enter(true);
+    return this.w.buildings.blockedAt(x, z);
   }
 
   // ------------------------------------------------------------------ menus
-
-  private caseFile(tab = this.caseTab) {
-    this.closeMap();
-    this.caseTab = tab;
-    const s = this.state;
-    const L = (x: Localized) => x.en;
-    const spec: CaseFileSpec = {
-      number: this.def.number,
-      title: L(this.def.title),
-      question: L(this.def.question),
-      years: s.compass,
-      leads: this.def.leads.map((l) => {
-        if (s.done.has(l.id)) return { state: 'done' as const, title: L(l.clue.title), gist: L(l.clue.gist), text: L(l.clue.text), year: l.clue.anchors };
-        if (s.open.includes(l)) {
-          const tier = s.hintTier(l.id);
-          return { state: 'now' as const, title: L(l.title), text: L(l.text), hint: tier >= 0 ? L(l.hints[tier]) : undefined };
-        }
-        return { state: 'locked' as const, title: '' };
-      }),
-      solved: s.solved,
-      readyToSolve: s.readyToSolve,
-      notes: this.def.notes.map((n) => ({ title: L(n.title), text: L(n.text), got: s.notes.has(n.id) })),
-      stamps: Object.entries(STYLE_INFO).map(([id, v]) => ({ name: v!.name.en, got: s.stamps.has(id) })),
-      landmarks: { names: LANDMARKS.filter((l) => s.landmarks.has(l.id)).map((l) => l.name?.en ?? l.id), total: LANDMARKS.length },
-    };
-    this.ui.showCaseFile(spec, tab, (t) => this.caseFile(t), () => this.ui.closeModal());
-  }
 
   private menu() {
     this.closeMap();
@@ -1198,13 +1017,14 @@ export class Game {
     let armed = false;
     this.ui.showMenu([
       { label: 'Resume', icon: 'play', run: () => this.ui.closeModal() },
-      { label: sound ? 'Sound: on' : 'Sound: off', icon: sound ? 'sound' : 'mute', run: () => void this.toggleSound().then(() => this.menu()) },
+      { label: 'Notebook', icon: 'journal', run: () => this.notebook() },
       { label: 'Map', icon: 'map', run: () => this.openMap() },
+      { label: sound ? 'Sound: on' : 'Sound: off', icon: sound ? 'sound' : 'mute', run: () => void this.toggleSound().then(() => this.menu()) },
       ...(document.fullscreenEnabled
         ? [{ label: this.fullscreenPref() ? 'Full screen: on' : 'Full screen: off', icon: 'fullscreen' as const, run: () => this.toggleFullscreen() }]
         : []),
       { label: 'How to play', icon: 'help', run: () => this.howToPlay() },
-      { label: 'Choose a case', icon: 'journal', run: () => this.toTitle() },
+      { label: 'Title screen', icon: 'restart', run: () => this.toTitle() },
       {
         label: 'Free explore · timeline',
         icon: 'free',
@@ -1214,14 +1034,14 @@ export class Game {
         },
       },
       {
-        label: 'Restart case',
+        label: 'Start a new notebook',
         icon: 'restart',
         danger: true,
         run: () => {
           if (!armed) {
             armed = true;
             const el = document.querySelector('.g-menu-item.danger span');
-            if (el) el.textContent = 'Tap again to restart';
+            if (el) el.textContent = 'Tap again: this clears your notebook';
             return;
           }
           this.ui.closeModal();
@@ -1234,7 +1054,7 @@ export class Game {
 
   // ------------------------------------------------------------------ full screen
   // On by default on touch devices. Browsers allow it only inside a tap, so it is requested
-  // when the player taps Begin / Continue / Case, and from the menu toggle.
+  // when the player taps Begin / Continue, and from the menu toggle.
 
   private fullscreenPref(): boolean {
     const v = read<boolean>(FULLSCREEN_KEY);
@@ -1273,24 +1093,20 @@ export class Game {
       return;
     }
     if (e.code === 'KeyM') return this.full.open ? this.closeMap() : this.openMap();
+    if (e.code === 'KeyJ') return this.ui.modalOpen ? this.ui.closeModal() : this.notebook();
     if (this.ui.modalOpen || this.full.open) return;
-    const anchored = this.state.compass.filter((s) => !s.locked).map((s) => s.year);
     if (e.code === 'KeyP') this.togglePhoto();
-    else if (e.code === 'KeyJ') this.caseFile();
-    else if (e.code === 'KeyH') {
-      if (this.holding) this.aid();
-      else this.hint();
-    } else if (e.code === 'KeyE') {
-      if (!this.examineHere()) this.tap(window.innerWidth / 2, window.innerHeight / 2);
-    } else if (e.code === 'KeyQ') {
+    else if (e.code === 'KeyH') this.aid();
+    else if (e.code === 'KeyE') this.tap(window.innerWidth / 2, window.innerHeight / 2);
+    else if (e.code === 'KeyQ') {
       const cur = Math.floor(this.w.time.year);
-      const target = this.lastYear !== undefined && this.lastYear !== cur ? this.lastYear : anchored.find((y) => y !== cur);
+      const target = this.lastYear !== undefined && this.lastYear !== cur ? this.lastYear : YEARS.find((y) => y !== cur);
       if (target !== undefined) {
         this.keyPeek = true;
         this.peek(target);
       }
     } else if (/^Digit[1-9]$/.test(e.code)) {
-      const y = anchored[Number(e.code.slice(5)) - 1];
+      const y = YEARS[Number(e.code.slice(5)) - 1];
       if (y !== undefined) this.travel(y);
     }
   }
@@ -1298,66 +1114,22 @@ export class Game {
   // ------------------------------------------------------------------ frame
 
   update(dt: number, t: number) {
-    // props stay in the world in free mode, but their sparkles belong to the game
-    if (!this.active) this.inter.wanted.clear();
+    // nothing in the world is marked: props never sparkle
+    this.inter.wanted.clear();
     this.inter.update(t, this.w.camera.position);
     if (!this.active) return;
     this.updateLens(dt);
     this.updatePhoto(dt);
-    this.updateGuidance();
+    this.updateNotice(dt);
     const c = this.w.camera.position;
-    const year = this.lens.kind === 'peek' ? this.lens.base : Math.floor(this.w.time.year);
     if (this.lens.kind === 'idle') this.state.walk(c.x, c.z);
-    this.ui.setStreet(this.room ? undefined : streetAt(c.x, c.z, year));
+    this.ui.setStreet(streetAt(c.x, c.z, this.year));
     if (!this.full.open) this.mini.draw(this.yearLayer(), this.mapOverlay());
-    this.noteTimer += dt;
-    if (this.noteTimer > 0.4 && this.lens.kind === 'idle') {
-      this.noteTimer = 0;
-      this.checkPlaceNotes();
-    }
+    if (this.queue.length && !this.ui.modalOpen && !this.holding && this.lens.kind === 'idle') this.showNext();
     this.saveTimer += dt;
     if (this.saveTimer > 4) {
       this.saveTimer = 0;
       this.save();
     }
-  }
-
-  /** Context prompts, the Examine button and the on-screen marker of the final hint tier. */
-  private updateGuidance() {
-    const lead = this.state.current;
-    const c = this.w.camera.position;
-    const year = Math.floor(this.w.time.year);
-    let prompt: string | undefined;
-    const reach = this.inReach();
-    let nearSpot = false;
-    if (lead && !reach && this.lens.kind === 'idle' && !this.ui.modalOpen && !this.holding) {
-      const d = Math.hypot(lead.target.x - c.x, lead.target.z - c.z);
-      if (lead.trigger.kind === 'rephoto' && d < 18) nearSpot = true;
-      else if (lead.years && (year < lead.years[0] || year > lead.years[1]) && d < 60) prompt = `Not in ${year} — try another year`;
-    }
-    this.ui.setPrompt(prompt);
-    this.ui.setExamine(reach?.label ?? (this.atRoomDoor() ? 'Step outside' : undefined));
-    this.ui.root.classList.toggle('near-spot', nearSpot);
-
-    if (!lead || this.state.hintTier(lead.id) < lead.hints.length - 1 || this.holding) return this.ui.placeMarker(undefined);
-    const ty = lead.target.y ?? 2;
-    this.v.set(lead.target.x, this.w.ground(lead.target.x, lead.target.z) + ty, lead.target.z);
-    const dist = Math.hypot(lead.target.x - c.x, lead.target.z - c.z);
-    this.v.project(this.w.camera);
-    const W = window.innerWidth;
-    const Hh = window.innerHeight;
-    let sx = (this.v.x * 0.5 + 0.5) * W;
-    let sy = (-this.v.y * 0.5 + 0.5) * Hh;
-    const behind = this.v.z > 1;
-    const off = behind || sx < 40 || sx > W - 40 || sy < 80 || sy > Hh - 120;
-    if (behind) {
-      sx = W - sx;
-      sy = Hh - 140;
-    }
-    if (off) {
-      sx = clamp(sx, 40, W - 40);
-      sy = clamp(sy, 90, Hh - 140);
-    }
-    this.ui.placeMarker(sx, sy, `${Math.round(dist)} m`, off);
   }
 }

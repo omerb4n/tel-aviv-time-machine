@@ -25,6 +25,9 @@ export interface PickResult {
   site: BuildingSite;
   phase: BuildingPhase;
   object: THREE.Object3D;
+  /** Where the ray hit, and how far from its origin. */
+  point: THREE.Vector3;
+  distance: number;
 }
 
 /** Owns every building in the scene and animates them in and out as time moves. */
@@ -236,7 +239,7 @@ export class BuildingManager {
     const hit = raycaster.intersectObjects(candidates, false)[0];
     if (!hit) return undefined;
     const entry = this.byId.get(hit.object.userData.siteId as string)!;
-    return { site: entry.site, phase: entry.site.phases[hit.object.userData.phaseIndex as number], object: hit.object };
+    return { site: entry.site, phase: entry.site.phases[hit.object.userData.phaseIndex as number], object: hit.object, point: hit.point, distance: hit.distance };
   }
 
   select(siteId: string | undefined) {
