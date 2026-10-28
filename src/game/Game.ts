@@ -1264,6 +1264,8 @@ export class Game {
   private onKey(e: KeyboardEvent) {
     if (!this.active || (e.target as HTMLElement)?.tagName === 'INPUT' || e.repeat) return;
     if (e.code === 'Escape') {
+      // the Esc that frees a captured mouse does nothing else
+      if (this.w.rig.escFreedMouse) return;
       if (this.full.open) this.closeMap();
       else if (this.ui.modalOpen) this.ui.closeModal();
       else if (this.holding) this.closePhoto();

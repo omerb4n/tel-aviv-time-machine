@@ -6,7 +6,8 @@ export type GroundFn = (x: number, z: number) => number;
 
 /**
  * Observer camera: orbit / pan / zoom from above, cinematic fly-to for tours,
- * and a street-level walking mode (drag to look, WASD to walk).
+ * and a street-level walking mode (drag to look, WASD to walk). With a mouse, one click
+ * captures it and looking follows the mouse with no button held (Esc frees it).
  */
 export class CameraRig {
   readonly controls: OrbitControls;
@@ -26,10 +27,16 @@ export class CameraRig {
   /** Optional collision test for walking. */
   collide?: (x: number, z: number) => boolean;
   onModeChange?: (mode: 'orbit' | 'street') => void;
+  /** Click to capture the mouse for looking (a computer with a mouse, not touch). */
+  mouseLook = matchMedia('(pointer: fine)').matches;
+  /** Called when the mouse is captured for looking or freed. */
+  onLookChange?: (looking: boolean) => void;
+  private freedAt = -1e9;
+  private capturedAt = -1e9;
 
   constructor(
     readonly camera: THREE.PerspectiveCamera,
-    dom: HTMLElement,
+    private dom: HTMLElement,
     private ground: GroundFn,
   ) {
     this.controls = new OrbitControls(camera, dom);
@@ -45,12 +52,12 @@ export class CameraRig {
     window.addEventListener('keydown', (e) => {
       if ((e.target as HTMLElement)?.tagName === 'INPUT') return;
       this.keys.add(e.code);
-      if (e.code === 'Escape' && this.mode === 'street' && !this.lockStreet) this.setMode('orbit');
+      if (e.code === 'Escape' && this.mode === 'street' && !this.lockStreet && !this.escFreedMouse) this.setMode('orbit');
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
     window.addEventListener('blur', () => this.keys.clear());
     dom.addEventListener('pointerdown', (e) => {
-      if (this.mode !== 'street' || this.dragId !== -1) return;
+      if (this.mode !== 'street' || this.dragId !== -1 || this.looking) return;
       this.dragId = e.pointerId;
       this.last = { x: e.clientX, y: e.clientY };
     });
@@ -59,7 +66,19 @@ export class CameraRig {
     };
     window.addEventListener('pointerup', release);
     window.addEventListener('pointercancel', release);
+    document.addEventListener('pointerlockchange', () => {
+      if (!this.looking) this.freedAt = performance.now();
+      this.capturedAt = performance.now();
+      this.onLookChange?.(this.looking);
+    });
     window.addEventListener('pointermove', (e) => {
+      if (this.looking) {
+        // browsers can report one wild jump just after capturing the mouse
+        if (!this.inputEnabled || performance.now() - this.capturedAt < 120 || Math.abs(e.movementX) + Math.abs(e.movementY) > 400) return;
+        this.yaw -= e.movementX * 0.0022;
+        this.pitch = clamp(this.pitch - e.movementY * 0.0022, -1.2, 1.2);
+        return;
+      }
       if (this.mode !== 'street' || e.pointerId !== this.dragId) return;
       if (!this.inputEnabled) {
         this.last = { x: e.clientX, y: e.clientY };
@@ -70,6 +89,39 @@ export class CameraRig {
       this.pitch = clamp(this.pitch - (e.clientY - this.last.y) * k, -1.2, 1.2);
       this.last = { x: e.clientX, y: e.clientY };
     });
+  }
+
+  /** The mouse is captured: moving it looks around. */
+  get looking() {
+    return !!this.dom && document.pointerLockElement === this.dom;
+  }
+
+  /**
+   * True right after Esc freed a captured mouse. Browsers use that Esc to free it, so it should
+   * not also open a menu or leave the street.
+   */
+  get escFreedMouse() {
+    // browsers differ on whether that Esc arrives before or after the mouse is freed
+    return this.looking || performance.now() - this.freedAt < 250;
+  }
+
+  /** A click with the mouse at street level should capture it rather than act. */
+  wantsCapture(e: PointerEvent) {
+    return e.pointerType === 'mouse' && this.mouseLook && this.inputEnabled && this.mode === 'street' && !this.fly && !this.looking;
+  }
+
+  captureMouse() {
+    if (this.looking || !this.dom.requestPointerLock) return;
+    try {
+      const r = this.dom.requestPointerLock() as unknown as Promise<void> | undefined;
+      r?.catch?.(() => undefined);
+    } catch {
+      // not allowed here (no user gesture, or an embedded frame): drag to look instead
+    }
+  }
+
+  freeMouse() {
+    if (this.looking) document.exitPointerLock();
   }
 
   /** Jump straight to a street-level pose. */
@@ -136,6 +188,8 @@ export class CameraRig {
   }
 
   update(dt: number) {
+    // dialogs, peeks and flying up give the mouse back
+    if (this.looking && (!this.inputEnabled || this.mode !== 'street' || this.fly)) this.freeMouse();
     if (this.fly) {
       const f = this.fly;
       f.t += dt;

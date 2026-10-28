@@ -485,7 +485,7 @@ export class GameUI {
       h(
         'div',
         { class: 'g-how-grid' },
-        tile('walk', 'Walk & look', touch ? 'stick to walk · drag to look' : 'W A S D · drag to look'),
+        tile('walk', 'Walk & look', touch ? 'stick to walk · drag to look' : 'W A S D · click, then move the mouse to look'),
         tile('examine', 'Examine', 'what glimmers or is marked'),
         tile('ticket', 'Travel', 'tap a year ticket'),
         tile('peek', 'Peek', 'hold a year ticket'),

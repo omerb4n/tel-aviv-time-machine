@@ -62,7 +62,7 @@ take **10–15 minutes**.
 
 ### 5.1 Walking (presence)
 - First person at 1.7 m eye height. Buildings are solid (footprint collision).
-- Desktop: drag to look, WASD/arrows to walk, Shift to hurry, click to examine (E for screen centre).
+- Desktop: click once to capture the mouse, then move it to look (Esc frees it; dragging still works). WASD/arrows to walk, Shift to hurry. While the mouse is captured, a dot marks the centre and a click examines what it is on (E does the same).
 - Touch: on-screen stick (left) to walk, drag anywhere to look, tap to examine.
 - When the current lead's target is in reach (in the right year), a large **Examine** button
   appears (E on desktop). Players don't have to discover that the 3D world is tappable.

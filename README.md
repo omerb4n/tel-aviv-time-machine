@@ -81,7 +81,7 @@ Deep links: `http://localhost:5173/#year=1948`.
 | `Space` | Play / pause time |
 | Click a building or label | Its life story, sources and style |
 | `T` | Guided tour |
-| `V` | Walk at street level (`W A S D`, drag to look, `Esc` to fly) |
+| `V` | Walk at street level (`W A S D`; click once and move the mouse to look, `Esc` frees the mouse, `Esc` again to fly) |
 | `G` | Ghosts of demolished buildings |
 | `M` | Ambient sound |
 
