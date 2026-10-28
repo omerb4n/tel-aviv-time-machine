@@ -12,25 +12,36 @@ export interface Alignment {
   /** Degrees. */
   yawErr: number;
   pitchErr: number;
+  /** Metres between the eye heights. */
+  heightErr: number;
   matched: boolean;
   /** Roughly right (the photo's corner brackets show): within NEAR tolerances. */
   near: boolean;
 }
 
 /** Tolerances for a successful rephotograph. */
-export const MATCH = { dist: 6, yaw: 9, pitch: 9 };
+export const MATCH = { dist: 6, yaw: 9, pitch: 9, height: 3 };
 /** Tolerances for "nearly there": coarse feedback, so the player still has to look. */
-export const NEAR = { dist: 14, yaw: 20, pitch: 18 };
+export const NEAR = { dist: 14, yaw: 20, pitch: 18, height: 8 };
+/** Eye height when a pose doesn't say. */
+const STANDING = 1.7;
 
 /** How well the current view lines up with where a photo was taken. */
 export function alignment(photo: Pose, view: Pose): Alignment {
   const dist = Math.hypot(view.x - photo.x, view.z - photo.z);
   const yawErr = Math.abs(wrapAngle(view.yaw - photo.yaw)) * (180 / Math.PI);
   const pitchErr = Math.abs(view.pitch - photo.pitch) * (180 / Math.PI);
+  const heightErr = Math.abs((view.height ?? STANDING) - (photo.height ?? STANDING));
   const f = (v: number, range: number) => Math.max(0, 1 - v / range);
-  const score = f(dist, 60) ** 1.4 * f(yawErr, 60) * f(pitchErr, 45);
-  return { score, dist, yawErr, pitchErr, matched: dist <= MATCH.dist && yawErr <= MATCH.yaw && pitchErr <= MATCH.pitch,
-    near: dist <= NEAR.dist && yawErr <= NEAR.yaw && pitchErr <= NEAR.pitch,
+  const score = f(dist, 60) ** 1.4 * f(yawErr, 60) * f(pitchErr, 45) * f(heightErr, 40);
+  return {
+    score,
+    dist,
+    yawErr,
+    pitchErr,
+    heightErr,
+    matched: dist <= MATCH.dist && yawErr <= MATCH.yaw && pitchErr <= MATCH.pitch && heightErr <= MATCH.height,
+    near: dist <= NEAR.dist && yawErr <= NEAR.yaw && pitchErr <= NEAR.pitch && heightErr <= NEAR.height,
   };
 }
 

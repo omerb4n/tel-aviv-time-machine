@@ -1,265 +1,234 @@
-# Game design: from museum to exploration
+# Game design: an open city and a field notebook
 
 This document defines what the Tel Aviv Time Machine is as a **game**: what the player does,
-why it is fun, and how history is woven into play. It replaces the "guided museum" framing of
-Milestone 0, which is kept as the *free explore* mode.
+why it is fun, and how the history of the city's architecture, planning and culture is woven
+into play. The classic timeline (Milestone 0) remains as *free explore*.
 
 ---
 
-## 1. Diagnosis: why the first build felt like a museum
+## 1. Why this design
 
-| Symptom | Underlying problem |
+The first game build had three **cases** (*The Vanishing School*, *The Seashell Lottery*,
+*The House on Plot 43*). Playtest feedback (October 2026):
+
+| What the player said | What it means |
 | --- | --- |
-| Info cards, tours and event pop-ups push content at you | **No information gap.** Everything is shown up front, so nothing makes you curious. |
-| A slider gives you all 125 years at once | **No agency or progression.** Time travel is free, so it means nothing. |
-| You look down from above | **No presence.** A god's-eye view is a map, not a place. |
-| The reward for doing anything is a paragraph | **No competence.** You never figure anything out yourself. |
-| There is nothing you could get wrong or miss | **No stakes, no surprise.** |
+| "You can just click four times on the screen and it works." | The cases told you what to look at next, and an Examine button appeared when you got there. Nothing was found; it was followed. |
+| "The cases feel like separate levels." | A linear case with a start and an end splits the city into levels. The city should be one place. |
+| "I want exploration: to discover and be amazed on my own, but tracked." | The reward is noticing something yourself, and seeing it recorded. |
+| "A sequential flow is fine, but it must be introduced better." | Any order should be offered, explained and optional, not imposed. |
+| "I'm more interested in architecture, urbanism and culture." | The declaration of 1948 is political history. The game should teach how the city was built, how it looks and how people lived in it. |
+
+So the cases are gone. The city is open, and a **field notebook** records what you notice.
 
 ## 2. Design theory we build on
 
 | Theory | What it says | What we do with it |
 | --- | --- | --- |
-| **Information-gap theory of curiosity** (Loewenstein, 1994) | Curiosity is the feeling of a *specific* gap between what you know and what you want to know, and it peaks when the gap feels closable. | Every case opens with one concrete question and a partial clue (a postcard of a building that is not there). Locked years show as `????` on the time compass. |
-| **Knowledge-based progression** (*Outer Wilds*, *Return of the Obra Dinn*, *Her Story*, *Heaven's Vault*) | Progress is what the player knows, not items or stats. The world doesn't change; your understanding does. | Years are unlocked ("anchored") only by clues found in the world. The key to the next year is a fact. |
-| **Self-determination theory applied to games** (Ryan, Rigby & Przybylski, 2006) | Games motivate when they satisfy **autonomy, competence and relatedness**. | *Autonomy:* free walking, multiple open leads, optional discoveries. *Competence:* rephotography alignment, deductions, style identification. *Relatedness:* real people and places, future composite characters. |
-| **MDA framework** (Hunicke, LeBlanc & Zubek, 2004) | Design from the target **aesthetics** back to the mechanics. | Target aesthetics: **Discovery** (primary), **Fantasy** (being a time traveller), **Narrative** (the city's story). Not challenge or competition. |
-| **Environmental storytelling** (Jenkins, 2004, "Game Design as Narrative Architecture") | Spaces can hold *embedded narratives* that the player reconstructs. | The city is the text: a mosaic, a site fence, a missing building, a weathered façade. We don't narrate; we let the street testify. |
-| **A theory of fun** (Koster, 2004) | Fun is the feeling of learning a pattern. | Style stamps teach the player to *read* façades (ribbon balconies → International Style). Late in a case the player starts dating buildings by eye. |
-| **Flow** (Csikszentmihalyi) and **tiered hints** | Keep challenge near skill, and never leave the player stuck. | Three-tier hints per lead: nudge → search circle on the map → on-screen and map marker. No timers, no failure states. |
-| **Zeigarnik effect** | Unfinished tasks stay on the mind. | The step bar, `????` years, undiscovered field notes and locked next-case titles invite return. |
-| **Player types** (Bartle's *explorers*; Quantic Foundry's *Discovery* and *Story* motivations) | Some players love finding secrets and understanding how worlds work. | We design for explorers first: hidden notes, landmark and style collections, peeking for "double exposures". |
+| **Information-gap theory of curiosity** (Loewenstein, 1994) | Curiosity is a *specific* gap that feels closable. | Each undiscovered notebook entry is a one-line riddle ("A house that stands on columns"), and two old photographs are clipped in without saying where they were taken. |
+| **Knowledge-based progression** (*Outer Wilds*, *Return of the Obra Dinn*, *Heaven's Vault*) | Progress is what the player knows. | Nothing unlocks; the notebook fills in. Once you know what a thermometer window is, you see them everywhere. |
+| **Self-determination theory** (Ryan, Rigby & Przybylski, 2006) | Autonomy, competence, relatedness. | *Autonomy:* any street, any year, any order. *Competence:* reading façades, dating buildings by eye, matching photos. *Relatedness:* real people, places and photographs. |
+| **MDA** (Hunicke, LeBlanc & Zubek, 2004) | Design back from the aesthetics. | **Discovery** first, then **fantasy** (a time walker) and **narrative** (the city's story). |
+| **Environmental storytelling** (Jenkins, 2004) | Spaces hold embedded narratives. | A balcony closed in with shutters, a grey façade turned white, a tower where a school stood: the street tells the story if you look. |
+| **A theory of fun** (Koster, 2004) | Fun is learning a pattern. | The White City collection teaches the International Style's features one at a time; the patterns repeat on every street. |
+| **Explorer motivation** (Bartle; Quantic Foundry *Discovery*) | Some players love finding secrets and understanding how worlds work. | We design for explorers: no markers, a notebook that rewards curiosity, comparisons across years. |
 
-Guard-rails: this is educational and for all ages, so **no manipulative loops** (no streak
-punishment, loot boxes or fear of missing out). Rewards are knowledge and access, never currency.
+Guard-rails: educational, for all ages, **no manipulative loops** (no streaks, timers,
+currencies or fear of missing out).
 
 ## 3. Player fantasy
 
-> *"I am a time walker on the streets of Tel Aviv. I notice things others walk past,
-> and with the right clue I can step into any moment of this street's past."*
+> *"I walk Tel Aviv through its whole life. I notice what others walk past, and my notebook
+> fills with what I learned to see."*
 
-The player is still an **observer**: they never change history. They *investigate* it.
+The player is an **observer**: they never change history.
 
 ## 4. Core loop
 
 ```
-   ┌──────────── wander the street (first person) ◀───────────────┐
-   │                        │                                     │
-   │                notice something odd                          │
-   │       (a missing building, a mosaic, a sparkle, a photo)     │
-   │                        │                                     │
-   │           investigate: examine · rephotograph · peek         │
-   │                        │                                     │
-   │          clue → journal, maybe a new year anchored           │
-   │                        │                                     │
-   └─ slip to another year (time lens) ── next lead / deduction ─┘
+   ┌──────────── wander (first person, any street, any year) ◀──────────┐
+   │                              │                                     │
+   │       look closely at something · compare two years in place      │
+   │                 · stand where an old photo was taken               │
+   │                              │                                     │
+   │        "You notice…" → a notebook entry (what, why, sources)       │
+   │                              │                                     │
+   │          a new pattern to look for · a riddle in the notebook      │
+   └──────────────────────────────┴─────────────────────────────────────┘
 ```
 
-A session should reach its **first discovery within 60 seconds**, and the first case should
-take **10–15 minutes**.
+A first discovery should come **within two minutes** without help: the start, on Rothschild
+Boulevard today, is surrounded by International Style buildings.
 
 ## 5. Mechanics
 
 ### 5.1 Walking (presence)
-- First person at 1.7 m eye height. Buildings are solid (footprint collision).
-- Desktop: drag to look, WASD/arrows to walk, Shift to hurry, click to examine (E for screen centre).
-- Touch: on-screen stick (left) to walk, drag anywhere to look, tap to examine.
-- When the current lead's target is in reach (in the right year), a large **Examine** button
-  appears (E on desktop). Players don't have to discover that the 3D world is tappable.
-- A short *How to play* card follows the intro, and is also in the menu.
+- First person at 1.7 m eye height. Buildings are solid.
+- Desktop: click once to capture the mouse, then move it to look (Esc frees it; dragging still
+  works). WASD/arrows to walk, Shift to hurry. A dot marks the centre; a click examines what it
+  is on (E does the same).
+- Touch: on-screen stick to walk, drag to look, tap to examine.
+- **Rise and come down** (R / F, or the ▲ ▼ buttons): up to rooftops and beyond (120 m), to see
+  the street plan from above or stand where a photographer stood on a roof. Below roof height
+  buildings stay solid; above a building's roof you can pass over it, and coming down lands on
+  the roof.
 
-### 5.2 Time compass and anchored years (progression)
-- Time travel is limited to **anchored years**. A case starts with one (the present).
-- A clue can **anchor** a new year (a date on a mosaic, a poster, a postcard). It appears on
-  the compass; un-found years appear as `????` slots.
-- **Tap** a year to **slip**: the current view freezes and the new year opens from the centre
-  of the screen through a glowing lens.
-- **Hold** a year to **peek**: a small lens opens onto that year from exactly where you stand.
-  Release to close it. Peeking is how you compare "then and now" in place.
-- After a case is solved, **free travel** (the full timeline) is unlocked as the reward.
+### 5.2 Time: seven years, open from the start
+- The year tickets are **1909, 1922, 1936, 1960, 1985, 2011 and 2025**: the founding, the
+  eclectic 1920s, the White City, the austerity years, the grey decades, the 2011 protests and
+  today. All are open from the start; time is the tool, not the reward.
+- **Tap** a ticket to **slip** to that year through a lens; **hold** it to **peek** from where you
+  stand. Q peeks into the last year you were in.
+- The full timeline (every year) stays in *free explore*.
 
-### 5.3 Rephotography (the signature mechanic)
-- A lead gives you an archival photograph: the postcard in your pocket. Tap it (P) to hold it up
-  as a translucent ghost over your view.
-- **No meter.** You line it up by eye. Camera-style focus brackets appear when you are roughly in
-  the right place and close in when the view matches; hold still and the shutter clicks and
-  **you slip into its year**.
-- If you are stuck, three optional aids, one at a time: the photo's **outlines** (a tracing),
-  **match points** (coloured dots on the photo, rings in your view), then **directions** in words.
-  Matching with no aids earns the *Photographer's eye* field note.
-- This turns real archive material into concrete, spatial goals that need no text.
-- The photos are the **real archive photographs** (public domain, from Wikimedia Commons): Herzl
-  Street in 1913, Avraham Soskin's lottery of 1909 and Rudi Weissenstein's declaration of 1948.
-  Each scene and photographer's spot is laid out so the model lines up with the print, and the
-  print is fitted to the view by its match points, and the view is cropped to the print's frame
-  (see UI_DESIGN.md §5). If a photo fails to
-  load, the game falls back to a print rendered from the reconstruction.
-- Details and reasoning: [UI_DESIGN.md §5](UI_DESIGN.md#5-rephotography-from-a-meter-to-an-eye).
+### 5.3 Noticing (the core verb)
+- **Look closely.** When you look at something worth noticing, from close enough and in a year
+  when it is there, a ring at the centre of the view fills; hold your look and the discovery
+  is written into the notebook. Tapping or clicking it (or E) notices it at once.
+- **Nothing is marked.** No sparkles, no Examine button, no objective. The ring only appears
+  when you are already looking at the right thing.
+- Some discoveries are about **any** building of a kind (any International Style building's
+  ribbon balconies; the side of one, where the stair window is). Others are one place (Engel
+  House on its columns, the Pagoda House, the first kiosk).
 
-### 5.4 Examining (the world as text)
-- Points of interest (props that exist only in some years) shimmer when you are near and a
-  lead needs them. They do not show from far away, so finding them feels earned.
-- Landmarks open their story and are recorded in the journal (`n/16`).
-- Ordinary buildings give **style stamps**: the first time you examine a building of a style
-  up close, you learn that style and what to look for (`n/8`).
+### 5.4 Comparing (time as a tool)
+- Some discoveries need **two years at one spot**: stand somewhere, then peek or slip into
+  another year. A grey building that is white again; a school that became a tower; dunes that
+  became Allenby Street; a bare boulevard that became a tunnel of trees.
 
-### 5.5 Leads, clues and deduction (narrative structure)
-- A **case** is a small graph of **leads**. Each lead is a question ("What replaced it?"),
-  a trigger (rephoto, examine a site, examine a point of interest), a clue and three hints.
-- Leads can have requirements (graph edges) and valid years.
-- When all leads are done, the case ends with a short **deduction** (multiple choice with
-  gentle feedback). Then a **resolution card** with the real story and sources.
+### 5.5 Rephotography
+- Two real archive photographs are **clipped into the notebook**, with no location: Herzl
+  Street (1913) and Avraham Soskin's photograph of the lottery (1909). Hold one up (the postcard
+  button, P, or *Hold up* in the notebook), find where it was taken and in which year, and line
+  it up by eye.
+- **No meter.** Focus brackets appear when you are close and lock when the view matches; the
+  shutter clicks. Height counts too: the Herzl Street photograph was taken from a rooftop (about
+  9 m up), so it only locks once you rise to it. The photo only locks in a year when the scene looks like the photo (the
+  lottery crowd is there only in 1909; Herzl Street looks like 1913 until the 1920s).
+- Optional aids, one at a time: the photo's outlines, match points, then directions. Matching
+  with no aids is marked *by eye* in the notebook.
+- The held print is the whole real photograph, the view is cropped to it, and its empty parts
+  fade so the world shows through (UI_DESIGN.md §5).
 
-### 5.6 Map (orientation)
-- A round, heading-up minimap; tap it for the full north-up map.
-- The map is **the map of the current year**: streets, buildings and the railway as they were.
-  It is drawn as a hand-inked survey map before 1948 and as a modern map after.
-- Every street is always shown. What fills in as you play: landmarks you examined, numbered
-  stamps where you found clues, and the trail you walked.
-- The second hint tier draws a search circle on the map; the last tier a pin. No route lines.
-- Details and reasoning: [UI_DESIGN.md §6](UI_DESIGN.md#6-the-map).
+### 5.6 The field notebook (tracking)
+- Three sections: **Architecture**, **Urbanism**, **Culture**. Each holds collections, each
+  collection opens with a short introduction (what it is about and what to look for) and a
+  count (`3 / 6`).
+- An undiscovered entry shows only its **riddle**. A *Nudge* adds one more line and, for
+  entries that are a single place, a search circle on the map. There is no stronger hint:
+  the point is to find it yourself.
+- A discovered entry shows what you noticed, the year and place you found it, the story behind
+  "More", its confidence and sources.
+- Two more collections are filled by examining: **Styles** (tap an ordinary building to learn
+  its style) and **Landmarks**.
+- The HUD tag shows the notebook count and your latest find; it opens the notebook.
 
-### 5.7 Field journal (memory and collection)
-- Clues found so far, what you are looking for now, and `? ? ?` for what is still hidden.
-- Anchored years, field notes (optional secrets such as *Double exposure*), style stamps and
-  landmarks.
+### 5.7 Optional order (threads)
+- Each collection's introduction suggests where to start ("Begin on Rothschild Boulevard in
+  1936"), but entries can be found in any order. A first find in a collection opens a new page
+  in the notebook, with that introduction on the discovery card, so each theme is introduced
+  the first time you meet it.
 
-### 5.8 Honesty
-- Every clue shows its **confidence** (documented / approximate / illustrative) and sources.
-- Props that are reconstructions say so, and composite characters (future) are labelled as fiction.
+### 5.8 Map
+- The map of the current year, with your trail and a pin for every discovery where you made
+  it. A nudge draws a search circle. No routes.
 
-## 6. Case 1: *The Vanishing School* (the prototype)
+### 5.9 Honesty
+- Every entry shows its **confidence** (documented / approximate / illustrative) and sources.
+  Building positions and the procedural streets are approximate; the notebook says so where
+  it matters.
 
-| # | Lead | Trigger | Clue → reward |
-| --- | --- | --- | --- |
-| 0 | *Intro:* Herzl St, 2025. A postcard shows a grand building where a tower stands. | | |
-| 1 | **The postcard**: where was it taken? | Rephotograph on Herzl St | Herzl St 1910 → **slip to 1910** |
-| 2 | **The building at the end of the street** | Examine the Gymnasium (1910–1961) | The Herzliya Gymnasium, and the question "what happened?" |
-| 3 | **A trace in the present** | Examine Gutman's mosaic at the tower (2025) | "Razed in 1962" → **1962 anchored** |
-| 4 | **The empty lot** | Examine the site fence (1962–64) | A tower is coming, and the school moved → **1965 anchored** |
-| 5 | **What replaced it** | Examine the Shalom Meir Tower (1965+) | The tallest building in the Middle East |
-| — | **Deduction**: why did the school vanish? | 3 choices | Case closed → **free travel unlocked** |
+## 6. The first slice: Ahuzat Bayit to the White City
 
-Optional field notes: *Double exposure* (peek into the past from the foot of the tower),
-the first kiosk, and Dizengoff House (setting up Case 3).
+Twenty-one discoveries in the modelled core (Rothschild, Herzl, Ahad Ha'am, Lilienblum,
+Nahalat Binyamin, Yehuda HaLevi, Allenby).
 
-## 6b. Case 2: *The Seashell Lottery*
+### Architecture
 
-How did 66 families decide who got which plot, on an empty dune? The case teaches the founding
-of Tel Aviv (11 April 1909) and sets up Case 3 (the house on plot 43).
+**The White City** (1931–1948, restored after 2003)
 
-| # | Lead | Trigger | Clue → reward |
-| --- | --- | --- | --- |
-| 0 | *Intro:* Rothschild Blvd, 2025, by the fountain. | | |
-| 1 | **The fountain on the boulevard** | Examine the Founders' Monument (1951+) | It honours the founding families of 1909 → **slip to 1909** |
-| 2 | **People on the dune** | Examine the crowd (1909) | 66 families have come to divide the land |
-| 3 | **The photographer** | Rephotograph Soskin's picture, *only in 1909* | The best-known image of the founding |
-| 4 | **Two baskets** | Examine the shells, then **draw a white and a grey shell** | The lottery: names on white shells, plot numbers on grey → **1910 anchored** |
-| 5 | **Plot 43** | Examine Dizengoff House (1910+) | The Dizengoffs' home, later Independence Hall |
-| — | **Deduction**: how were plots assigned? | 3 choices | Case closed |
-
-New mechanics in this case:
-- **A hands-on draw** (`Clue.reveal`): before the clue card, the player turns over a white shell and
-  a grey shell. It is a re-enactment ("one of the draws that day"), so the player *does* the lottery
-  rather than reading about it.
-- **A photo that only lines up in its year**: Soskin's photograph shows the crowd, so it locks only in
-  1909. In other years the photo view says "this is the spot, but the photo was taken in 1909".
-- **People of 1909**: an instanced crowd in period dress, a table with two baskets, and the
-  photographer under his cloth beside a plate camera on a tripod.
-
-Optional field notes: *Photographer's eye*, *Where the shells came from* (reach the beach in the
-early years), *Water for the suburb* (the first water tower), *Out of the old town* (visit Neve
-Tzedek before 1914).
-
-Honesty: the exact spot of the lottery on the dune is not documented, so the crowd's placement is
-illustrative; accounts differ on who drew the shells, so that clue is marked *approximate*.
-
-## 6c. Case 3: *The House on Plot 43*
-
-Why was the State of Israel declared in an art museum? The case follows one building through
-four moments and ends inside the hall on 14 May 1948. It closes the opening arc: the lottery
-(Case 2) → the house → the museum → the declaration.
-
-| # | Lead | Trigger | Clue → reward |
-| --- | --- | --- | --- |
-| 0 | *Intro:* 16 Rothschild Blvd, 2025: Independence Hall. | | |
-| 1 | **Independence Hall** | Examine the building (2025) | Built as a home in 1910 → **slip to 1910** |
-| 2 | **The Dizengoffs' home** | Examine the house (1910–1931) | He gives it to the city for art → **1936 anchored** |
-| 3 | **The museum** | Examine the museum sign (1932–1947) | The Tel Aviv Museum of Art → **1948 anchored** |
-| 4 | **Friday, 14 May 1948** | Examine the door, **open the invitation** | A secret ceremony → **step into the hall** |
-| 5 | **Four o'clock** | Rephotograph Weissenstein's picture *inside the hall* | Ben-Gurion reads the Declaration |
-| — | **Deduction**: why a Tel Aviv art museum? | 3 choices | Case closed |
-
-New in this case:
-- **An interior.** A point of interest can be a `room` (a box inside a building, local +z = door).
-  A lead's `enter` steps the player through the door after its clue. Inside, collision is the room's
-  walls; a *Step outside* button appears by the door; time travel is paused ("this room only exists
-  in this moment"). The hall is built procedurally: the leaders' table, Herzl's portrait between two
-  flags, paintings on the walls, rows of seated guests. It is self-lit (soft emissive materials) rather than lit by extra lights, which would make every material in the scene costlier on phones.
-- **People of 1948**: shirt sleeves, suits, coloured dresses, and seated figures.
-- The invitation reuses the hands-on reveal from Case 2.
-
-Optional field notes: *Photographer's eye*, *Two houses in one* (peek from the museum back into
-1910), *Waiting outside* (stand with the crowd on the boulevard in 1948).
-
-Honesty: the museum opening (1932) and its rebuilding (by 1936) are both given; the reason for
-choosing this building comes mostly from guides and memoirs, so that clue is *approximate*; the
-hall and portrait are stylised reconstructions, laid out after Weissenstein's photograph.
-
-### Cases share a world
-
-Every case's props stand in the world in their years (the 1909 crowd is there in Case 1 too); only
-the current case's leads make them glimmer. Each case has its own save; style stamps and landmarks
-are shared across cases (`tlvtm.profile.v1`). The title poster lists each case as a ticket with
-its status, and the menu has *Choose a case*.
-
-## 7. Future cases (each one is a place, a question and a few years)
-
-| Case | Question | Signature moment |
+| Entry | How you find it | Years |
 | --- | --- | --- |
-| **The White City** | Find the five features of the International Style on one street. | Style-stamp scavenger hunt; peek 1936 vs 1985 vs 2010 restoration. |
-| **The Lost Water Tower** | What was the first thing in town taller than a house? | Find the Founders' Monument and peek back. |
-| **Tents on the Boulevard** | What were thousands of people doing on Rothschild in 2011? | A moving crowd, a present-day lead. |
+| Ribbon balconies | Look closely at any International Style building | 1936, 1960, 2025 |
+| Thermometer windows | Look at the side of one, where the stair window is | 1936 on |
+| On columns (pilotis) | Look at Engel House, 84 Rothschild | 1936 on |
+| Closed-in balconies | Look at a weathered International Style building | 1985, 2011 |
+| White again | Stand by a grey one and compare it with after its restoration | 1985 ↔ 2025 |
+| One floor more | Look at a restored building with a floor added on the roof | 2025 |
 
-Later systems:
-- composite characters met across decades;
-- a daily *"Where and when?"* challenge, with a shareable result;
-- classroom codes;
-- narration and audio clues.
+**Before the White City**
+
+| Entry | How you find it | Years |
+| --- | --- | --- |
+| Red roofs and gardens | Look at a first-generation garden house | 1909, 1922 |
+| East meets West | Look at an eclectic building | 1922 on |
+| The Pagoda House | Look at it | 1936 on |
+
+### Urbanism: *Building a city*
+
+| Entry | How you find it | Years |
+| --- | --- | --- |
+| The lottery on the dune | Match Soskin's photograph | 1909 |
+| A street aimed at a school | Match the Herzl Street photograph | 1910–1925 (ticket 1922) |
+| Water for the suburb | Look at the water tower | 1909, 1922 |
+| A boulevard of trees | On Rothschild's promenade, compare 1909 with a later year | 1909 ↔ 1936+ |
+| Beyond the first streets | On Allenby Street, compare 1909 with a later year | 1909 ↔ 1922+ |
+| A school for a tower | At the head of Herzl Street, compare 1960 with a later year | 1960 ↔ 1985+ |
+| Tents on the boulevard | Look at a protest tent | 2011 |
+
+### Culture: *City life*
+
+| Entry | How you find it | Years |
+| --- | --- | --- |
+| The first kiosk | Look at it | any |
+| A museum in the mayor's house | Look at Dizengoff House | 1936, 1960 |
+| A new face for the synagogue | At the Great Synagogue, compare 1960 with 1985 | 1960 ↔ 1985+ |
+| The founders' fountain | Look at the Founders' Monument | 1960 on |
+| A wall that tells the story | Look at Gutman's mosaic at the Shalom Meir Tower | 1985 on |
+
+## 7. Next
+
+- More collections in the same world: *Eclectic tiles* (Bezalel ceramics such as Ze'ev Raban's
+  murals on the Lederberg House), *Kiosks* (the 1995 boulevard plan restored them),
+  *Shikun* (austerity housing).
+- New areas: the Geddes Plan north (Dizengoff Square, the boulevards), Neve Tzedek, Jaffa port.
+- A second layer of threads: a short guided walk per collection, offered in the notebook.
+- Hebrew text (every string is already `Localized`).
 
 ## 8. What we measure (playtests)
 
-- **Time to first discovery** under 60 s for 80% of first-time players.
-- **Case completion** above 60% of players who start it. Hint usage per lead shows where people get stuck.
-- **Unprompted peeks** per session: are players using time as a tool?
-- **Retention signal**: players who open the journal or look at the locked next cases after finishing.
-- **Learning**: a 3-question quiz before and after (e.g. "What stood where the Shalom Tower is?").
+- **Time to first discovery** (target under two minutes, unhelped).
+- **Discoveries per session** and **nudges per discovery**: where do people get stuck?
+- **Unprompted comparisons** (peeks and slips that lead to a discovery).
+- **Learning**: before and after, can players name three features of the International Style?
 
-## 9. Architecture (prototype)
+## 9. Architecture
 
 ```
 src/game/
-  types.ts              case content model: Lead, Trigger, Clue, Poi, PhotoDef, CaseDef
-  cases/vanishingSchool.ts   Case 1 content (data only, testable)
-  GameState.ts          pure progress state: leads, anchored years, collections, save/load
-  rephoto.ts            pure alignment scoring for rephotography
-  Game.ts               orchestrator: lens state machine, examining, guidance, flow
-  GameUI.ts             DOM for HUD, compass, cards, journal, photo overlay
-  Interactables.ts      year-bound props and sparkle markers
-  Joystick.ts, sfx.ts   touch stick, procedural sound effects
-world/TimeWipePass.ts   post-processing pass: frozen snapshot vs live scene through a lens
+  types.ts              content model: Discovery, Collection, Trigger, Poi, PhotoDef
+  content/              the notebook's content (data only, testable)
+    collections.ts        sections, collections and their introductions
+    discoveries.ts        every discovery: riddle, nudge, trigger, text, sources
+    photos.ts             the archive photographs and where they were taken
+    pois.ts               props that stand in the world in their years
+  NotebookState.ts      pure progress: found entries, stamps, landmarks, trail, save/load
+  discover.ts           pure trigger tests (look, compare, photo)
+  rephoto.ts            pure rephotography maths
+  Game.ts               orchestrator: lens, noticing, comparing, photos, notebook, map
+  GameUI.ts             DOM: HUD, tickets, cards, notebook, photo overlay, noticing ring
 ```
 
-The world stays a pure function of the year, so a slip or peek is just `jumpTo(year)` (an
-instant world switch that skips rise/sink animations) behind the lens effect. Progress lives
-in `localStorage` (`tlvtm.case.v1`). The classic timeline still works (*Free explore* on the
-title screen, the *Case* button to return, and `#year=` deep links).
+Progress lives in `localStorage` (`tlvtm.notebook.v1`). Style stamps and landmarks from the
+case builds carry over.
 
-### Authoring a case
+### Authoring a discovery
 
-1. Add `src/game/cases/<name>.ts` exporting a `CaseDef`.
-2. Leads need a trigger, a clue with sources and confidence, three hints and a target
-   position. Anchor years through clues.
-3. Add any props as `pois` with a `prop` kind (add a new kind in `Interactables.ts`).
-4. `tests/game.test.ts` checks that the case can be finished, its references exist, and its
-   start and photo positions are not inside buildings.
+1. Add it to `src/game/content/discoveries.ts` with a section and collection, a riddle and a
+   nudge, a trigger, a one-sentence gist, the story, confidence and sources.
+2. Triggers: `look` (a site by id, or any building of a style with an optional phase test),
+   `compare` (two year ranges at a place, or by a kind of building), `photo` (an archive
+   photograph), `poi` (a prop).
+3. `tests/notebook.test.ts` checks that every trigger refers to things that exist in its years,
+   that every discovery can be found in at least one of the seven years, and that the start is
+   on open ground.

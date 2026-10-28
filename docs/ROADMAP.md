@@ -28,12 +28,17 @@ The first build felt like a museum. The project is now an exploration game (see
 - ✅ Less text: one-line objectives and hints, one-sentence cards with *More*, pictogram how-to.
 - ✅ Rephotography by eye: focus brackets instead of a meter, three optional aids, a mastery note.
 - ✅ Map of the current year: heading-up minimap, full map, trail, clue stamps, hint circles.
-- ⏭ Playtest with 5–10 people and tune hints, distances and pacing (targets in GAME_DESIGN §8).
-- ✅ Case 2 *The Seashell Lottery*: a crowd on the 1909 dune, Soskin's photo, drawing the shells.
-  Cases share one world, with a save per case and shared collections.
-- ✅ Case 3 *The House on Plot 43*: one building from 1910 to 14 May 1948, ending inside the
-  museum hall (the first walk-in interior).
-- ⏭ Case 4 *The White City* (style-stamp hunt on one street, 1936 / 1985 / 2010).
+- ✅ Cases 2 and 3 (*The Seashell Lottery*, *The House on Plot 43*), later retired (below).
+- ✅ Real archive photographs in the photo steps; the view cropped to the print; mouse look on
+  computers (click once, then move the mouse).
+- ✅ **Open exploration with a field notebook** (playtest, October 2026: the cases felt like
+  linear levels that could be clicked through, and the interest is architecture, urbanism and
+  culture). No markers or objectives: seven open years, noticing by looking closely, comparing two
+  years in one place, matching two archive photos. Four collections and 21 discoveries:
+  *The White City*, *Before the White City*, *Building a city*, *City life*.
+- ⏭ Playtest the notebook: time to first discovery, which riddles need a nudge.
+- ⏭ More pages: eclectic tiles (Raban's murals), kiosks, austerity housing; then new areas
+  (the Geddes Plan north and Dizengoff Square, Neve Tzedek, Jaffa port).
 
 ## Milestone 0.6 — Street-level realism (on a GPU workstation)
 

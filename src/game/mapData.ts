@@ -97,8 +97,8 @@ export function streetAt(x: number, z: number, year: number, margin = 12): Stree
 }
 
 /**
- * The "search area" a hint draws on the map: a circle that contains the target but is not
- * centred on it (otherwise the circle would give the exact spot away).
+ * The search area a nudge draws on the map: a circle that contains the spot but is not centred
+ * on it (otherwise the circle would give the exact spot away).
  */
 export function hintArea(target: { x: number; z: number }, seed: string, r = 70): { x: number; z: number; r: number } {
   const h = hashString(seed);

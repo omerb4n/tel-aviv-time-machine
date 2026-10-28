@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import './game/game.css';
 import { Ambience } from './audio/Ambience';
-import { CASES } from './game/cases';
 import { Game } from './game/Game';
 import { CameraRig } from './core/CameraRig';
 import { TimeController } from './core/TimeController';
@@ -198,10 +197,10 @@ async function main() {
     terrain.setYear(time.year);
     terrainDirty = false;
   };
-  const game = new Game({ time, rig, camera, canvas, post, buildings, scene, audio, ground, jumpTo }, CASES, $('#ui'));
+  const game = new Game({ time, rig, camera, canvas, post, buildings, scene, audio, ground, jumpTo }, $('#ui'));
   // the real archive photographs download while the first year is built
   const archive = game.loadArchive();
-  rig.collide = (x, z) => game.active && game.blocked(x, z);
+  rig.collide = (x, z, eye) => game.active && game.blocked(x, z, eye);
 
   /** The classic free timeline (the original museum-style experience). */
   const enterFree = (fromGame: boolean) => {
@@ -232,7 +231,7 @@ async function main() {
   if (hashYear === undefined) {
     await archive;
     game.preparePhotos();
-    const p = game.def.start.pose;
+    const p = game.start.pose;
     rig.teleport(p.x, p.z, p.yaw, p.pitch);
   }
   progress(1);
@@ -342,12 +341,15 @@ async function main() {
   canvas.addEventListener('pointerdown', (e) => (down = { x: e.clientX, y: e.clientY }));
   canvas.addEventListener('pointerup', (e) => {
     if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6) return;
+    // at street level the first click captures the mouse; after that, clicks act at the centre
+    if (rig.wantsCapture(e)) return rig.captureMouse();
+    const [x, y] = rig.looking ? [window.innerWidth / 2, window.innerHeight / 2] : [e.clientX, e.clientY];
     if (game.active) {
-      game.tap(e.clientX, e.clientY);
+      game.tap(x, y);
       return;
     }
     if (!document.body.classList.contains('mode-free')) return;
-    ndc.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
+    ndc.set((x / window.innerWidth) * 2 - 1, -(y / window.innerHeight) * 2 + 1);
     raycaster.setFromCamera(ndc, camera);
     const hit = buildings.pick(raycaster);
     selectSite(hit?.site.id);
@@ -355,7 +357,7 @@ async function main() {
   let lastHover = 0;
   canvas.addEventListener('pointermove', (e) => {
     const now = performance.now();
-    if (now - lastHover < 90 || e.buttons || game.active) return;
+    if (now - lastHover < 90 || e.buttons || game.active || rig.looking) return;
     lastHover = now;
     ndc.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
     raycaster.setFromCamera(ndc, camera);
@@ -383,6 +385,22 @@ async function main() {
     post.setSize(window.innerWidth, window.innerHeight);
   });
 
+  // ------------------------------------------------------------ mouse look
+  // At street level on a computer: a centre dot while the mouse is captured, and a quiet
+  // "click to look around" while it is not.
+  const look = document.createElement('div');
+  look.className = 'look-hint hidden';
+  look.setAttribute('aria-hidden', 'true');
+  document.body.append(look);
+  const updateLook = () => {
+    const street = rig.mouseLook && rig.mode === 'street' && rig.inputEnabled;
+    const state = !street ? 'none' : rig.looking ? 'dot' : 'hint';
+    if (look.dataset.state === state) return;
+    look.dataset.state = state;
+    look.classList.toggle('hidden', state === 'none');
+    look.textContent = state === 'hint' ? 'Click to look around · Esc frees the mouse' : '';
+  };
+
   // ------------------------------------------------------------ loop
   const clock = new THREE.Clock();
   let statsTimer = 0;
@@ -408,6 +426,7 @@ async function main() {
     atmosphere.follow(rig.focus, rig.distance);
     if (!game.active) labels.update(camera, time.year);
     game.update(dt, t);
+    updateLook();
     timeline.render();
     statsTimer += dt;
     if (statsTimer > 0.5) {

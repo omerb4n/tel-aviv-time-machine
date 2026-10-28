@@ -25,6 +25,9 @@ export interface PickResult {
   site: BuildingSite;
   phase: BuildingPhase;
   object: THREE.Object3D;
+  /** Where the ray hit, and how far from its origin. */
+  point: THREE.Vector3;
+  distance: number;
 }
 
 /** Owns every building in the scene and animates them in and out as time moves. */
@@ -183,10 +186,15 @@ export class BuildingManager {
    * True if a walker at (x, z) would be inside a building standing in the current year.
    * `pad` grows every footprint (a body radius).
    */
-  blockedAt(x: number, z: number, pad = 0.35): boolean {
+  /**
+   * Is (x, z) inside a standing building? With `eye` (height above the ground), only buildings
+   * taller than that block: a walker who has risen above the roofs can pass over them.
+   */
+  blockedAt(x: number, z: number, pad = 0.35, eye = 0): boolean {
     for (const e of this.nearby(x, z)) {
       const pe = e.phases.find((p) => p.target > 0);
       if (!pe || pe.phase.style === 'tent') continue;
+      if (eye > 2 && eye > roofHeight(pe.phase) + 1.2) continue;
       const w = (pe.phase.width ?? e.site.width) / 2 + pad;
       const d = (pe.phase.depth ?? e.site.depth) / 2 + pad;
       const dx = x - e.site.x;
@@ -236,7 +244,7 @@ export class BuildingManager {
     const hit = raycaster.intersectObjects(candidates, false)[0];
     if (!hit) return undefined;
     const entry = this.byId.get(hit.object.userData.siteId as string)!;
-    return { site: entry.site, phase: entry.site.phases[hit.object.userData.phaseIndex as number], object: hit.object };
+    return { site: entry.site, phase: entry.site.phases[hit.object.userData.phaseIndex as number], object: hit.object, point: hit.point, distance: hit.distance };
   }
 
   select(siteId: string | undefined) {
@@ -281,4 +289,26 @@ export class BuildingManager {
     out.set(e.group.position.x, e.group.position.y + h + 4, e.group.position.z);
     return pe.presence > 0.5;
   }
+}
+
+/** Landmark models with no floor count: their tallest part, in metres (see styles.ts). */
+const LANDMARK_HEIGHT: Partial<Record<BuildingStyle, number>> = {
+  gymnasium: 19,
+  'water-tower': 17,
+  'synagogue-dome': 22,
+  'synagogue-arches': 22,
+  'clock-tower': 28,
+  church: 32,
+  'founders-monument': 11,
+  kiosk: 6,
+};
+
+/** Roughly how tall a building of this phase stands (to its parapet or roof), in metres. */
+export function roofHeight(p: BuildingPhase): number {
+  if (p.height) return p.height;
+  const lm = LANDMARK_HEIGHT[p.style];
+  if (lm) return lm;
+  const floors = p.floors ?? 2;
+  // ground floor, storeys, and a margin for pilotis, parapets, roof rooms and pitched roofs
+  return floors * 3.2 + 4.5;
 }

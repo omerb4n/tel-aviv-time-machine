@@ -27,7 +27,7 @@ Playtest feedback on the first prototype:
 | **Minimap debates** (Clair Obscur, Gothic remake, Borderlands 4 compass) | Removing the minimap makes players read the world, but frustrates casual players. A fog-of-war or partial map is a common compromise. | Keep a small minimap (people asked for it), but make it calm: no objective arrow by default, a rotating "heading-up" disc for orientation, and a full north-up map for planning. |
 | **The Witness (Jonathan Blow, 2016)** | Solutions are confirmed by sound and visuals in the world, not by meters. Puzzles are solved by *standing in the right place and looking*. | The rephoto has no meter. Feedback is a camera focus metaphor (brackets close in), the photo's own lines, and a shutter click. |
 | **Rephotography tools** (ReShoot, Ephemeros, re.photos) | Real rephotographers use a translucent "ghost" of the old photo; re.photos asks users to place matching marker pairs. | Our aids copy real practice: first the photo's *outline* (a tracing), then *match points* (coloured pairs), only then words. |
-| **Outer Wilds ship log** | Progress is shown as knowledge ("rumours") linked between places, not as a quest list. | The case file is a trail of clues with locked "? ? ?" entries, not a checklist. |
+| **Outer Wilds ship log** | Progress is shown as knowledge ("rumours") linked between places, not as a quest list. | The notebook records what you noticed; what you have not found yet is a riddle, never a checklist of places. |
 | **Jacob Eisenberg's street signs** | Tel Aviv's first street signs were deep-blue ceramic tiles by the Bezalel-trained ceramicist Jacob Eisenberg, in Hebrew, Arabic and English. | The street sign in the corner of the HUD. It names the street you stand on, so it doubles as orientation. |
 | **1930s Tel Aviv print** (Levant Fair posters, Hebrew modernist lettering) | Flat colour, heavy display type, strong horizontals, a Mediterranean palette. | The title screen is a poster; the palette is cobalt, terracotta, brass and paper. |
 
@@ -49,14 +49,14 @@ and brass, laid over the living street.
 | Element | Object | Why |
 | --- | --- | --- |
 | Where am I | **Ceramic street sign** (cobalt glaze, cream border, Hebrew above English) | Eisenberg's tiles; also teaches the Hebrew street names. Appears only when you are on a street that exists in that year. |
-| What am I doing | **Luggage tag** (paper, punched hole, one line) | One short sentence. Tap it for the case file. A pencilled hint appears under it when asked for. |
-| Hints | **Ink stamp "?"** next to the tag | One button, three tiers (nudge → map circle → exact mark). |
+| What have I found | **Luggage tag** (paper, punched hole, one line) | The notebook count and your latest find. Tap it for the notebook. |
+| Noticing | **A ring at the centre of the view** | Fills while your look rests on something worth noticing; nothing else in the world is marked. |
 | When am I | **Split-flap board** (Solari) | Time travel = departures. The digits flip through the years in between, with a soft clack. |
-| Where can I go | **Tickets** (notched, perforated) | Anchored years are tickets you earned; locked years are blank stubs. Tap to travel, hold to peek. |
-| The photo | **The postcard in your pocket** (a tilted thumbnail) | Not a "Photo" button: the actual postcard. It wiggles when you are near the spot. |
-| Clues | **Archive index cards** (ruled lines, red rule, typed header, rubber stamp) | The confidence badge becomes a stamp: DOCUMENTED / APPROXIMATE / ILLUSTRATIVE. A new year is a ticket stapled to the card. |
-| Case file | **Manila folder** with tabs (Case · Finds) | The question, a trail of clues, finds. Style stamps are perforated postage stamps. |
-| Title | **A 1930s poster** with the case as a ticket | First impression sets the tone. |
+| Where can I go | **Tickets** (notched, perforated) | Seven years, all open. Tap to travel, hold to peek. |
+| The photo | **The postcard in your pocket** (a tilted thumbnail) | Not a "Photo" button: the actual postcard, the next photo still to place. |
+| Discoveries | **Archive index cards** (ruled lines, red rule, typed header, rubber stamp) | The confidence badge becomes a stamp: DOCUMENTED / APPROXIMATE / ILLUSTRATIVE. The year you noticed it is a ticket stapled to the card; a new notebook page is a boxed note. |
+| Notebook | **Manila folder** with a tab per section (Architecture · Urbanism · Culture) | Each page opens with what it is about, then found entries (✓) and riddles (?). Style stamps are perforated postage stamps. |
+| Title | **A 1930s poster** with the notebook as a ticket | First impression sets the tone. |
 
 **Palette**
 
@@ -65,9 +65,9 @@ and brass, laid over the living street.
 | `--paper` | `#f3ead6` | Every surface |
 | `--ink` | `#1d1a15` | Text, primary buttons |
 | `--cobalt` | `#1c3a78` | Street sign, current year, done, links |
-| `--clay` | `#b4442f` | Terracotta roofs: accents, current step, hints, button shadow |
+| `--clay` | `#b4442f` | Terracotta roofs: accents, riddles, nudge circles, button shadow |
 | `--brass` | `#c8923a` | Minimap rim, peeking, the matched photo |
-| `--manila` | `#d9bf8a` | The case folder |
+| `--manila` | `#d9bf8a` | The notebook folder |
 
 **Type** (all on Google Fonts, with Hebrew):
 - *Suez One*: display (titles, years, the street sign). Heavy and Mediterranean, like a 1930s poster.
@@ -80,16 +80,17 @@ hard offset shadow in terracotta, like misregistered print.
 ## 4. Less text
 
 Rules:
-1. **One line on screen.** The objective tag holds one short sentence (`Lead.short`, at most ~45
-   characters). The full question lives in the case file.
+1. **One line on screen.** The tag holds the count and the latest find. Riddles and stories live
+   in the notebook.
 2. **One sentence per card.** Cards show a title and a `gist`; the full story, facts and sources are
    behind **More**.
 3. **Pictures over paragraphs.** *How to play* is four pictograms with three to five words each.
 4. **Teach once.** "Tap a year to travel" / "Hold a year to peek" appear under the tickets only until
    you have done it (`seen` in the save).
-5. **No body text in menus.** The menu is a list of big buttons with icons; "Restart" asks for a
-   second tap instead of a dialog.
-6. **Hints are one line**, and from the second tier on they point at the map instead of describing a route.
+5. **No body text in menus.** The menu is a list of big buttons with icons; "Start a new notebook"
+   asks for a second tap instead of a dialog.
+6. **A nudge is one line**, and for a single place it draws a search circle on the map, never a
+   route or a marker.
 
 ## 5. Rephotography: from a meter to an eye
 
@@ -97,8 +98,8 @@ Old: hold up the photo, watch a percentage and follow "turn left".
 
 New:
 
-1. **Find the place** using the postcard itself: a long street, a grand building at its end.
-   You are on that street. Lead hints help (nudge, then a circle on the map, then a mark).
+1. **Find the place** using the photo itself: a long street, a grand building at its end; a crowd
+   on bare sand. A nudge in the notebook narrows it down and circles an area on the map.
 2. **Hold it up** (tap the postcard). The photo floats over the view as a translucent ghost.
    There is **no meter**.
 3. **Feedback is coarse and physical**, like a camera:
@@ -110,14 +111,16 @@ New:
    1. **Tracing**: the scene's outlines in cream ink (Sobel edges of the model, rendered from
       the photographer's spot). Turns the comparison into lining up shapes.
    2. **Match points**: coloured dots on the photo and rings in your view for the same places
-      (the school's towers and arch, the ends of the crowd, Herzl's portrait). Line each ring up
+      (the school's towers and arch, the middle and ends of the crowd). Line each ring up
       with its dot.
    3. **Directions**: the old words ("the photographer stood a bit to your left").
-5. **Mastery reward**: matching with no aids earns the *Photographer's eye* field note.
+5. **Mastery reward**: a photo matched with no aids is marked *by eye* in the notebook.
 
 Why: matching becomes perception (the core of rephotography) rather than optimisation, and the
 fallback ladder means nobody gets stuck. Tolerances: match at ≤ 6 m, ≤ 9° yaw and pitch;
-brackets at ≤ 14 m, ≤ 20° yaw, ≤ 18° pitch.
+brackets at ≤ 14 m, ≤ 20° yaw, ≤ 18° pitch. Eye height must be within 3 m to match (8 m for
+the brackets): a photo taken from a rooftop needs the player to rise (R / ▲), and the third aid
+says so.
 
 Technical notes:
 - **The camera is cropped to the print.** The whole photograph is shown at its own shape, as
@@ -134,8 +137,8 @@ Technical notes:
   (rephoto.ts) solves by least squares for the scale and offset that carry those points onto
   where the reference camera sees them, giving the print's edges in the reference view. The
   tracing is rendered from the model through that same frame, so it lines up with both. The
-  scenes were adjusted to the prints (Soskin's crowd is a dense band 13 m wide seen from 11 m;
-  the hall's portrait hangs at 4.1 m), so the overlay is close.
+  scenes were adjusted to the prints (Soskin's crowd is a dense band 13 m wide seen from 11 m), so
+  the overlay is close.
 
 ## 6. The map
 
@@ -147,9 +150,9 @@ artificial in an educational game. What you *discover* is what fills in:
 | Always shown | Revealed by playing |
 | --- | --- |
 | Coast, sea, Jaffa, Neve Tzedek, the railway (1892–1948) | Landmarks you examined (blue diamonds with names) |
-| Streets *that exist in that year*, with sand tracks before paving | Where you found clues (numbered terracotta stamps) |
+| Streets *that exist in that year*, with sand tracks before paving | Where you noticed things (numbered terracotta stamps, in notebook order) |
 | Buildings *standing in that year* | The trail you walked (a pencil line) |
-| | Hint tier 2: a dashed search circle (offset so it doesn't give the spot away); tier 3: a pin |
+| | A nudge for a single place: a dashed search circle |
 
 **The map changes with time.** Before 1948 it is drawn as a hand-inked survey map (sepia ink,
 engraved sea lines, sand tracks); from 1948 on as a clean modern map. Travelling to 1910 shows a
@@ -166,16 +169,16 @@ No route lines and no fast travel, by design (see Dahmani & Bohbot above).
 ## 7. Files
 
 ```
-src/game/GameUI.ts     DOM for the kit: sign, tag, flap board, tickets, postcard, cards, folder, menu
+src/game/GameUI.ts     DOM for the kit: sign, tag, flap board, tickets, postcard, noticing ring, cards, notebook, menu
 src/game/Flap.ts       split-flap year board
 src/game/MapView.ts    canvas map renderer, MiniMap (heading-up) and FullMap (pan/zoom)
-src/game/mapData.ts    pure: a year's map layer, the street you stand on, hint circles (tested)
+src/game/mapData.ts    pure: a year's map layer and the street you stand on (tested)
 src/game/game.css      the design tokens and every style above
 ```
 
 ## 8. Next
 
-- A real playtest on phones: do players find the postcard spot without aids? How many use each aid?
+- A real playtest on phones: how long until the first discovery, unhelped? Which riddles need a nudge?
 - Hebrew UI (the type already supports it; the sign is bilingual).
 - A sound pass: paper rustle for cards, the flap board, a street-sign "clink".
 - Era-specific paper: the 1960s cards could be printed forms, the 2020s a phone screen.

@@ -10,10 +10,10 @@ export interface MapOverlay {
   trail: [number, number][];
   /** Discovered landmarks (named pins). */
   pins: { x: number; z: number; label: string }[];
-  /** Where clues were found (numbered stamps). */
+  /** Where discoveries were made (numbered stamps). */
   stamps: { x: number; z: number; n: number }[];
-  /** Hint search area (dashed circle) or exact spot (pin). */
-  hint?: { x: number; z: number; r: number; exact: boolean };
+  /** Search areas from nudges (dashed circles). */
+  hints: { x: number; z: number; r: number }[];
 }
 
 interface View {
@@ -254,17 +254,15 @@ export function drawMap(g: CanvasRenderingContext2D, layer: YearLayer, ov: MapOv
     g.fillText(String(s.n), sx, sy + 0.5);
   }
 
-  // hint
-  if (ov.hint) {
-    const hp = ov.hint;
+  // search areas
+  for (const hp of ov.hints) {
     let [sx, sy] = S(hp.x, hp.z);
-    const r = hp.exact ? 9 : hp.r * k;
-    // keep the hint visible at the edge when it is off the map
+    const r = hp.r * k;
+    // keep the area visible at the edge when it is off the map
     const R = Math.min(v.w, v.h) / 2 - 10;
     const dx = sx - v.w / 2;
     const dy = sy - v.h / 2;
-    const off = Math.hypot(dx, dy) > R + (hp.exact ? 0 : r);
-    if (off) {
+    if (Math.hypot(dx, dy) > R + r) {
       const d = Math.hypot(dx, dy);
       sx = v.w / 2 + (dx / d) * R;
       sy = v.h / 2 + (dy / d) * R;
@@ -272,16 +270,6 @@ export function drawMap(g: CanvasRenderingContext2D, layer: YearLayer, ov: MapOv
       g.beginPath();
       g.arc(sx, sy, 5, 0, Math.PI * 2);
       g.fill();
-    } else if (hp.exact) {
-      g.fillStyle = CLAY;
-      g.strokeStyle = '#fff8e8';
-      g.lineWidth = 2;
-      g.beginPath();
-      g.arc(sx, sy - 12, 8, Math.PI * 0.85, Math.PI * 0.15);
-      g.lineTo(sx, sy);
-      g.closePath();
-      g.fill();
-      g.stroke();
     } else {
       g.strokeStyle = CLAY;
       g.fillStyle = 'rgba(180,68,47,0.12)';
@@ -381,7 +369,7 @@ export class MiniMap {
     const size = this.el.clientWidth || 104;
     const p = ov.player;
     // redraw only when something visible changed (position to 0.5 m, yaw to ~1°)
-    const key = `${layer.year}|${Math.round(p.x * 2)}|${Math.round(p.z * 2)}|${Math.round(p.yaw * 60)}|${ov.trail.length}|${ov.pins.length}|${ov.stamps.length}|${ov.hint ? `${Math.round(ov.hint.x)},${ov.hint.exact}` : ''}|${size}`;
+    const key = `${layer.year}|${Math.round(p.x * 2)}|${Math.round(p.z * 2)}|${Math.round(p.yaw * 60)}|${ov.trail.length}|${ov.pins.length}|${ov.stamps.length}|${ov.hints.map((x) => Math.round(x.x)).join(',')}|${size}`;
     if (key === this.last) return;
     this.last = key;
     const g = sizeCanvas(this.canvas, size, size);
