@@ -651,14 +651,11 @@ body:not(.mode-free) :is(.brand, .toolbar, #timeline, #help, .yearbox, #labels, 
 }
 .g-photo :is(.ph-img, .ph-trace) {
   position: absolute;
-  top: 0;
-  left: 50%;
-  height: 100vh;
   max-width: none;
-  transform: translateX(-50%);
 }
 .ph-img {
-  opacity: 0.55;
+  /* the print carries its own see-through mask (subjectAlpha) */
+  opacity: 1;
 }
 .ph-trace {
   opacity: 0.95;
@@ -673,10 +670,9 @@ body:not(.mode-free) :is(.brand, .toolbar, #timeline, #help, .yearbox, #labels, 
 .ph-frame {
   --in: 22%;
   position: absolute;
-  top: 0;
-  left: 50%;
-  height: 100vh;
-  transform: translateX(-50%);
+  /* the camera is cropped to the print: a dark matte around it */
+  box-shadow: 0 0 0 200vmax rgba(14, 11, 8, 0.86);
+  outline: 1px solid rgba(239, 230, 210, 0.35);
 }
 .ph-frame i {
   position: absolute;

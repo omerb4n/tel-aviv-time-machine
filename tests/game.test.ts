@@ -99,10 +99,9 @@ for (const CASE of CASES)
           expect(ahead).toBeGreaterThan(4);
           return Math.abs(Math.atan2(side, ahead)) * (180 / Math.PI);
         });
-        // all inside a 4:3 photo (vertical fov 50° → ±31°); a portrait phone (aspect ~0.46)
-        // shows only about ±12°, so at least one must be near the middle
+        // all inside a 4:3 view (vertical fov 50° → ±31°); the screen is cropped to the print,
+        // so every orientation sees all of them
         for (const a of angles) expect(a).toBeLessThan(30);
-        expect(angles.some((a) => a < 10)).toBe(true);
       }
     });
 

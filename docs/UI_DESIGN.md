@@ -120,16 +120,22 @@ fallback ladder means nobody gets stuck. Tolerances: match at ≤ 6 m, ≤ 9° y
 brackets at ≤ 14 m, ≤ 20° yaw, ≤ 18° pitch.
 
 Technical notes:
-- On portrait phones the plate is rendered at 4:3 with the same vertical field of view, so the
-  phone sees the centre of a landscape postcard and alignment still holds.
-- Match points are projected with the photographer's camera when the plate is rendered and with
-  the live camera every frame. A test keeps them inside a 4:3 photo, and at least one within
-  ±10° of the view axis so it is visible on a portrait phone.
-- **Real photographs.** Each photo's match points are also given in the real print. `fitCrop`
-  (rephoto.ts) solves by least squares for the 4:3 crop of the print that carries those points
-  onto where the model's camera sees them, kept inside the print. The tracing stays the model's,
-  so it lines up with the view. The scenes were adjusted to the prints (Soskin's crowd is a dense
-  band 13 m wide seen from 11 m; the hall's portrait hangs at 4.1 m), so the overlay is close.
+- **The camera is cropped to the print.** The whole photograph is shown at its own shape, as
+  large as fits the screen, with a dark matte around it. The camera is re-aimed (an off-centre
+  view offset of the 50°, 4:3 reference view) so the world inside the frame is exactly what the
+  print shows. A portrait phone, a landscape phone and a desktop all see the same composition.
+- **See-through where it is empty.** The held print is not one flat opacity. `subjectAlpha`
+  (rephoto.ts) measures detail across the print (edge strength, blurred): the subjects, such as
+  people, faces and windows, show at up to 70%, and empty sky, sand and walls fade to 10%, so the
+  world shows through where there is nothing to line up.
+- Match points are projected with the reference camera when the plate is rendered and with the
+  live camera every frame. A test keeps them within 30° of the view axis.
+- **Real photographs.** Each photo's match points are also given in the real print. `printFrame`
+  (rephoto.ts) solves by least squares for the scale and offset that carry those points onto
+  where the reference camera sees them, giving the print's edges in the reference view. The
+  tracing is rendered from the model through that same frame, so it lines up with both. The
+  scenes were adjusted to the prints (Soskin's crowd is a dense band 13 m wide seen from 11 m;
+  the hall's portrait hangs at 4.1 m), so the overlay is close.
 
 ## 6. The map
 

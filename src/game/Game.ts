@@ -17,7 +17,7 @@ import { Interactables } from './Interactables';
 import { Joystick } from './Joystick';
 import { hintArea, streetAt, yearLayer, type YearLayer } from './mapData';
 import { FullMap, MiniMap, type MapOverlay } from './MapView';
-import { alignment, fitCrop, MATCH, wrapAngle } from './rephoto';
+import { alignment, containRect, type Frame, MATCH, printFrame, subjectAlpha, wrapAngle } from './rephoto';
 import { COMING } from './cases';
 import { Sfx } from './sfx';
 import type { CaseDef, Lead, NoteTrigger, PhotoDef, Poi } from './types';
@@ -67,11 +67,16 @@ interface PhotoPlate {
   tracing: string;
   /** Width / height. */
   ratio: number;
+  /** The print's edges in the reference view (see `REF`). */
+  frame: Frame;
   /** Match points in photo coordinates (0 … 1). */
   marks: { u: number; v: number }[];
   /** The print is the real photograph, not the reconstruction. */
   real: boolean;
 }
+
+/** The reference view the photos are fitted in: the game camera (50° tall) at 4:3. */
+const REF = 4 / 3;
 
 interface Holding {
   lead: Lead;
@@ -253,49 +258,60 @@ export class Game {
   }
 
   private renderPlate(p: PhotoDef): PhotoPlate {
-    // A postcard is landscape. On a portrait screen, render it at 4:3 with the same vertical
-    // field of view: the phone then sees exactly the middle of the photo, so it still lines up.
     const { camera, post } = this.w;
     const renderer = post.composer.renderer;
-    const [vw, vh] = [window.innerWidth, window.innerHeight];
-    const narrow = vw / vh < 4 / 3;
-    if (narrow) {
-      const pw = Math.round(vh * (4 / 3));
-      camera.aspect = 4 / 3;
-      camera.updateProjectionMatrix();
-      renderer.setSize(pw, vh, false);
-      post.setSize(pw, vh);
-    }
+    // the match points as the reference camera sees them, and the print fitted over them
+    camera.aspect = REF;
+    camera.updateProjectionMatrix();
+    camera.updateMatrixWorld();
+    const inView = p.marks.map((m) => {
+      this.v.set(m.x, this.w.ground(m.x, m.z) + m.y, m.z).project(camera);
+      return { u: this.v.x * 0.5 + 0.5, v: -this.v.y * 0.5 + 0.5 };
+    });
+    const real = p.archive ? this.archive.get(p.id) : undefined;
+    const frame = real ? printFrame(p.archive!.marks, inView, real.naturalWidth, real.naturalHeight, REF) : { u0: 0, v0: 0, u1: 1, v1: 1 };
+    const ratio = real ? real.naturalWidth / real.naturalHeight : REF;
+    // render the world exactly as the print frames it, for the tracing
+    const ph = 900;
+    const pw = Math.round(ph * ratio);
+    renderer.setSize(pw, ph, false);
+    post.setSize(pw, ph);
+    this.frameView(frame, { x: 0, y: 0, w: pw }, pw, ph);
     post.render();
-    const plate = this.readPlate(p);
-    if (narrow) {
-      camera.aspect = vw / vh;
-      camera.updateProjectionMatrix();
-      renderer.setSize(vw, vh, false);
-      post.setSize(vw, vh);
-    }
+    const marks = real ? p.archive!.marks.map(([u, v]) => ({ u, v })) : inView;
+    const plate = this.readPlate(p, real, ratio, frame, marks);
+    this.unframeView();
+    renderer.setSize(window.innerWidth, window.innerHeight, false);
+    post.setSize(window.innerWidth, window.innerHeight);
     return plate;
   }
 
-  private readPlate(p: PhotoDef): PhotoPlate {
-    const src = this.w.canvas;
-    const W = src.width;
-    const H = src.height;
-    const ratio = Math.min(W / H, 4 / 3);
-    const cw = Math.round(H * ratio);
-    const scale = Math.min(1, 900 / H);
-    const c = document.createElement('canvas');
-    c.width = Math.round(cw * scale);
-    c.height = Math.round(H * scale);
-    const g = c.getContext('2d')!;
-    g.drawImage(src, (W - cw) / 2, 0, cw, H, 0, 0, c.width, c.height);
+  /**
+   * Aims the camera so that `rect` of a `sw` × `sh` screen shows exactly the part `frame` of
+   * the reference view, and the rest of the screen carries on around it.
+   */
+  private frameView(frame: Frame, rect: { x: number; y: number; w: number }, sw: number, sh: number) {
+    const { camera } = this.w;
+    const [RW, RH] = [1000 * REF, 1000];
+    const k = ((frame.u1 - frame.u0) * RW) / rect.w;
+    camera.aspect = REF;
+    camera.setViewOffset(RW, RH, frame.u0 * RW - rect.x * k, frame.v0 * RH - rect.y * k, sw * k, sh * k);
+  }
 
-    // match points, projected with the photographer's camera
-    this.w.camera.updateMatrixWorld();
-    let marks = p.marks.map((m) => {
-      this.v.set(m.x, this.w.ground(m.x, m.z) + m.y, m.z).project(this.w.camera);
-      return { u: ((this.v.x * 0.5 + 0.5) * W - (W - cw) / 2) / cw, v: -this.v.y * 0.5 + 0.5 };
-    });
+  private unframeView() {
+    const { camera } = this.w;
+    camera.clearViewOffset();
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+  }
+
+  private readPlate(p: PhotoDef, real: HTMLImageElement | undefined, ratio: number, frame: Frame, marks: { u: number; v: number }[]): PhotoPlate {
+    const src = this.w.canvas;
+    const c = document.createElement('canvas');
+    c.height = Math.min(900, src.height);
+    c.width = Math.round(c.height * ratio);
+    const g = c.getContext('2d')!;
+    g.drawImage(src, 0, 0, c.width, c.height);
 
     const cwid = c.width;
     const luminance = () => {
@@ -326,12 +342,9 @@ export class Game {
       }
     tg.putImageData(ti, 0, 0);
 
-    // the real photograph, fitted over the view by its match points
-    const real = this.archive.get(p.id);
-    if (real && p.archive) {
-      const fit = fitCrop(p.archive.marks, marks, real.naturalWidth, real.naturalHeight, ratio);
-      g.drawImage(real, fit.x, fit.y, fit.w, fit.h, 0, 0, cwid, c.height);
-      marks = p.archive.marks.map(([u, v]) => ({ u: (u * real.naturalWidth - fit.x) / fit.w, v: (v * real.naturalHeight - fit.y) / fit.h }));
+    // the real photograph, whole: the view is framed to fit it
+    if (real) {
+      g.drawImage(real, 0, 0, cwid, c.height);
       lum = luminance();
     }
 
@@ -363,7 +376,15 @@ export class Game {
       g.lineTo(x + (Math.random() - 0.5) * 30, Math.random() * c.height);
       g.stroke();
     }
-    const overlay = c.toDataURL('image/jpeg', 0.86);
+    // held up, the print is see-through where it is empty and solid where its subjects are
+    const strength = subjectAlpha(lum, cwid, c.height);
+    const o = document.createElement('canvas');
+    o.width = cwid;
+    o.height = c.height;
+    const od = g.getImageData(0, 0, cwid, c.height);
+    for (let i = 0; i < strength.length; i++) od.data[i * 4 + 3] = strength[i] * 255;
+    o.getContext('2d')!.putImageData(od, 0, 0);
+    const overlay = o.toDataURL('image/webp', 0.86);
     // postcard: cream border and a caption
     const pad = Math.round(c.height * 0.06);
     const pc = document.createElement('canvas');
@@ -377,7 +398,7 @@ export class Game {
     pg.font = `italic ${Math.round(pad * 0.9)}px "Frank Ruhl Libre", Georgia, serif`;
     pg.textAlign = 'center';
     pg.fillText(p.caption.en, pc.width / 2, c.height + pad * 2.25);
-    return { overlay, card: pc.toDataURL('image/jpeg', 0.86), tracing: t.toDataURL('image/png'), ratio, marks, real: !!real };
+    return { overlay, card: pc.toDataURL('image/jpeg', 0.86), tracing: t.toDataURL('image/png'), ratio, frame, marks, real: !!real };
   }
 
   /** The title screen: a 1930s-style poster with each case as a ticket. */
@@ -740,13 +761,14 @@ export class Game {
     this.closeMap();
     this.ui.closeModal();
     this.holding = { lead, photo: lead.trigger.photo, held: 0, aid: 0, focus: 'none' };
-    this.ui.showPhoto({ src: plate.overlay, tracing: plate.tracing, ratio: plate.ratio, caption: `${lead.trigger.photo.caption.en} · line it up by eye` });
+    this.ui.showPhoto({ src: plate.overlay, tracing: plate.tracing, caption: `${lead.trigger.photo.caption.en} · line it up by eye` });
     this.sfx.tick();
   }
 
   private closePhoto() {
     if (!this.holding) return;
     this.holding = undefined;
+    this.unframeView();
     this.ui.showPhoto(undefined);
   }
 
@@ -770,17 +792,20 @@ export class Game {
     if (focus !== 'none' && H.focus === 'none') this.sfx.focus();
     H.focus = focus;
 
+    // the camera is cropped to the print: inside it, the world is framed exactly as the photo
+    const plate = this.photos.get(H.photo.id)!;
+    const W = window.innerWidth;
+    const Hh = window.innerHeight;
+    const rect = containRect(W, Hh, plate.ratio);
+    this.frameView(plate.frame, rect, W, Hh);
+    camera.updateMatrixWorld();
+
     let marks;
-    const plate = this.photos.get(H.photo.id);
-    if (H.aid >= 2 && plate) {
-      const W = window.innerWidth;
-      const Hh = window.innerHeight;
-      const pw = Hh * plate.ratio;
-      const left = (W - pw) / 2;
+    if (H.aid >= 2) {
       marks = H.photo.marks.map((m, i) => {
         this.v.set(m.x, this.w.ground(m.x, m.z) + m.y, m.z).project(camera);
         const visible = this.v.z < 1 && Math.abs(this.v.x) < 1.4 && Math.abs(this.v.y) < 1.4;
-        return { px: left + plate.marks[i].u * pw, py: plate.marks[i].v * Hh, lx: (this.v.x * 0.5 + 0.5) * W, ly: (-this.v.y * 0.5 + 0.5) * Hh, visible };
+        return { px: rect.x + plate.marks[i].u * rect.w, py: rect.y + plate.marks[i].v * rect.h, lx: (this.v.x * 0.5 + 0.5) * W, ly: (-this.v.y * 0.5 + 0.5) * Hh, visible };
       });
     }
 
@@ -797,7 +822,7 @@ export class Game {
       else advice = 'Hold still…';
     }
     if (a.near && !rightYear) advice = `This is the spot, but the photo was taken in ${H.photo.year}.`;
-    this.ui.renderPhoto({ focus, aid: H.aid, marks, advice });
+    this.ui.renderPhoto({ focus, aid: H.aid, marks, advice, rect });
 
     H.held = matched ? H.held + dt : 0;
     if (H.held > 0.7) {

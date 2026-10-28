@@ -91,7 +91,8 @@ take **10–15 minutes**.
 - The photos are the **real archive photographs** (public domain, from Wikimedia Commons): Herzl
   Street in 1913, Avraham Soskin's lottery of 1909 and Rudi Weissenstein's declaration of 1948.
   Each scene and photographer's spot is laid out so the model lines up with the print, and the
-  print is fitted to the view by its match points (see UI_DESIGN.md §5). If a photo fails to
+  print is fitted to the view by its match points, and the view is cropped to the print's frame
+  (see UI_DESIGN.md §5). If a photo fails to
   load, the game falls back to a print rendered from the reconstruction.
 - Details and reasoning: [UI_DESIGN.md §5](UI_DESIGN.md#5-rephotography-from-a-meter-to-an-eye).
 
