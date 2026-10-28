@@ -1164,6 +1164,43 @@ body:not(.mode-free) :is(.brand, .toolbar, #timeline, #help, .yearbox, #labels, 
   box-shadow: var(--shadow);
   transform: rotate(-1.2deg);
 }
+.g-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 10px 0 4px;
+}
+.g-choice {
+  flex: 1 1 140px;
+  max-width: 220px;
+  padding: 6px 6px 8px;
+  border: 0;
+  background: #fbf7ec;
+  box-shadow: var(--shadow);
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.15s;
+}
+.g-choice:nth-child(odd) {
+  transform: rotate(-1.2deg);
+}
+.g-choice:nth-child(even) {
+  transform: rotate(1deg);
+}
+.g-choice:is(:hover, :focus-visible) {
+  transform: rotate(0) translateY(-2px);
+}
+.g-choice img {
+  display: block;
+  width: 100%;
+}
+.g-choice span {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.85em;
+}
 .g-row {
   display: flex;
   flex-wrap: wrap;

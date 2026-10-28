@@ -34,7 +34,7 @@ export const COLLECTIONS: Collection[] = [
     intro: {
       en: 'In 1909, 66 families divided a sand dune north of Jaffa into plots and built Ahuzat Bayit, a planned garden suburb. Its streets, its boulevard and its water were laid out on purpose. Then the town outgrew the plan, again and again.',
     },
-    start: { en: 'Two old photographs are clipped to this page. Where were they taken?' },
+    start: { en: 'Old photographs turn up when you notice what is in them. Then find where each was taken.' },
   },
   {
     id: 'city-life',

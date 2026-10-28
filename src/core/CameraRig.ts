@@ -27,6 +27,8 @@ export class CameraRig {
   readonly moveInput = { x: 0, y: 0, up: 0 };
   /** Eye height above the ground at street level: EYE when walking, more when risen. */
   lift = EYE;
+  /** When the player last looked, walked or rose (performance.now ms). */
+  private inputAt = 0;
   /** Stay at street level (Esc does not fly up). Used by the exploration game. */
   lockStreet = false;
   /** When false, walking and looking are ignored (dialogs, peeking). */
@@ -84,6 +86,7 @@ export class CameraRig {
         if (!this.inputEnabled || performance.now() - this.capturedAt < 120 || Math.abs(e.movementX) + Math.abs(e.movementY) > 400) return;
         this.yaw -= e.movementX * 0.0022;
         this.pitch = clamp(this.pitch - e.movementY * 0.0022, -1.2, 1.2);
+        if (e.movementX || e.movementY) this.inputAt = performance.now();
         return;
       }
       if (this.mode !== 'street' || e.pointerId !== this.dragId) return;
@@ -94,6 +97,7 @@ export class CameraRig {
       const k = e.pointerType === 'touch' ? 0.0055 : 0.0032;
       this.yaw -= (e.clientX - this.last.x) * k;
       this.pitch = clamp(this.pitch - (e.clientY - this.last.y) * k, -1.2, 1.2);
+      if (e.clientX !== this.last.x || e.clientY !== this.last.y) this.inputAt = performance.now();
       this.last = { x: e.clientX, y: e.clientY };
     });
   }
@@ -129,6 +133,27 @@ export class CameraRig {
 
   freeMouse() {
     if (this.looking) document.exitPointerLock();
+  }
+
+  /** Seconds since the player last looked, walked or rose. */
+  get idleFor() {
+    return (performance.now() - this.inputAt) / 1000;
+  }
+
+  /**
+   * Glides a fraction `k` (0..1) of the way toward a street-level pose: used to settle the
+   * player into a photographer's exact spot once they are nearly there and holding still.
+   */
+  ease(to: { x: number; z: number; yaw: number; pitch: number; lift: number }, k: number) {
+    const p = this.camera.position;
+    p.x += (to.x - p.x) * k;
+    p.z += (to.z - p.z) * k;
+    this.lift += (to.lift - this.lift) * k;
+    let dy = (to.yaw - this.yaw) % (Math.PI * 2);
+    if (dy > Math.PI) dy -= Math.PI * 2;
+    else if (dy < -Math.PI) dy += Math.PI * 2;
+    this.yaw += dy * k;
+    this.pitch += (to.pitch - this.pitch) * k;
   }
 
   /** Jump straight to a street-level pose (`lift`: eye height above the ground). */
@@ -238,6 +263,7 @@ export class CameraRig {
         if (free || !hit(p.x, p.z + mz)) p.z += mz;
         // rise and come down; land on a roof rather than sink into the building
         const u = clamp(this.moveInput.up + (k.has('KeyR') || k.has('PageUp') ? 1 : 0) - (k.has('KeyF') || k.has('PageDown') ? 1 : 0), -1, 1);
+        if (f || r || u) this.inputAt = performance.now();
         if (u) {
           const next = clamp(this.lift + u * (k.has('ShiftLeft') || k.has('ShiftRight') ? 24 : 7) * dt, EYE, MAX_LIFT);
           if (u > 0 || free || !hit(p.x, p.z, next)) this.lift = next;

@@ -74,7 +74,8 @@ Discoveries live in `src/game/content/discoveries.ts` (pages in `collections.ts`
 - a **riddle** that says what to look for, never where, and a **nudge** that narrows it down;
 - a **trigger**: `look` (a landmark by id, or any building of a style, optionally with a test on
   its phase, such as weathered or restored), `compare` (two year ranges at a spot, on a street, or
-  by a building that changes), `photo` (an archive photograph) or `poi` (a prop);
+  by a building that changes), `photo` (an archive photograph, with a `find` trigger, a `look` or `poi`, that makes it turn up,
+  and a `clue` shown until then) or `poi` (a prop);
 - a one-sentence **gist**, the story, **sources** and a **confidence**.
 
 `tests/notebook.test.ts` fails if a discovery cannot be made in any of the seven ticket years, so

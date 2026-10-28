@@ -6,7 +6,7 @@ import { COLLECTIONS, DISCOVERIES, HERZL_PHOTO, POIS, SECTIONS, SOSKIN_PHOTO, ST
 import { compareFinds, footprintDist, inYears, lookFinds, matchSite, onFront, onSideWall, siteLocal } from '../src/game/discover';
 import { NotebookState, TRAIL_MAX, TRAIL_STEP } from '../src/game/NotebookState';
 import { wrapAngle } from '../src/game/rephoto';
-import type { Discovery, Trigger } from '../src/game/types';
+import type { Trigger } from '../src/game/types';
 import { allSites, phaseAt } from '../src/world/fabric';
 
 const sites = allSites();
@@ -68,8 +68,7 @@ describe('notebook content', () => {
 /** The years on the tickets in which a trigger can work. */
 const stops = (y: [number, number]) => YEARS.filter((x) => inYears(x, y));
 
-function findable(d: Discovery): boolean {
-  const t: Trigger = d.trigger;
+function findable(t: Trigger): boolean {
   switch (t.kind) {
     case 'look':
       return stops(t.years).some((y) => sites.some((s) => matchSite(t.match, s, y)));
@@ -78,7 +77,8 @@ function findable(d: Discovery): boolean {
       return !!p && YEARS.some((y) => y >= p.from && (p.to === undefined || y <= p.to));
     }
     case 'photo':
-      return stops(t.years).length > 0;
+      // the photo must turn up (its subject noticed) and then line up in some year
+      return stops(t.years).length > 0 && findable(t.find);
     case 'compare': {
       const pairs = stops(t.from).flatMap((a) => stops(t.to).map((b) => [a, b] as const));
       if (!pairs.length) return false;
@@ -93,8 +93,8 @@ function findable(d: Discovery): boolean {
 describe('every discovery can be made in one of the seven years', () => {
   for (const d of DISCOVERIES)
     it(d.id, () => {
-      expect(findable(d)).toBe(true);
-      const t = d.trigger;
+      expect(findable(d.trigger)).toBe(true);
+      const t = d.trigger.kind === 'photo' ? d.trigger.find : d.trigger;
       if (t.kind === 'look' && 'site' in t.match) {
         const id = t.match.site;
         expect(LANDMARKS.some((s) => s.id === id)).toBe(true);
@@ -237,8 +237,25 @@ describe('notebook state', () => {
     expect(st.latest?.id).toBe('ribbon-balconies');
   });
 
+  it('turns a photo up once, only for photo entries', () => {
+    const st = new NotebookState(DISCOVERIES);
+    expect(st.photosLeft).toEqual([]);
+    expect(st.photosHidden.length).toBe(2);
+    expect(st.pocket).toBeUndefined();
+    expect(st.findPhoto('herzl-axis')).toBe(true);
+    expect(st.findPhoto('herzl-axis')).toBe(false);
+    expect(st.findPhoto('first-kiosk')).toBe(false);
+    expect(st.photosLeft.map((d) => d.id)).toEqual(['herzl-axis']);
+    expect(st.photosHidden.map((d) => d.id)).toEqual(['lottery']);
+    const back = new NotebookState(DISCOVERIES, JSON.parse(JSON.stringify(st.toJSON())));
+    expect([...back.photos]).toEqual(['herzl-axis']);
+    const { photos: _, ...older } = st.toJSON();
+    expect(new NotebookState(DISCOVERIES, older).photosLeft.length).toBe(2);
+  });
+
   it('keeps an unplaced photo in the pocket, and the chosen one first', () => {
     const st = new NotebookState(DISCOVERIES);
+    for (const d of st.photosHidden) st.findPhoto(d.id);
     const photos = st.photosLeft.map((d) => d.id);
     expect(photos.length).toBe(2);
     expect(st.pocket?.id).toBe(photos[0]);

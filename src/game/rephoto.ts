@@ -23,6 +23,17 @@ export interface Alignment {
 export const MATCH = { dist: 6, yaw: 9, pitch: 9, height: 3 };
 /** Tolerances for "nearly there": coarse feedback, so the player still has to look. */
 export const NEAR = { dist: 14, yaw: 20, pitch: 18, height: 8 };
+/**
+ * Close enough to be helped: holding still inside this, the view settles into the exact spot.
+ * Tighter than NEAR, so the player still finds the place and frames it themselves.
+ */
+export const SETTLE = { dist: 10, yaw: 14, pitch: 13, height: 5 };
+
+/** Is this view close enough for the settle to take over? */
+export function settles(a: Pick<Alignment, 'dist' | 'yawErr' | 'pitchErr' | 'heightErr'>): boolean {
+  return a.dist < SETTLE.dist && a.yawErr < SETTLE.yaw && a.pitchErr < SETTLE.pitch && a.heightErr < SETTLE.height;
+}
+
 /** Eye height when a pose doesn't say. */
 const STANDING = 1.7;
 

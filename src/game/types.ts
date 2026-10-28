@@ -96,8 +96,11 @@ export type Trigger =
       to: Years;
       where: { spot: Spot } | { street: string; margin: number } | { near: SiteMatch; then: SiteMatch; r: number };
     }
-  /** Line up an archive photograph, in these years. */
-  | { kind: 'photo'; photo: PhotoDef; years: Years };
+  /**
+   * Line up an archive photograph, in these years. The photo turns up once its subject is
+   * noticed (`find`: e.g. look at the school in it); `clue` says what to look for until then.
+   */
+  | { kind: 'photo'; photo: PhotoDef; years: Years; find: Extract<Trigger, { kind: 'look' | 'poi' }>; clue: Localized };
 
 /** One thing to notice, and what the notebook says about it. */
 export interface Discovery {
