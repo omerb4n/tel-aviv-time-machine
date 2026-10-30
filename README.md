@@ -45,7 +45,7 @@ npm run build      # static site in dist/
 ```
 
 Deep links: `http://localhost:5173/#year=1948`. Add `#perf` (or press Shift+P) for frame statistics, and
-`#quality=phone|laptop|desktop` to force a picture-quality tier (players pick it under Menu → Picture).
+`#quality=phone|laptop|desktop` to force a picture-quality tier (players pick it under Menu → Picture; Menu → Frame rate caps it at 60 fps, the default on phones).
 
 ## Controls
 

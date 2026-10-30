@@ -39,6 +39,8 @@ export interface WorldApi {
   jumpTo: (year: number) => void;
   /** The picture-quality tier, and a way to change it (remembered on this device). */
   quality: { get: () => Tier; set: (t: Tier) => void };
+  /** A 60 fps cap (cooler phones); remembered on this device. */
+  fpsCap: { get: () => boolean; set: (on: boolean) => void };
 }
 
 const QUALITY_NAMES: Record<Tier, string> = { phone: 'light', laptop: 'balanced', desktop: 'full' };
@@ -1140,6 +1142,14 @@ export class Game {
         run: () => {
           const q = this.w.quality.get();
           this.w.quality.set(TIERS[(TIERS.indexOf(q) + 1) % TIERS.length]);
+          this.menu();
+        },
+      },
+      {
+        label: this.w.fpsCap.get() ? 'Frame rate: 60' : 'Frame rate: unlimited',
+        icon: 'play',
+        run: () => {
+          this.w.fpsCap.set(!this.w.fpsCap.get());
           this.menu();
         },
       },

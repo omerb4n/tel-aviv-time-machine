@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { QUALITY, ResolutionController, TIERS, detectTier, parseTier } from '../src/world/Quality';
+import { FrameCap, QUALITY, ResolutionController, TIERS, detectTier, parseTier } from '../src/world/Quality';
 
 const desk = { userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130', touch: false, screenMin: 1080 };
 
@@ -70,5 +70,25 @@ describe('dynamic resolution', () => {
     const c = new ResolutionController(QUALITY.desktop);
     for (let i = 0; i < 20; i++) c.frame(2000);
     expect(c.scale).toBe(QUALITY.desktop.startScale);
+  });
+});
+
+describe('frame cap', () => {
+  const drawn = (hz: number, on: boolean) => {
+    const c = new FrameCap();
+    c.on = on;
+    let n = 0;
+    for (let i = 0; i < hz * 5; i++) if (c.shouldDraw((i * 1000) / hz)) n++;
+    return n / 5;
+  };
+
+  it('halves a 120 Hz screen to an even 60 fps', () => {
+    expect(drawn(120, true)).toBeCloseTo(60, 0);
+    expect(drawn(120, false)).toBe(120);
+  });
+
+  it('leaves 60 Hz alone and never drops a 90 Hz screen below 60', () => {
+    expect(drawn(60, true)).toBe(60);
+    expect(drawn(90, true)).toBeGreaterThanOrEqual(60);
   });
 });

@@ -281,7 +281,13 @@ Measured on the RTX 3070 at Rothschild 2025, sidewalk, 1280×720, all passes cou
 - **The overlay says "no multi-draw"** if the browser lacks `WEBGL_multi_draw`. Without it, the
   batches fall back to one call per building.
 
-**Galaxy S24+: to be measured again.**
+**Galaxy S24+, second run:** "much better". It runs above 60 fps on its 120 Hz screen at street
+level and settles near 60 when looking out over the streets from above.
+
+- **Frame-rate cap** (`FrameCap`, tested): Menu → *Frame rate: 60 / unlimited*, remembered on
+  the device as `tlvtm.fpscap`.
+  - Phones default to 60, so a 120 Hz phone draws every other refresh and stays cooler.
+  - Laptops and desktops default to unlimited.
 
 ### Next
 

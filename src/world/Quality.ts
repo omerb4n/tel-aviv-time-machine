@@ -160,3 +160,26 @@ export class ResolutionController {
     return this.scale !== before;
   }
 }
+
+/**
+ * Optional frame-rate cap. On a 120 Hz phone it draws every other refresh, so the game runs
+ * at an even 60 fps and the phone stays cooler. Frames are skipped, never delayed: a frame is
+ * drawn once waiting for the next refresh would overshoot the target by more than half a refresh.
+ */
+export class FrameCap {
+  on = false;
+  private last = -Infinity;
+  private tick = 0;
+  private refresh = 1000 / 60;
+
+  constructor(private fps = 60) {}
+
+  /** Call at every animation frame with its timestamp; false means skip this one. */
+  shouldDraw(now: number): boolean {
+    if (this.tick) this.refresh += (Math.min(now - this.tick, 50) - this.refresh) * 0.1;
+    this.tick = now;
+    if (this.on && now - this.last < 1000 / this.fps - this.refresh / 2) return false;
+    this.last = now;
+    return true;
+  }
+}

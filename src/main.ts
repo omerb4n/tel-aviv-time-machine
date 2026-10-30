@@ -26,7 +26,7 @@ import { createMaterials } from './world/materials';
 import { People } from './world/People';
 import { PerfOverlay } from './world/PerfOverlay';
 import { PostFX } from './world/PostFX';
-import { QUALITY, ResolutionController, detectTier, parseTier, type Tier } from './world/Quality';
+import { FrameCap, QUALITY, ResolutionController, detectTier, parseTier, type Tier } from './world/Quality';
 import { Sea } from './world/Sea';
 import { Streets } from './world/Streets';
 import { Terrain, duneHeight } from './world/Terrain';
@@ -44,6 +44,15 @@ function readHash() {
 }
 
 const QUALITY_KEY = 'tlvtm.quality';
+const FPS_CAP_KEY = 'tlvtm.fpscap';
+
+function readPref(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
 
 /** The URL (`#quality=phone`) wins, then the player's choice, then a guess from the GPU. */
 function pickTier(renderer: THREE.WebGLRenderer): Tier {
@@ -112,6 +121,20 @@ async function main() {
   const atmosphere = new Atmosphere(renderer, scene);
   const post = new PostFX(renderer, scene, camera);
   const resolution = new ResolutionController(quality);
+  // a 60 fps cap: on by default on phones (heat, battery), unless the player chose otherwise
+  const frameCap = new FrameCap(60);
+  const capPref = () => {
+    const v = readPref(FPS_CAP_KEY);
+    return v === null ? quality.tier === 'phone' : v === 'on';
+  };
+  const setFrameCap = (on: boolean) => {
+    frameCap.on = on;
+    try {
+      localStorage.setItem(FPS_CAP_KEY, on ? 'on' : 'off');
+    } catch {
+      // private mode: the choice is simply not remembered
+    }
+  };
   /** Moves the whole renderer to a quality tier, live. */
   const setQuality = (tier: Tier, remember = false) => {
     quality = QUALITY[tier];
@@ -128,6 +151,7 @@ async function main() {
     atmosphere.setQuality(quality);
     // a cached shadow map would freeze walkers' and cars' shadows where they stood
     for (const root of [people.root, traffic.root]) root.traverse((o) => (o.castShadow = !quality.shadowCache));
+    frameCap.on = capPref();
   };
   setQuality(quality.tier);
 
@@ -246,7 +270,7 @@ async function main() {
     // the old year's history must not bleed into the new one
     post.taa.reset();
   };
-  const game = new Game({ time, rig, camera, canvas, post, buildings, scene, audio, ground, jumpTo, quality: { get: () => quality.tier, set: (t) => setQuality(t, true) } }, $('#ui'));
+  const game = new Game({ time, rig, camera, canvas, post, buildings, scene, audio, ground, jumpTo, quality: { get: () => quality.tier, set: (t) => setQuality(t, true) }, fpsCap: { get: () => frameCap.on, set: setFrameCap } }, $('#ui'));
   // the real archive photographs download while the first year is built
   const archive = game.loadArchive();
   rig.collide = (x, z, eye) => game.active && game.blocked(x, z, eye);
@@ -462,7 +486,8 @@ async function main() {
     multiDraw: !!renderer.extensions.get('WEBGL_multi_draw'),
   }));
   let shadowYear = -1;
-  renderer.setAnimationLoop(() => {
+  renderer.setAnimationLoop((stamp) => {
+    if (!frameCap.shouldDraw(stamp)) return;
     const raw = clock.getDelta();
     const dt = Math.min(raw, 0.1);
     const t = clock.elapsedTime;
