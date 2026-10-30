@@ -55,7 +55,8 @@ Blender 4.5 LTS ── kit modules per style, built from Python scripts in tools
 .glb (raw) ── gltf-transform: meshopt + quantize; KTX2 (ETC1S for colour, UASTC for normals)
       │       two texture sizes: 1K (phone) and 2K (laptop / desktop)
       ▼
-public/kits/<style>.glb  +  public/materials/<name>_{1k,2k}.ktx2
+public/pack/kit_<name>.glb  +  public/pack/<material>_{1k,2k}_{color,normal,orm}.ktx2
+      (npm run assets:build; not in git, published as a release asset)
       │
 runtime: GLTFLoader + MeshoptDecoder + KTX2Loader (all already in three/examples, so no new
          runtime dependency; the basis transcoder wasm is copied into public/)
@@ -161,7 +162,7 @@ runtime: GLTFLoader + MeshoptDecoder + KTX2Loader (all already in three/examples
    - Expected result: the same image as today with about a third of the draw calls.
 2. **Pipeline:**
    - the Blender script harness;
-   - gltf-transform build script (`npm run kits`);
+   - gltf-transform build script (`npm run assets:build`);
    - KTX2 and meshopt loaders;
    - the first CC0 material sets with per-year ageing.
 3. **Kits for the slice:**
@@ -289,6 +290,49 @@ level and settles near 60 when looking out over the streets from above.
   - Phones default to 60, so a 120 Hz phone draws every other refresh and stays cooler.
   - Laptops and desktops default to unlimited.
 
+### Step 2: the asset pipeline (done, pack not yet published)
+
+- **`npm run assets:build`** (`tools/assets/pack.mjs`) builds the pack into `public/pack/`
+  (ignored) in about three minutes:
+  - downloads the ambientCG sets listed in `assets/materials.json` (cached in `.cache/`);
+  - packs ambient occlusion and roughness into one map with sharp;
+  - encodes with KTX-Software's `toktx`: colour and ORM as ETC1S, normals as UASTC at half size;
+  - runs each `tools/blender/kits/*.py` in Blender 4.5 (`build_kit.py`, helpers in `kitlib.py`),
+    which bakes AO into vertex colour and exports glTF;
+  - compresses kits with gltf-transform (meshopt and quantization);
+  - writes `manifest.json` and a SHA-256 per file to `assets.lock.json`.
+- **`npm run assets`** makes `public/pack` match the lock: it keeps a matching local build, or
+  fetches the pinned release and checks every hash. With no version pinned it does nothing and
+  the game keeps its procedural textures. CI runs it before `vite build`.
+- **`npm run assets:publish -- <version>`** uploads the pack as release `assets-<version>` and
+  pins it. Not run yet: publishing waits for the owner.
+- **Sizes:** 18 MB in all; the phone set (1K) is **3.7 MB**, the 2K set 14.5 MB. The loaders
+  (KTX2, glTF, meshopt; 43 kB gzipped) are a lazy chunk, so the first load grows only by the
+  textures, after the first frames.
+- **First materials** (ambientCG, CC0): Plaster007 lime plaster, Bricks084 kurkar masonry,
+  RoofingTiles012A Marseille tiles, Asphalt031, PavingStones072 interlocking grey pavers,
+  Ground079S packed sand.
+  - On buildings the photo is a detail layer: its colour divided by its mean modulates the
+    painted vertex colour, so each phase keeps its paint. Its normal and roughness add relief.
+    Window panes in the facade atlas are left alone.
+  - Roofs and stone take the photo outright, tinted by their phase colour. Roads, sidewalks
+    and sand tracks take the photo sets as ordinary PBR maps.
+- **Ageing per year** works with or without the pack. `BuildingBatches` passes each phase's
+  `weathering` as an `aging` attribute, and `buildingShader.ts` turns it into blotches, rain
+  streaks and a splash band near the ground, rougher where dirty. The same Bauhaus building is
+  grey and streaked in 1985 and clean white in 2025.
+- **A sample kit** (`sample_bay`: an eclectic window bay with lintel, sill and louvred shutters,
+  2.6 K triangles, 33 kB) proves the Blender → glTF → game path, but it is not placed in the
+  world. Placement is step 3, which also needs world-space UVs so the plaster runs across
+  module seams.
+- **Unchanged:** geometry, draw calls (72 on the phone tier at Rothschild 2025), picking, the
+  Herzl 1913 pose in 1922, and `npm test` / `npm run build`.
+- **Measured** on this PC (RTX 3070, 977×966, `gl.finish` timing), Rothschild 2025:
+  - phone tier with the 1K set: 1.8 ms;
+  - desktop tier with the 2K set: 2.7 ms.
+  - Still to measure on the S24+.
+
 ### Next
 
-Step 2: the asset pipeline, following the storage policy above.
+- Publish the pack as `assets-1` (owner's go-ahead), so CI and Pages get it.
+- Step 3: kits for the slice.

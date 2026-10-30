@@ -100,7 +100,7 @@ export class BuildingManager {
     mesh.userData = { siteId: entry.site.id, phaseIndex: pe.index };
     entry.group.add(mesh);
     pe.mesh = mesh;
-    pe.slots = this.batches.add(geometry, materials);
+    pe.slots = this.batches.add(geometry, materials, pe.phase.weathering ?? 0);
     return mesh;
   }
 

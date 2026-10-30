@@ -8,7 +8,7 @@
 | 3D engine | **three.js** (r169) | Mature, small, huge ecosystem (glTF, 3D Tiles renderers, post-processing), full shader control. Babylon.js is a fine alternative; Cesium is great for globe-scale streaming but heavier and less art-directable; Unreal/Unity pixel-streaming costs money per user. |
 | Language / build | **TypeScript + Vite** | Type-safe content model, instant dev server, tiny production bundle. |
 | UI | Plain DOM + CSS (no framework) | The UI is small; avoids a second render loop and keeps the bundle light. A framework can be added if the UI grows (e.g. classroom mode). |
-| Assets | **Procedural** (geometry and canvas textures generated at load) | No binary assets except three archive photographs (`src/assets/archive`, ~0.8 MB, loaded while the first year builds; ~220 kB gzipped of code). Landmark glTF models can be added later without changing the content model. |
+| Assets | **Procedural** (geometry and canvas textures generated at load), plus an optional **asset pack** | No binary assets in git except three archive photographs (`src/assets/archive`, ~0.8 MB). The asset pack (`public/pack`, CC0 photo materials as KTX2 and Blender kits as meshopt glTF) is built by `tools/assets/pack.mjs`, published as a release asset and pinned with hashes in `assets.lock.json`; without it the game keeps its procedural look. |
 | Content | Typed data modules in `src/data` | Reviewable in PRs, testable, convertible to/from JSON for a future CMS. |
 | Time | Continuous float year, integer year drives the world | Smooth animation on the timeline while the world changes in discrete, testable steps. |
 
@@ -47,6 +47,8 @@ src/
     Traffic.ts            instanced period vehicles
     Sea.ts, Atmosphere.ts sky, sun, fog, environment reflections
     PostFX.ts             TAA + bloom + period film grading
+    AssetPack.ts          the optional pack: KTX2 photo sets and glTF kits (lazy chunk)
+    buildingShader.ts     building material extension: ageing grime and photo detail
     TAAPass.ts            temporal anti-aliasing with upsampling (dynamic resolution)
     Quality.ts            quality tiers and the dynamic-resolution controller (pure, tested)
     PerfOverlay.ts        #perf frame statistics
@@ -60,6 +62,11 @@ src/
     mapData.ts, MapView.ts  the map of a year (pure data) and its canvas minimap / full map
   ui/                     timeline, info panel, labels, toasts, tour (free-explore mode)
   audio/Ambience.ts       procedural WebAudio soundscape
+
+assets/materials.json     CC0 photo sets in the pack (ambientCG ids, tile size, use)
+assets.lock.json          the pack's published version and a SHA-256 per file
+tools/assets/             npm run assets / assets:build / assets:publish
+tools/blender/            Blender kit harness (build_kit.py, kitlib.py, kits/*.py)
 ```
 
 ## Data flow
@@ -100,6 +107,12 @@ shareable (`#year=1948`) and testable.
    per batch, whatever the number of buildings, and buildings are culled one by one. The
    per-building meshes are kept but never drawn: picking, labels, the highlight and the rise/sink
    animation work on them, and their matrix and visibility are copied into the batches.
+   Building materials age with the year: each phase's `weathering` reaches the shader as a
+   vertex attribute and becomes blotches, rain streaks and a splash band near the ground
+   (`buildingShader.ts`). With the asset pack, photo sets tile at their real size over the
+   painted colours (divided by their mean colour, so a phase keeps its paint), with their normal
+   and roughness; roads and sidewalks take the photo sets outright. Phones get the 1K set
+   (3.7 MB), other tiers 2K.
 4. Post: TAA pass (`TAAPass`: the scene at a dynamic render scale with Halton jitter, reprojected
    through the logarithmic depth buffer, neighbourhood-clamped, upsampled and sharpened) → UnrealBloom (stronger at night) → tone mapping (ACES) → period
    grading pass (sepia, saturation, fade, grain, vignette) → time-lens pass (a frozen snapshot of

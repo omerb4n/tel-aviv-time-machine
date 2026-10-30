@@ -33,11 +33,14 @@ export class BuildingBatches {
     this.root.name = 'building-batches';
   }
 
-  /** Adds a phase's merged geometry (one group per material), hidden until synced. */
-  add(geometry: THREE.BufferGeometry, materials: MatKey[]): BatchSlot[] {
+  /**
+   * Adds a phase's merged geometry (one group per material), hidden until synced. `aging` is
+   * the phase's weathering, which the building shader turns into grime.
+   */
+  add(geometry: THREE.BufferGeometry, materials: MatKey[], aging = 0): BatchSlot[] {
     const slots: BatchSlot[] = [];
     for (const g of geometry.groups) {
-      const part = slice(geometry, g.start, g.count);
+      const part = slice(geometry, g.start, g.count, aging);
       const chunk = this.chunkFor(materials[g.materialIndex ?? 0], g.count);
       const geo = chunk.mesh.addGeometry(part);
       const id = chunk.mesh.addInstance(geo);
@@ -87,12 +90,13 @@ export class BuildingBatches {
 }
 
 /** Vertices [start, start + count) of a non-indexed geometry, as a geometry of its own. */
-function slice(src: THREE.BufferGeometry, start: number, count: number): THREE.BufferGeometry {
+function slice(src: THREE.BufferGeometry, start: number, count: number, aging: number): THREE.BufferGeometry {
   const out = new THREE.BufferGeometry();
   for (const name of ['position', 'normal', 'uv', 'color']) {
     const a = src.getAttribute(name) as THREE.BufferAttribute;
     const n = a.itemSize;
     out.setAttribute(name, new THREE.BufferAttribute((a.array as Float32Array).slice(start * n, (start + count) * n), n));
   }
+  out.setAttribute('aging', new THREE.BufferAttribute(new Float32Array(count).fill(aging), 1));
   return out;
 }

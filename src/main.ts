@@ -537,9 +537,26 @@ async function main() {
     post.render();
   });
 
+  // ------------------------------------------------------------ asset pack
+  // Photo materials (public/pack, see tools/assets/pack.mjs) arrive after the first frames; the
+  // procedural textures stand in until then, and for good when there is no pack. The loaders
+  // (KTX2, glTF, meshopt) are a chunk of their own, fetched after the first frames.
+  const assets = import('./world/AssetPack')
+    .then(({ AssetPack }) => AssetPack.load(renderer, quality.tier === 'phone' ? '1k' : '2k'))
+    .then(async (pack) => {
+      if (!pack) return null;
+      await Promise.all([mats.applyPack(pack), streets.applyPack(pack)]);
+      atmosphere.invalidateShadows();
+      return pack;
+    })
+    .catch((err) => {
+      console.warn('asset pack not applied:', err);
+      return null;
+    });
+
   // Expose for debugging and automated screenshots.
   Object.assign(window, {
-    tlvtm: { time, rig, buildings, scene, camera, renderer, ERAS, setHour, selectSite, game, post, setQuality, quality: () => quality, perf },
+    tlvtm: { time, rig, buildings, scene, camera, renderer, ERAS, setHour, selectSite, game, post, setQuality, quality: () => quality, perf, assets },
   });
 }
 

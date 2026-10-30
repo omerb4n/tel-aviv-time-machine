@@ -22,6 +22,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      # the asset pack pinned in assets.lock.json (a release asset), hashes checked; none yet = procedural look
+      - run: npm run assets
       - run: npm run build
       - uses: actions/configure-pages@v5
         if: github.event_name != 'pull_request'

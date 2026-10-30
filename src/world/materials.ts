@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import type { AssetPack } from './AssetPack';
+import { buildingShader, photoDetail, type BuildingShader } from './buildingShader';
 import type { TextureSet } from './textures';
 
 export type MatKey =
@@ -23,6 +25,8 @@ export interface MaterialLibrary {
   get(key: MatKey): THREE.Material;
   /** 0 = day, 1 = night: drives lit windows. */
   setNight(n: number): void;
+  /** Lays the pack's photo materials over the buildings (resolves once they are in). */
+  applyPack(pack: AssetPack): Promise<void>;
   ghost: THREE.Material;
   highlight: THREE.MeshStandardMaterial;
 }
@@ -92,8 +96,31 @@ export function createMaterials(tex: TextureSet): MaterialLibrary {
   });
   const highlight = new THREE.MeshStandardMaterial({ color: 0xffd27a, emissive: 0xffb84a, emissiveIntensity: 0.6, transparent: true, opacity: 0.35, depthWrite: false });
 
+  // every building material ages with its phase; the pack later adds photo detail
+  const shaders = new Map<MatKey, BuildingShader>();
+  for (const [k, m] of Object.entries(mats) as [MatKey, THREE.Material][]) {
+    if (m instanceof THREE.MeshStandardMaterial && !['glass', 'rail', 'water', 'dark'].includes(k)) shaders.set(k, buildingShader(m));
+  }
+  // which photo set goes on which material, how strongly, and whether it replaces the canvas
+  const photo: [MatKey, string, number, boolean][] = [
+    ['plaster', 'plaster', 0.75, false],
+    ['arched', 'plaster', 0.75, false],
+    ['bauhaus', 'plaster', 0.5, false],
+    ['shikun', 'plaster', 0.65, false],
+    ['concrete', 'plaster', 0.6, false],
+    ['modern', 'plaster', 0.3, false],
+    ['trim', 'plaster', 0.6, false],
+    ['roof', 'roof', 1, true],
+    ['stone', 'stone', 1, true],
+  ];
+
   return {
     get: (k) => mats[k],
+    async applyPack(pack) {
+      const used = photo.filter(([, set]) => pack.has(set));
+      const sets = await Promise.all(used.map(([, set]) => pack.material(set)));
+      used.forEach(([k, , strength, replace], i) => photoDetail(mats[k] as THREE.MeshStandardMaterial, shaders.get(k)!, sets[i], strength, replace));
+    },
     setNight(n) {
       for (const m of facadeMats) m.emissiveIntensity = n * 1.6;
     },

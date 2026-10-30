@@ -1,0 +1,13 @@
+{
+  "$comment": "Photo-sourced PBR sets for the asset pack (see docs/REALISM_PLAN.md and tools/assets/pack.mjs). All from ambientCG, CC0 1.0. `tile` is the real-world size of one texture repeat in metres.",
+  "source": "https://ambientcg.com/a/",
+  "licence": "CC0 1.0",
+  "materials": [
+    { "name": "plaster", "id": "Plaster007", "tile": 2.5, "use": "lime plaster: detail layer on painted facades" },
+    { "name": "stone", "id": "Bricks084", "tile": 2.4, "use": "kurkar and limestone masonry: foundations, ashlar, parapets" },
+    { "name": "roof", "id": "RoofingTiles012A", "tile": 2.9, "use": "Marseille clay roof tiles" },
+    { "name": "asphalt", "id": "Asphalt031", "tile": 3.0, "use": "road asphalt" },
+    { "name": "paving", "id": "PavingStones072", "tile": 2.0, "use": "grey interlocking concrete pavers on sidewalks" },
+    { "name": "sand", "id": "Ground079S", "tile": 3.0, "use": "packed sand roads and tracks" }
+  ]
+}
