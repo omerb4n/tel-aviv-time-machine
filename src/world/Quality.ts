@@ -28,13 +28,15 @@ export interface QualitySettings {
 }
 
 export const QUALITY: Record<Tier, QualitySettings> = {
+  // Aims for 60 fps by giving up resolution, so a strong phone (Galaxy S24+) runs smooth and
+  // cooler instead of flat out at full size; a mid-range one bottoms out at half scale (~30 fps).
   phone: {
     tier: 'phone',
-    maxDpr: 2,
+    maxDpr: 1.5,
     minScale: 0.5,
     maxScale: 1,
-    startScale: 0.7,
-    targetMs: 1000 / 30,
+    startScale: 0.8,
+    targetMs: 1000 / 60,
     shadowSize: 1024,
     shadowExtent: 60,
     shadowCache: true,

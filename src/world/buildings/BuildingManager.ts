@@ -2,14 +2,18 @@ import * as THREE from 'three';
 import { easeOutBack, hashString, mulberry32 } from '../../core/math';
 import { baseHeight } from '../../data/geography';
 import type { BuildingPhase, BuildingSite, BuildingStyle } from '../../data/types';
-import type { MaterialLibrary } from '../materials';
+import type { MatKey, MaterialLibrary } from '../materials';
+import { BuildingBatches, type BatchSlot } from './BuildingBatches';
 import { PartBuilder } from './PartBuilder';
 import { buildPhase } from './styles';
 
 interface PhaseEntry {
   phase: BuildingPhase;
   index: number;
+  /** Never drawn: the stand-in that picking, labels and the animation work on. */
   mesh?: THREE.Mesh;
+  /** Where the mesh is actually drawn, in the material batches. */
+  slots?: BatchSlot[];
   ghost?: THREE.Mesh;
   presence: number;
   target: number;
@@ -43,12 +47,18 @@ export class BuildingManager {
   private selected?: SiteEntry;
   /** Set whenever a mesh appears, moves or vanishes; whoever caches shadows clears it. */
   changed = false;
+  private batches: BuildingBatches;
+  private dirty = new Set<PhaseEntry>();
+  /** Invisible stand-in materials (same sides, so picking still hits double-sided parts). */
+  private hidden = new Map<MatKey, THREE.Material>();
 
   constructor(
     sites: BuildingSite[],
     private mats: MaterialLibrary,
   ) {
     this.root.name = 'buildings';
+    this.batches = new BuildingBatches(mats);
+    this.root.add(this.batches.root);
     for (const site of sites) {
       const group = new THREE.Group();
       group.position.set(site.x, baseHeight(site.x, site.z), site.z);
@@ -84,15 +94,30 @@ export class BuildingManager {
     const { geometry, materials } = pb.build();
     const mesh = new THREE.Mesh(
       geometry,
-      materials.map((k) => this.mats.get(k)),
+      materials.map((k) => this.hiddenMaterial(k)),
     );
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
     mesh.visible = false;
     mesh.userData = { siteId: entry.site.id, phaseIndex: pe.index };
     entry.group.add(mesh);
     pe.mesh = mesh;
+    pe.slots = this.batches.add(geometry, materials);
     return mesh;
+  }
+
+  private hiddenMaterial(k: MatKey): THREE.Material {
+    let m = this.hidden.get(k);
+    if (!m) this.hidden.set(k, (m = new THREE.MeshBasicMaterial({ visible: false, side: this.mats.get(k).side })));
+    return m;
+  }
+
+  /** Copies changed stand-ins into the batches. */
+  private flush() {
+    for (const pe of this.dirty) {
+      if (!pe.mesh || !pe.slots) continue;
+      pe.mesh.updateWorldMatrix(true, false);
+      this.batches.sync(pe.slots, pe.mesh.matrixWorld, pe.mesh.visible);
+    }
+    this.dirty.clear();
   }
 
   private ensureGhost(entry: SiteEntry, pe: PhaseEntry): THREE.Mesh {
@@ -160,6 +185,7 @@ export class BuildingManager {
         if (!pe.mesh) continue;
         if (pe.presence === pe.target && !pe.mesh.visible === !pe.target) continue;
         this.changed = true;
+        this.dirty.add(pe);
         pe.presence += (pe.target - pe.presence) * k;
         if (Math.abs(pe.presence - pe.target) < 0.004) pe.presence = pe.target;
         const s = pe.target > 0 ? easeOutBack(Math.min(1, pe.presence)) : pe.presence * pe.presence;
@@ -167,6 +193,7 @@ export class BuildingManager {
         pe.mesh.scale.set(1, Math.max(0.001, s), 1);
       }
     }
+    this.flush();
   }
 
   /** Builds everything queued and snaps every building to its final state (for instant time travel). */
@@ -183,8 +210,10 @@ export class BuildingManager {
         pe.presence = pe.target;
         pe.mesh.visible = pe.target > 0;
         pe.mesh.scale.set(1, 1, 1);
+        this.dirty.add(pe);
       }
     this.changed = true;
+    this.flush();
   }
 
   /**

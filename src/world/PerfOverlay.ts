@@ -4,6 +4,8 @@ interface PerfState {
   tier: string;
   scale: number;
   size: [number, number];
+  /** Whether the GPU draws a whole batch in one call (WEBGL_multi_draw). */
+  multiDraw: boolean;
 }
 
 export interface PerfSample {
@@ -15,6 +17,7 @@ export interface PerfSample {
   tier: string;
   scale: number;
   size: [number, number];
+  multiDraw: boolean;
 }
 
 /**
@@ -75,6 +78,7 @@ export class PerfOverlay {
       tier: s.tier,
       scale: s.scale,
       size: s.size,
+      multiDraw: s.multiDraw,
     };
     this.times.length = 0;
     this.calls = this.tris = this.since = 0;
@@ -83,6 +87,6 @@ export class PerfOverlay {
     this.el.textContent =
       `${l.fps.toFixed(0)} fps  ${l.avgMs.toFixed(1)} ms (p95 ${l.p95Ms.toFixed(1)})\n` +
       `${l.calls} draws  ${(l.triangles / 1e6).toFixed(2)} M tris\n` +
-      `${l.tier}  scale ${l.scale.toFixed(2)}  ${l.size[0]}×${l.size[1]}`;
+      `${l.tier}  scale ${l.scale.toFixed(2)}  ${l.size[0]}×${l.size[1]}${l.multiDraw ? '' : '  no multi-draw'}`;
   }
 }

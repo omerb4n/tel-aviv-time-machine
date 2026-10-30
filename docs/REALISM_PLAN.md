@@ -249,8 +249,39 @@ Measured on the RTX 3070 at Rothschild 2025, sidewalk, 1280×720, all passes cou
 | phone | 381 | 1.12 M | 0.78 | 60 |
 | phone, 390×844 portrait at the start spot | 216 | 1.11 M | 0.86 | 60 |
 
-The phone tier is now under its 250-draw budget in portrait at the start spot. Rothschild in
-landscape (381) still needs the kit batching from step 3. **Galaxy S24+: not measured yet.**
+**Galaxy S24+, first run** (owner, landscape 1664×768, phone tier):
+
+| Where | fps | ms (p95) | Draw calls |
+| --- | --- | --- | --- |
+| Rothschild 2025, boulevard | 63 | 15.9 (21.4) | 2,214 |
+| Rothschild 2025, sidewalk | 47 | 21.3 (27.1) | 1,076 |
+| Rothschild 2025, pilotis | 50 | 20.0 (25.8) | 579 |
+| 1909, the lottery | 67 | 14.9 (21.4) | 2,154 |
+
+- **Feel:** fps swung between 40 and 60 on Rothschild, and the phone got hot.
+- **Why the draw calls were so high:** every building in view was its own draw call per
+  material, and even 1909 has about 800 buildings (Jaffa, Neve Tzedek). The measurements above
+  had happened to face short views.
+- **Why the phone got hot:** the phone tier aimed at 30 fps, so at 47 fps it never lowered its
+  resolution and ran flat out at full size.
+
+### Step 1b: building batches and a cooler phone tier (done)
+
+- **Buildings are drawn through `BuildingBatches`:** one `BatchedMesh` per material, 18
+  batches in all, with each building culled separately.
+
+  | Phone tier, 832×384 | Draw calls before | Draw calls after |
+  | --- | --- | --- |
+  | 1909 lottery | 2,188 | 82 |
+  | Rothschild 2025, boulevard | ~2,200 | 67 |
+
+- **The phone tier now aims for 60 fps** and gives up resolution to get there, down to half
+  scale. It also caps the output pixel ratio at 1.5. A mid-range phone settles at the floor,
+  around 30 fps.
+- **The overlay says "no multi-draw"** if the browser lacks `WEBGL_multi_draw`. Without it, the
+  batches fall back to one call per building.
+
+**Galaxy S24+: to be measured again.**
 
 ### Next
 

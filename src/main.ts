@@ -455,7 +455,12 @@ async function main() {
   const clock = new THREE.Clock();
   let statsTimer = 0;
   setHour(hour);
-  const perf = new PerfOverlay(renderer, () => ({ tier: quality.tier, scale: post.taa.scale, size: post.taa.renderSize }));
+  const perf = new PerfOverlay(renderer, () => ({
+    tier: quality.tier,
+    scale: post.taa.scale,
+    size: post.taa.renderSize,
+    multiDraw: !!renderer.extensions.get('WEBGL_multi_draw'),
+  }));
   let shadowYear = -1;
   renderer.setAnimationLoop(() => {
     const raw = clock.getDelta();

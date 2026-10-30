@@ -38,6 +38,7 @@ src/
       PartBuilder.ts      merges primitive parts into one geometry per building
       styles.ts           style generators (Ottoman house … glass tower, landmarks)
       BuildingManager.ts  lazy mesh building, rise/sink animation, picking, ghosts
+      BuildingBatches.ts  draws all buildings as one BatchedMesh per material
     CityBlanket.ts        instanced low-detail city beyond the core
     Terrain.ts            dunes that flatten as the city grows
     Streets.ts            sand tracks → asphalt, sidewalks, lamps, railway
@@ -93,8 +94,12 @@ shareable (`#year=1948`) and testable.
    and reach depend on the quality tier; on phones and laptops it is cached and redrawn only when
    the sun, the year, a building or the player's spot changes (walkers and cars then cast none).
 2. PMREM environment from the sky for reflections on glass and sea.
-3. Scene: terrain, sea, streets, instanced city blanket, merged per-building meshes (one draw
-   call per material per building), instanced trees / people / vehicles.
+3. Scene: terrain, sea, streets, instanced city blanket, buildings, instanced trees / people /
+   vehicles. Each building phase is merged into one geometry per material and added to one
+   `BatchedMesh` per material (`BuildingBatches`). With `WEBGL_multi_draw` that is one draw call
+   per batch, whatever the number of buildings, and buildings are culled one by one. The
+   per-building meshes are kept but never drawn: picking, labels, the highlight and the rise/sink
+   animation work on them, and their matrix and visibility are copied into the batches.
 4. Post: TAA pass (`TAAPass`: the scene at a dynamic render scale with Halton jitter, reprojected
    through the logarithmic depth buffer, neighbourhood-clamped, upsampled and sharpened) → UnrealBloom (stronger at night) → tone mapping (ACES) → period
    grading pass (sepia, saturation, fade, grain, vignette) → time-lens pass (a frozen snapshot of

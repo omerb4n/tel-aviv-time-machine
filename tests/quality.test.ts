@@ -56,10 +56,10 @@ describe('dynamic resolution', () => {
 
   it('settles under a load it cannot quite meet, without oscillating wildly', () => {
     const c = new ResolutionController(QUALITY.phone);
-    // frame time proportional to pixel count: 30 fps is met at scale ≈ 0.7
+    // frame time proportional to pixel count: 60 fps is met at scale ≈ 0.7
     const scales: number[] = [];
     for (let i = 0; i < 4000; i++) {
-      c.frame(33 * (c.scale / 0.7) ** 2);
+      c.frame(16.7 * (c.scale / 0.7) ** 2);
       if (i > 2000) scales.push(c.scale);
     }
     expect(Math.min(...scales)).toBeGreaterThanOrEqual(0.5);
