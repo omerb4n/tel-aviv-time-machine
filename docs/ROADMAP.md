@@ -42,6 +42,8 @@ The first build felt like a museum. The project is now an exploration game (see
 
 ## Milestone 0.6 — Street-level realism (on a GPU workstation)
 
+Plan, baseline measurements and screenshots: [REALISM_PLAN.md](REALISM_PLAN.md).
+
 The game puts the camera on the street, so detail is needed in small walkable areas rather than
 across the whole city. That is what makes realism feasible on phones.
 

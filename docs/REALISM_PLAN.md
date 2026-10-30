@@ -1,0 +1,391 @@
+# Street-level realism: plan (Milestone 0.6)
+
+Status: **approved (30 Oct 2026). Step 1 of the slice (performance foundation) is done**; see §7.
+
+## 1. Where we are (measured 30 Oct 2026, RTX 3070, Chrome, 1280×720 unless noted)
+
+| Scene | Draw calls (with / without shadow pass) | Triangles per frame | Visible building meshes |
+| --- | --- | --- | --- |
+| Rothschild Blvd 2025, sidewalk | 1,153 / 379 | 2.09 M (1.12 M without shadows) | 1,162 |
+| Herzl St 1922, street level | 939 | 0.70 M | — |
+| Herzl St 1922, photo pose (9 m) | 722 | 0.69 M | — |
+| Bauhaus block, Herzl St 1936 | 2,399 | 1.32 M | — |
+
+- A whole frame (shadow map, scene with 4× MSAA, 12 bloom quads, grade, lens) costs about
+  **3 ms** at 1920×1080 measured with `gl.finish`. The desktop has five times the headroom it
+  needs. (The WebGL timer-query numbers from ANGLE were unreliable, so they're not used here.)
+- **The shadow map is two-thirds of all draw calls.** The 4k sun shadow redraws every building
+  near the camera every frame.
+- **One mesh per building**, each with 2–5 material groups. That is fine on desktop, but on a
+  phone it's the main CPU cost: a mid-range phone manages roughly 200–300 draw calls at 30 fps.
+- Post passes after the first one also render into 4× MSAA half-float targets, which wastes
+  bandwidth on phones.
+- Textures are 37 canvas textures at 40 px/m with no normal or roughness maps, and the lighting
+  has no ambient occlusion.
+
+Screenshots of today's look are in `docs/screenshots/realism/`:
+
+| | |
+| --- | --- |
+| ![](screenshots/realism/before-2025-rothschild.jpg) Rothschild 2025 | ![](screenshots/realism/before-1936-bauhaus.jpg) Bauhaus, Herzl St 1936 |
+| ![](screenshots/realism/before-1922-herzl.jpg) Herzl St 1922 | ![](screenshots/realism/before-1922-herzl-vs-1913-print.jpg) 1913 print vs. the model from the photo pose (walking lens) |
+
+**What reads as fake, in order of impact:**
+
+1. **Trees.** The low-poly blobs fill half the frame on Rothschild.
+2. **Flat walls.** Windows are painted on, with no reveals, sills, shutters, cornices or quoins.
+3. **Streets have no edge.** There are no curbs, gutters, drains, stains or wear.
+4. **No contact darkness.** Without ambient occlusion, buildings float on the ground.
+5. **Herzl 1922 is a sand plaza.** The print shows a laid-out street with curbs, picket and iron
+   fences, saplings in wooden ladder guards, a kiosk, and houses close to the street on both
+   sides. Part of this gap is content (the street surface and props). Part of it is layout:
+   there are missing parcels near Rothschild. See question 4.
+6. **The people are box figures.** This is outside 0.6, but it is the next thing the eye
+   catches once the walls are fixed.
+
+## 2. Pipeline
+
+```
+reference board (archive prints + present-day photos)
+      │
+Blender 4.5 LTS ── kit modules per style, built from Python scripts in tools/blender/
+      │            (text in git; .blend only where hand modelling is needed)
+      │            baked AO in vertex colour / 2nd UV
+      ▼
+.glb (raw) ── gltf-transform: meshopt + quantize; KTX2 (ETC1S for colour, UASTC for normals)
+      │       two texture sizes: 1K (phone) and 2K (laptop / desktop)
+      ▼
+public/pack/kit_<name>.glb  +  public/pack/<material>_{1k,2k}_{color,normal,orm}.ktx2
+      (npm run assets:build; not in git, published as a release asset)
+      │
+runtime: GLTFLoader + MeshoptDecoder + KTX2Loader (all already in three/examples, so no new
+         runtime dependency; the basis transcoder wasm is copied into public/)
+```
+
+- **Façade grammar (new, pure and tested).** `(site, phase, rng) → module placements`: bays,
+  doors, corners, cornice runs, balconies, roof pieces and clutter. It fills the *existing*
+  footprint and floor heights, so site ids, positions, footprints, `roofHeight` and
+  `blockedAt` don't change. Vitest checks that every placement stays inside its footprint and
+  that the top of the roof matches `roofHeight`.
+- **Rendering kits.** Kit modules are drawn as instanced or `BatchedMesh` per module and material,
+  with one texture array per style. Draw calls scale with the number of distinct modules, not
+  with the number of buildings.
+- **LOD.**
+  - LOD0: the kit within about 80 m of the player (60 m on phones).
+  - LOD1: today's procedural mesh with the new materials.
+  - LOD2: the city blanket.
+  - The procedural mesh stays the picking, collision and ghost proxy, so `userData` (`siteId`,
+    `phaseIndex`, `ghost`) is unchanged.
+- **Materials.** Photo-sourced CC0 PBR sets from **ambientCG** and **Poly Haven**:
+  - lime plaster in three roughnesses, kurkar and limestone ashlar, terrazzo, Marseille clay roof
+    tiles (imported to early Tel Aviv), asphalt, concrete pavers, cobbles, packed sand road;
+  - a source and licence line for each set goes in the README credits.
+- **Ageing per year.** The shader mixes in grime, from triplanar noise plus streaks under sills,
+  and flaking paint by `phase.weathering`, and pulls colour from `phase.color`. A restored
+  building in 2011 or 2025 gets fresh paint; the same building in 1985 is grey. Same geometry,
+  different year.
+- **Clutter per era.**
+  - 1922: picket and iron fences, garden walls, ladder tree guards, kerosene lamp posts,
+    carts, a kiosk.
+  - 2025: Rothschild kiosks, benches, bike docks, signs, posters, wires, AC units, solar
+    heaters, scooters, cracked curbs.
+  - Each prop is one instanced kit.
+- **Trees.** Ficus, royal poinciana and Washingtonia palm are generated in Blender (Sapling)
+  with leaf cards and baked AO. A far impostor takes over past about 60 m.
+- **References.**
+  - Archive prints from Wikimedia Commons (public domain). National Library and Pikiwiki
+    photos are used for reference only, never shipped.
+  - Present-day reference from the owner's own photos of the slice block, or Mapillary
+    (reference only).
+
+## 3. Lighting, anti-aliasing and resolution
+
+- **Shadows.** A tight sun shadow, about 60 m around the player, cached: the map is redrawn
+  only when the player moves more than 2 m or the hour changes, not every frame. Baked AO in
+  the kits and a soft contact-AO decal under each building.
+  - Desktop: GTAO on top.
+  - Phones: no real-time AO.
+  - This alone should cut draw calls by about 60 %.
+- **TAA with dynamic resolution, replacing 4× MSAA.**
+  - Render the scene at scale *s* with Halton jitter, reproject the history using depth and
+    the previous view-projection, clamp in YCoCg against the neighbourhood, then upscale with
+    an FSR1-style sharpen.
+  - Resolution controller: the target frame time comes from `requestAnimationFrame` deltas,
+    with hysteresis. *s* ranges from 0.5 to 1.0 on phones, 0.67 to 1.0 on laptops and 0.85 to
+    1.0 on desktops.
+  - Moving people and cars would ghost without velocity vectors. Neighbourhood clamping handles
+    most of it; if not, we add a velocity pass for the instanced movers.
+- **Post chain.** It moves to non-MSAA targets at the TAA resolution. Bloom runs at quarter
+  resolution. The per-era film grade, grain and vignette stay as they are, applied last, so the
+  archival mood holds.
+
+## 4. Quality tiers
+
+| | Phone | Laptop (integrated GPU) | Desktop |
+| --- | --- | --- | --- |
+| Target | **30 fps** stable on mid-range; 60 on the S24+ and recent iPhones | 60 fps at 1080p | **60 fps** at 1440p (≤ 8 ms) |
+| Draw calls (all passes) | ≤ 250 | ≤ 500 | ≤ 1,000 |
+| Triangles per frame | ≤ 0.6 M | ≤ 1.5 M | ≤ 4 M |
+| Textures | 1K KTX2, ≤ 150 MB GPU | 2K, ≤ 300 MB | 2K, ≤ 500 MB |
+| Kit LOD0 radius | 60 m | 80 m | 120 m |
+| Shadows | 1K cached, 40 m | 2K cached, 60 m | 2K cached + GTAO |
+| Anti-aliasing | TAA, scale 0.5–1.0 | TAA, scale 0.67–1.0 | TAA, scale 0.85–1.0 |
+
+- **Picking the tier.** An initial guess comes from `WEBGL_debug_renderer_info`,
+  `deviceMemory` and the screen size. A 2-second check while the first year builds then
+  confirms it.
+- **Override.** The menu has a manual override, stored under a new key, `tlvtm.quality`. The
+  notebook save format is not touched.
+- **Download.**
+  - First load on a phone: ≤ 8 MB including the archive photos.
+  - Each additional style: ≤ 3 MB at 1K, fetched lazily when the player gets close.
+  - In the repo: about 10 MB for the slice and an estimated 40–60 MB for all styles, served
+    straight from Pages without LFS.
+
+## 5. Vertical slice
+
+**Area:**
+
+- Herzl Street from Rothschild to the head of the street (the Gymnasium in 1922, Shalom Meir
+  Tower in 2025);
+- one block of Rothschild Boulevard either side of Herzl;
+- both in 1922 and 2025.
+
+**Order of work**, each step measured on this PC and on a phone:
+
+1. **Performance foundation, before any art:**
+   - cached shadow;
+   - non-MSAA post chain;
+   - TAA with dynamic resolution;
+   - quality tiers;
+   - an on-screen stats overlay (`#stats`).
+   - Expected result: the same image as today with about a third of the draw calls.
+2. **Pipeline:**
+   - the Blender script harness;
+   - gltf-transform build script (`npm run assets:build`);
+   - KTX2 and meshopt loaders;
+   - the first CC0 material sets with per-year ageing.
+3. **Kits for the slice** (done as a facade kit, see §7):
+   - Ottoman and eclectic houses for 1922;
+   - eclectic (restored), Bauhaus and modern for 2025;
+   - a bespoke Gymnasium model that keeps the 17.6 m tower tops and the arch the photo marks
+     use;
+   - the Shalom Meir Tower.
+4. **Streets and clutter:**
+   - curbs with real profiles, gutters and stain decals;
+   - the 1922 fences and tree guards;
+   - the 2025 kiosk and benches;
+   - the new trees.
+5. **Check:**
+   - side-by-side comparison with the 1913 print and with present-day photos;
+   - the Herzl photo still lines up in photo mode;
+   - `npm test` and `npm run build` green;
+   - fps on this PC and on a phone via `npm run dev -- --host`.
+
+## 6. Decisions (owner, 30 Oct 2026)
+
+1. **Tools: yes.**
+   - Blender LTS (4.5, the current LTS) and KTX-Software on the workstation.
+   - `@gltf-transform/cli` as a dev-dependency.
+   - No new runtime dependency.
+2. **Binary assets: left to us, as long as the repo can be slimmed later.** Policy:
+   - **No generated binaries in git history.** Kits (`.glb`) and textures (`.ktx2`) are build
+     outputs.
+   - What git holds is text: the Blender Python scripts, the material list (ambientCG / Poly
+     Haven ids with licence and source), and a small `assets.lock.json` (version and SHA-256
+     per file).
+   - The built asset pack is published as a **GitHub Release asset** of this repo, which does not
+     count towards the repo's size.
+   - CI downloads the pinned version and checks the hashes before `vite build`. Locally,
+     `npm run assets` builds the pack (or fetches it), into an ignored folder.
+   - Moving the pack elsewhere later (another repo, a CDN, LFS) only changes the URL in the lock
+     file, and nothing ever has to be purged from history.
+   - The few hand-modelled `.blend` sources that can't be scripted live outside the repo, in the
+     same release.
+3. **Phone: Samsung Galaxy S24+** (the owner's phone; Exynos 2400 / Xclipse 940 in Israel), on
+   the `phone` tier. It is a 2024 flagship, so it should hold **60 fps** there. The mid-range 30 fps
+   target is still checked by the phone tier's draw-call and triangle budgets (the CPU side, which
+   the S24+ can't stand in for).
+4. **Herzl 1922 layout: our call.** The slice may add or adjust fabric parcels near Rothschild
+   where the sources back it. The rephoto marks, `roofHeight` and the noticing tests must keep
+   passing.
+5. **Present-day reference: Mapillary and Wikimedia Commons**, for reference only; nothing
+   from them is shipped.
+
+## 7. Progress
+
+### Step 1: performance foundation (done)
+
+- **Cached sun shadow** on the phone and laptop tiers. It is redrawn only when:
+  - the shadow frustum moves (the player has walked about 8 % of its width);
+  - the sun turns;
+  - the year changes;
+  - a building rises, sinks or is built.
+
+  Walkers and cars cast no shadow on those tiers; the desktop keeps every-frame shadows.
+- **TAA with upsampling** (`TAAPass`) replaces 4× MSAA:
+  - the scene at a dynamic render scale with 16-sample Halton jitter;
+  - reprojection through the logarithmic depth buffer, respecting the photo frame's view
+    offset;
+  - YCoCg neighbourhood clipping;
+  - Catmull-Rom upsampling and a contrast-adaptive sharpen.
+
+  The history is cleared on cuts, resizes and instant year jumps. The photo plates render in
+  one unjittered frame, so the tracing aid is as crisp as before.
+- **Post chain** runs on non-MSAA buffers.
+- **Quality tiers.** They're detected from the GPU and screen; `#quality=` forces one, and
+  Menu → *Picture: light / balanced / full* switches live and is remembered on the device
+  (`tlvtm.quality`, separate from the notebook save).
+- **Dynamic resolution** (`ResolutionController`, tested). It lowers the scale when frames run
+  late and probes back up, backing off after a failed probe.
+- **`#perf` overlay** (or Shift+P), also readable as `tlvtm.perf.last`.
+
+Measured on the RTX 3070 at Rothschild 2025, sidewalk, 1280×720, all passes counted:
+
+| Tier | Draw calls | Triangles | Render scale | fps |
+| --- | --- | --- | --- | --- |
+| before (MSAA, every-frame shadow) | 1,153 | 2.09 M | 1.00 | 60 (vsync) |
+| desktop | 1,156 | 2.09 M | 1.00 | 60 |
+| laptop | 381 | 1.12 M | 0.93 | 60 |
+| phone | 381 | 1.12 M | 0.78 | 60 |
+| phone, 390×844 portrait at the start spot | 216 | 1.11 M | 0.86 | 60 |
+
+**Galaxy S24+, first run** (owner, landscape 1664×768, phone tier):
+
+| Where | fps | ms (p95) | Draw calls |
+| --- | --- | --- | --- |
+| Rothschild 2025, boulevard | 63 | 15.9 (21.4) | 2,214 |
+| Rothschild 2025, sidewalk | 47 | 21.3 (27.1) | 1,076 |
+| Rothschild 2025, pilotis | 50 | 20.0 (25.8) | 579 |
+| 1909, the lottery | 67 | 14.9 (21.4) | 2,154 |
+
+- **Feel:** fps swung between 40 and 60 on Rothschild, and the phone got hot.
+- **Why the draw calls were so high:** every building in view was its own draw call per
+  material, and even 1909 has about 800 buildings (Jaffa, Neve Tzedek). The measurements above
+  had happened to face short views.
+- **Why the phone got hot:** the phone tier aimed at 30 fps, so at 47 fps it never lowered its
+  resolution and ran flat out at full size.
+
+### Step 1b: building batches and a cooler phone tier (done)
+
+- **Buildings are drawn through `BuildingBatches`:** one `BatchedMesh` per material, 18
+  batches in all, with each building culled separately.
+
+  | Phone tier, 832×384 | Draw calls before | Draw calls after |
+  | --- | --- | --- |
+  | 1909 lottery | 2,188 | 82 |
+  | Rothschild 2025, boulevard | ~2,200 | 67 |
+
+- **The phone tier now aims for 60 fps** and gives up resolution to get there, down to half
+  scale. It also caps the output pixel ratio at 1.5. A mid-range phone settles at the floor,
+  around 30 fps.
+- **The overlay says "no multi-draw"** if the browser lacks `WEBGL_multi_draw`. Without it, the
+  batches fall back to one call per building.
+
+**Galaxy S24+, second run:** "much better". It runs above 60 fps on its 120 Hz screen at street
+level and settles near 60 when looking out over the streets from above.
+
+- **Frame-rate cap** (`FrameCap`, tested): Menu → *Frame rate: 60 / unlimited*, remembered on
+  the device as `tlvtm.fpscap`.
+  - Phones default to 60, so a 120 Hz phone draws every other refresh and stays cooler.
+  - Laptops and desktops default to unlimited.
+
+### Step 2: the asset pipeline (done)
+
+- **`npm run assets:build`** (`tools/assets/pack.mjs`) builds the pack into `public/pack/`
+  (ignored) in about three minutes:
+  - downloads the ambientCG sets listed in `assets/materials.json` (cached in `.cache/`);
+  - packs ambient occlusion and roughness into one map with sharp;
+  - encodes with KTX-Software's `toktx`: colour and ORM as ETC1S, normals as UASTC at half size;
+  - runs each `tools/blender/kits/*.py` in Blender 4.5 (`build_kit.py`, helpers in `kitlib.py`),
+    which bakes AO into vertex colour and exports glTF;
+  - compresses kits with gltf-transform (meshopt and quantization);
+  - writes `manifest.json` and a SHA-256 per file to `assets.lock.json`.
+- **`npm run assets`** makes `public/pack` match the lock: it keeps a matching local build, or
+  fetches the pinned release and checks every hash. With no version pinned it does nothing and
+  the game keeps its procedural textures. CI runs it before `vite build`.
+- **`npm run assets:publish -- <version>`** uploads the pack as release `assets-<version>` and
+  pins it. Not run yet: publishing waits for the owner.
+- **Sizes:** 18 MB in all; the phone set (1K) is **3.7 MB**, the 2K set 14.5 MB. The loaders
+  (KTX2, glTF, meshopt; 43 kB gzipped) are a lazy chunk, so the first load grows only by the
+  textures, after the first frames.
+- **First materials** (ambientCG, CC0): Plaster007 lime plaster, Bricks084 kurkar masonry,
+  RoofingTiles012A Marseille tiles, Asphalt031, PavingStones072 interlocking grey pavers,
+  Ground079S packed sand.
+  - On buildings the photo is a detail layer: its colour divided by its mean modulates the
+    painted vertex colour, so each phase keeps its paint. Its normal and roughness add relief.
+    Window panes in the facade atlas are left alone.
+  - Roofs and stone take the photo outright, tinted by their phase colour. Roads, sidewalks
+    and sand tracks take the photo sets as ordinary PBR maps.
+- **Ageing per year** works with or without the pack. `BuildingBatches` passes each phase's
+  `weathering` as an `aging` attribute, and `buildingShader.ts` turns it into blotches, rain
+  streaks and a splash band near the ground, rougher where dirty. The same Bauhaus building is
+  grey and streaked in 1985 and clean white in 2025.
+- **A sample kit** (`sample_bay`: an eclectic window bay with lintel, sill and louvred shutters,
+  2.6 K triangles, 33 kB) proved the Blender → glTF → game path. Step 3 replaced it with the
+  slice kit.
+- **Unchanged:** geometry, draw calls (72 on the phone tier at Rothschild 2025), picking, the
+  Herzl 1913 pose in 1922, and `npm test` / `npm run build`.
+- **Measured** on this PC (RTX 3070, 977×966, `gl.finish` timing), Rothschild 2025:
+  - phone tier with the 1K set: 1.8 ms;
+  - desktop tier with the 2K set: 2.7 ms.
+  - Still to measure on the S24+.
+
+### Step 3: the facade kit (done)
+
+Instead of whole building kits that would replace the procedural mesh, the kit **frames the
+windows the facade textures already paint**. Walls, footprints, heights, `roofHeight`, picking
+and the Herzl 1913 marks stay exactly as they were, and the kit adds the depth and shadow that
+flat textures lacked.
+
+- **`kit_slice.glb`** (`tools/blender/kits/slice.py`, 82 kB), seven modules:
+
+  | Module | For | Triangles |
+  | --- | --- | --- |
+  | `ottoman_open`, `ottoman_closed` | Ahuzat Bayit houses: plaster frame, kurkar sill and lintel, louvred shutters folded back or closed | 568 |
+  | `eclectic_window` | 1920s eclectic (and the restored ones of 2025): jambs, archivolt, keystone, hood, sill on corbels | 346 |
+  | `bauhaus_ledge` | International Style: the concrete eyebrow over a ribbon window and its sill, stretched along the band | 32 |
+  | `bauhaus_mullions` | steel mullions and transom of one 4 m tile of ribbon | 126 |
+  | `modern_frame` | contemporary floor-to-ceiling window: aluminium frame, mullion, sill | 210 |
+  | `gym_portal` | the Herzliya Gymnasium's arched door: jambs, imposts, archivolt, roll moulding, keystone | 450 |
+
+  Boxes bake on a 0.6 m grid with no faces against the wall. Each module bakes in its own
+  slot with a wall behind it, so the AO has the wall's contact shadow and nothing from the
+  other modules.
+- **Facade grammar** (`facadeGrammar.ts`, pure, `tests/kit.test.ts`):
+  - walks each dressable wall's painted window grid, the same grid the metre UVs lay down;
+  - puts a module on every window that nothing stands in front of (a door, a tower, a rounded
+    corner, a closed balcony);
+  - picks the shutters (open or closed, and their colour) to match the painted tile;
+  - Bauhaus ledges run over every clear stretch of a band.
+
+  Tests check that every module sits on the building's walls and under its roof, that the
+  shutters match the painted ones, that blocked windows are skipped, and that every module the
+  grammar places exists in the kit script.
+- **Drawing** (`KitDressing.ts`): one `BatchedMesh` per kit material (trim, stone, wood,
+  metal), each module's geometry stored once, every placed module an instance.
+  - Each instance's colour is its paint (shutter colours, frames), and the colour's alpha is
+    its building's weathering.
+  - The kit materials are the building materials in `kit` mode: the photo detail's UVs come
+    from the world position, so the plaster runs on across modules.
+  - Buildings within the tier's `kitRadius` (phone 60 m, laptop 80 m, desktop 120 m) get their
+    instances, built a few milliseconds a frame, and lose them past 1.2 × the radius.
+- **Measured** on this PC, Rothschild 2025, the same spot with the kit on and off:
+
+  | Tier | Draw calls | Triangles | Kit instances |
+  | --- | --- | --- | --- |
+  | phone | 75 → 78 | 1.162 M → 1.172 M | 796 |
+  | desktop | 107 → 115 | 2.15 M → 2.46 M | 2,004 |
+
+  Both tiers stay at 60 fps here. The S24+ is still to measure.
+- **Herzl 1913 photo pose in 1922:** the Gymnasium stands where it did, now with its portal.
+- **Not done in step 3:**
+  - the Shalom Meir Tower has no kit yet (its facade is the `concrete` atlas, which the grammar
+    doesn't dress);
+  - corner and rounded-corner windows, doors and shop fronts are still painted only.
+
+### Next
+
+- ~~Publish the pack~~: published as release `assets-1` (30 Oct 2026); `assets.lock.json` pins it, so CI and Pages fetch it.
+- Measure steps 2 and 3 on the S24+.
+- Step 4: streets and clutter.

@@ -2,14 +2,24 @@ import * as THREE from 'three';
 import { easeOutBack, hashString, mulberry32 } from '../../core/math';
 import { baseHeight } from '../../data/geography';
 import type { BuildingPhase, BuildingSite, BuildingStyle } from '../../data/types';
-import type { MaterialLibrary } from '../materials';
-import { PartBuilder } from './PartBuilder';
-import { buildPhase } from './styles';
+import type { MatKey, MaterialLibrary } from '../materials';
+import { BuildingBatches, type BatchSlot } from './BuildingBatches';
+import { dressPhase, type TileLookup } from './facadeGrammar';
+import type { DressSlot, KitDressing } from './KitDressing';
+import { PartBuilder, type PartBounds } from './PartBuilder';
+import { buildPhase, wallColor } from './styles';
 
 interface PhaseEntry {
   phase: BuildingPhase;
   index: number;
+  /** Never drawn: the stand-in that picking, labels and the animation work on. */
   mesh?: THREE.Mesh;
+  /** Where the mesh is actually drawn, in the material batches. */
+  slots?: BatchSlot[];
+  /** Its parts' bounds, which the facade grammar dresses. */
+  bounds?: PartBounds[];
+  /** Its kit modules, while the player is near (KitDressing). */
+  dress?: DressSlot[];
   ghost?: THREE.Mesh;
   presence: number;
   target: number;
@@ -41,12 +51,23 @@ export class BuildingManager {
   private ghosts = false;
   private highlightBox = new THREE.Box3Helper(new THREE.Box3(), 0xffc860);
   private selected?: SiteEntry;
+  /** Set whenever a mesh appears, moves or vanishes; whoever caches shadows clears it. */
+  changed = false;
+  private batches: BuildingBatches;
+  private dirty = new Set<PhaseEntry>();
+  /** Invisible stand-in materials (same sides, so picking still hits double-sided parts). */
+  private hidden = new Map<MatKey, THREE.Material>();
+  /** The facade kit (from the asset pack), and where its detail is shown. */
+  private kit?: { dressing: KitDressing; tileAt: TileLookup };
+  private detail = { at: new THREE.Vector3(), radius: 0, clock: 0 };
 
   constructor(
     sites: BuildingSite[],
     private mats: MaterialLibrary,
   ) {
     this.root.name = 'buildings';
+    this.batches = new BuildingBatches(mats);
+    this.root.add(this.batches.root);
     for (const site of sites) {
       const group = new THREE.Group();
       group.position.set(site.x, baseHeight(site.x, site.z), site.z);
@@ -79,18 +100,35 @@ export class BuildingManager {
     if (pe.mesh) return pe.mesh;
     const pb = new PartBuilder();
     buildPhase(pb, entry.site, pe.phase, mulberry32(hashString(`${entry.site.id}#${pe.phase.style}#${pe.phase.from}`)));
+    pe.bounds = pb.bounds;
     const { geometry, materials } = pb.build();
     const mesh = new THREE.Mesh(
       geometry,
-      materials.map((k) => this.mats.get(k)),
+      materials.map((k) => this.hiddenMaterial(k)),
     );
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
     mesh.visible = false;
     mesh.userData = { siteId: entry.site.id, phaseIndex: pe.index };
     entry.group.add(mesh);
     pe.mesh = mesh;
+    pe.slots = this.batches.add(geometry, materials, pe.phase.weathering ?? 0);
     return mesh;
+  }
+
+  private hiddenMaterial(k: MatKey): THREE.Material {
+    let m = this.hidden.get(k);
+    if (!m) this.hidden.set(k, (m = new THREE.MeshBasicMaterial({ visible: false, side: this.mats.get(k).side })));
+    return m;
+  }
+
+  /** Copies changed stand-ins into the batches. */
+  private flush() {
+    for (const pe of this.dirty) {
+      if (!pe.mesh || !pe.slots) continue;
+      pe.mesh.updateWorldMatrix(true, false);
+      this.batches.sync(pe.slots, pe.mesh.matrixWorld, pe.mesh.visible);
+      if (pe.dress) this.kit!.dressing.sync(pe.dress, pe.mesh.matrixWorld, pe.mesh.visible);
+    }
+    this.dirty.clear();
   }
 
   private ensureGhost(entry: SiteEntry, pe: PhaseEntry): THREE.Mesh {
@@ -142,6 +180,58 @@ export class BuildingManager {
     this.queue.sort((a, b) => Number(!!this.pending.get(b)?.site.landmark) - Number(!!this.pending.get(a)?.site.landmark));
   }
 
+  /**
+   * Turns on the facade kit: buildings within `radius` of the point given to `setDetail` get
+   * their windows framed (facadeGrammar.ts); `tileAt` reads the painted facade tiles.
+   */
+  setKit(dressing: KitDressing, tileAt: TileLookup) {
+    this.kit = { dressing, tileAt };
+    this.root.add(dressing.root);
+  }
+
+  /** Where the kit detail is centred (the camera) and how far it reaches (by quality tier). */
+  setDetail(at: THREE.Vector3, radius: number) {
+    this.detail.at.copy(at);
+    if (radius !== this.detail.radius) this.detail.clock = 1;
+    this.detail.radius = radius;
+  }
+
+  /** Adds the kit to buildings coming near and drops it from those left behind, a few ms a frame. */
+  private updateDetail(dt: number, budgetMs: number) {
+    const kit = this.kit;
+    if (!kit) return;
+    this.detail.clock += dt;
+    if (this.detail.clock < 0.2) return;
+    const t0 = performance.now();
+    const { at, radius } = this.detail;
+    let pending = false;
+    for (const entry of this.entries) {
+      const { site } = entry;
+      const r = Math.hypot(site.width, site.depth) / 2;
+      const d = Math.hypot(site.x - at.x, entry.group.position.y - at.y, site.z - at.z) - r;
+      for (const pe of entry.phases) {
+        if (!pe.mesh) continue;
+        const want = pe.target > 0 && d < radius;
+        if (want && !pe.dress) {
+          if (performance.now() - t0 > budgetMs) {
+            pending = true;
+            continue;
+          }
+          const placed = dressPhase(pe.phase, pe.bounds ?? [], wallColor(pe.phase), kit.tileAt);
+          pe.dress = kit.dressing.add(placed, pe.phase.weathering ?? 0);
+          this.dirty.add(pe);
+          this.changed = true;
+        } else if (pe.dress && !want && (d > radius * 1.2 || !pe.mesh.visible)) {
+          kit.dressing.remove(pe.dress);
+          pe.dress = undefined;
+          this.changed = true;
+        }
+      }
+    }
+    // keep going next frame while buildings in range still wait for theirs
+    this.detail.clock = pending ? 0.2 : 0;
+  }
+
   /** Builds queued meshes within a time budget, then animates presence. */
   update(dt: number, budgetMs = 10) {
     const t0 = performance.now();
@@ -150,12 +240,15 @@ export class BuildingManager {
       const entry = this.pending.get(pe)!;
       this.pending.delete(pe);
       this.ensureMesh(entry, pe);
+      this.changed = true;
     }
     const k = 1 - Math.exp(-dt * 5);
     for (const entry of this.entries) {
       for (const pe of entry.phases) {
         if (!pe.mesh) continue;
         if (pe.presence === pe.target && !pe.mesh.visible === !pe.target) continue;
+        this.changed = true;
+        this.dirty.add(pe);
         pe.presence += (pe.target - pe.presence) * k;
         if (Math.abs(pe.presence - pe.target) < 0.004) pe.presence = pe.target;
         const s = pe.target > 0 ? easeOutBack(Math.min(1, pe.presence)) : pe.presence * pe.presence;
@@ -163,6 +256,8 @@ export class BuildingManager {
         pe.mesh.scale.set(1, Math.max(0.001, s), 1);
       }
     }
+    this.updateDetail(dt, 3);
+    this.flush();
   }
 
   /** Builds everything queued and snaps every building to its final state (for instant time travel). */
@@ -179,7 +274,10 @@ export class BuildingManager {
         pe.presence = pe.target;
         pe.mesh.visible = pe.target > 0;
         pe.mesh.scale.set(1, 1, 1);
+        this.dirty.add(pe);
       }
+    this.changed = true;
+    this.flush();
   }
 
   /**

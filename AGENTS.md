@@ -26,6 +26,7 @@ npm ci            # install
 npm run dev       # dev server (add -- --host to open it on a phone on the same Wi-Fi)
 npm test          # Vitest
 npm run build     # tsc --noEmit, then vite build
+npm run assets    # fetch the pinned asset pack into public/pack (assets:build builds it; never commit it)
 ```
 
 CI (`.github/workflows`, Node 22) runs `npm ci`, `npm test` and `npm run build` on every PR, and
@@ -74,7 +75,9 @@ Break these and discoveries or photos silently stop working:
 - Content is real history: every discovery and landmark has sources and a confidence
   (documented / approximate / illustrative). Don't invent facts; mark composites as such.
 - Assets: CC0 or public domain only, with source and licence recorded (README credits). Keep
-  them small: the site is served straight from GitHub Pages (no Git LFS there).
+  them small: the site is served straight from GitHub Pages (no Git LFS there). Generated
+  binaries (KTX2 textures, glTF kits) go in the asset pack, a release asset pinned by
+  `assets.lock.json`, never in git history (docs/REALISM_PLAN.md §6).
 - Ask the owner before hard-to-reverse choices: new dependencies, large binary assets, changes
   to the save format (`tlvtm.notebook.v1` in localStorage; keep old saves loading).
 - Writing style in UI text: short, plain, period-flavoured; say what to look for, never where.

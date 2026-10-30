@@ -6,6 +6,14 @@ type UVMode = 'auto' | 'cyl' | 'keep';
 
 const tmp = new THREE.Color();
 
+/** A part's bounds in building-local metres; `box` when it is an unrotated box (its faces can be dressed). */
+export interface PartBounds {
+  mat: MatKey;
+  min: [number, number, number];
+  max: [number, number, number];
+  box: boolean;
+}
+
 /**
  * Collects primitive parts (in building-local metres, y = 0 at ground) and merges
  * them into a single geometry with one draw group per material. UVs are generated
@@ -13,6 +21,8 @@ const tmp = new THREE.Color();
  */
 export class PartBuilder {
   private parts = new Map<MatKey, THREE.BufferGeometry[]>();
+  /** Every part's bounds, for the facade grammar (facadeGrammar.ts). */
+  readonly bounds: PartBounds[] = [];
 
   add(
     mat: MatKey,
@@ -39,6 +49,9 @@ export class PartBuilder {
     g.setAttribute('color', new THREE.BufferAttribute(col, 3));
     if (!this.parts.has(mat)) this.parts.set(mat, []);
     this.parts.get(mat)!.push(g);
+    g.computeBoundingBox();
+    const b = g.boundingBox!;
+    this.bounds.push({ mat, min: b.min.toArray(), max: b.max.toArray(), box: false });
     if (g !== geo) geo.dispose();
   }
 
@@ -49,6 +62,7 @@ export class PartBuilder {
     if (rotY) g.rotateY(rotY);
     g.translate(x, y, z);
     this.add(mat, g, color);
+    if (!rotY) this.bounds[this.bounds.length - 1].box = true;
   }
 
   cylinder(

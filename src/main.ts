@@ -24,11 +24,13 @@ import { CityBlanket } from './world/CityBlanket';
 import { allSites, phaseAt } from './world/fabric';
 import { createMaterials } from './world/materials';
 import { People } from './world/People';
+import { PerfOverlay } from './world/PerfOverlay';
 import { PostFX } from './world/PostFX';
+import { FrameCap, QUALITY, ResolutionController, detectTier, parseTier, type Tier } from './world/Quality';
 import { Sea } from './world/Sea';
 import { Streets } from './world/Streets';
 import { Terrain, duneHeight } from './world/Terrain';
-import { createTextures } from './world/textures';
+import { createTextures, type FacadeTexture } from './world/textures';
 import { Traffic } from './world/Traffic';
 import { Vegetation } from './world/Vegetation';
 
@@ -41,11 +43,46 @@ function readHash() {
   return { year: Number.isFinite(year) && year >= TIME_MIN && year <= TIME_MAX ? year : undefined };
 }
 
+const QUALITY_KEY = 'tlvtm.quality';
+const FPS_CAP_KEY = 'tlvtm.fpscap';
+
+function readPref(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+/** The URL (`#quality=phone`) wins, then the player's choice, then a guess from the GPU. */
+function pickTier(renderer: THREE.WebGLRenderer): Tier {
+  const fromHash = parseTier(new URLSearchParams(location.hash.slice(1)).get('quality'));
+  if (fromHash) return fromHash;
+  try {
+    const saved = parseTier(localStorage.getItem(QUALITY_KEY));
+    if (saved) return saved;
+  } catch {
+    // storage blocked: fall through to the guess
+  }
+  const gl = renderer.getContext();
+  const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+  return detectTier({
+    gpu: String(gl.getParameter(dbg ? dbg.UNMASKED_RENDERER_WEBGL : gl.RENDERER) ?? ''),
+    userAgent: navigator.userAgent,
+    touch: navigator.maxTouchPoints > 0,
+    screenMin: Math.min(screen.width, screen.height),
+    memory: (navigator as Navigator & { deviceMemory?: number }).deviceMemory,
+  });
+}
+
 async function main() {
   // ------------------------------------------------------------ renderer & scene
   const canvas = $('#scene') as HTMLCanvasElement;
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', logarithmicDepthBuffer: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
+  let quality = QUALITY[pickTier(renderer)];
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, quality.maxDpr));
+  // several passes render per frame: count them all, reset once per frame in the loop
+  renderer.info.autoReset = false;
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -83,6 +120,40 @@ async function main() {
   scene.add(terrain.mesh, sea.mesh, streets.root, vegetation.root, blanket.root, buildings.root, people.root, traffic.root);
   const atmosphere = new Atmosphere(renderer, scene);
   const post = new PostFX(renderer, scene, camera);
+  const resolution = new ResolutionController(quality);
+  // a 60 fps cap: on by default on phones (heat, battery), unless the player chose otherwise
+  const frameCap = new FrameCap(60);
+  const capPref = () => {
+    const v = readPref(FPS_CAP_KEY);
+    return v === null ? quality.tier === 'phone' : v === 'on';
+  };
+  const setFrameCap = (on: boolean) => {
+    frameCap.on = on;
+    try {
+      localStorage.setItem(FPS_CAP_KEY, on ? 'on' : 'off');
+    } catch {
+      // private mode: the choice is simply not remembered
+    }
+  };
+  /** Moves the whole renderer to a quality tier, live. */
+  const setQuality = (tier: Tier, remember = false) => {
+    quality = QUALITY[tier];
+    if (remember)
+      try {
+        localStorage.setItem(QUALITY_KEY, tier);
+      } catch {
+        // private mode: the choice is simply not remembered
+      }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, quality.maxDpr));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    post.setQuality(quality, window.innerWidth, window.innerHeight);
+    resolution.reset(quality);
+    atmosphere.setQuality(quality);
+    // a cached shadow map would freeze walkers' and cars' shadows where they stood
+    for (const root of [people.root, traffic.root]) root.traverse((o) => (o.castShadow = !quality.shadowCache));
+    frameCap.on = capPref();
+  };
+  setQuality(quality.tier);
 
   const ground = (x: number, z: number) =>
     baseHeight(x, z) + duneHeight(x, z) * devFactor(x, z, time.year) * (1 - smoothstep(-160, -30, seaward(x, z)));
@@ -196,8 +267,10 @@ async function main() {
     buildings.settle();
     terrain.setYear(time.year);
     terrainDirty = false;
+    // the old year's history must not bleed into the new one
+    post.taa.reset();
   };
-  const game = new Game({ time, rig, camera, canvas, post, buildings, scene, audio, ground, jumpTo }, $('#ui'));
+  const game = new Game({ time, rig, camera, canvas, post, buildings, scene, audio, ground, jumpTo, quality: { get: () => quality.tier, set: (t) => setQuality(t, true) }, fpsCap: { get: () => frameCap.on, set: setFrameCap } }, $('#ui'));
   // the real archive photographs download while the first year is built
   const archive = game.loadArchive();
   rig.collide = (x, z, eye) => game.active && game.blocked(x, z, eye);
@@ -304,6 +377,7 @@ async function main() {
     const on = (e.target as HTMLInputElement).checked;
     renderer.shadowMap.enabled = on;
     atmosphere.sun.castShadow = on;
+    atmosphere.invalidateShadows();
     scene.traverse((o) => {
       const m = (o as THREE.Mesh).material;
       if (m) for (const mm of Array.isArray(m) ? m : [m]) mm.needsUpdate = true;
@@ -405,12 +479,25 @@ async function main() {
   const clock = new THREE.Clock();
   let statsTimer = 0;
   setHour(hour);
-  renderer.setAnimationLoop(() => {
-    const dt = Math.min(clock.getDelta(), 0.1);
+  const perf = new PerfOverlay(renderer, () => ({
+    tier: quality.tier,
+    scale: post.taa.scale,
+    size: post.taa.renderSize,
+    multiDraw: !!renderer.extensions.get('WEBGL_multi_draw'),
+  }));
+  let shadowYear = -1;
+  renderer.setAnimationLoop((stamp) => {
+    if (!frameCap.shouldDraw(stamp)) return;
+    const raw = clock.getDelta();
+    const dt = Math.min(raw, 0.1);
     const t = clock.elapsedTime;
+    perf.frame(raw * 1000);
+    renderer.info.reset();
+    if (resolution.frame(raw * 1000)) post.taa.setScale(resolution.scale);
     time.update(dt);
     tour.update(dt);
     rig.update(dt);
+    buildings.setDetail(camera.position, quality.kitRadius);
     buildings.update(dt);
     const now = performance.now();
     if (terrainDirty && now - lastTerrain > 140) {
@@ -424,6 +511,11 @@ async function main() {
     }
     sea.update(t);
     atmosphere.follow(rig.focus, rig.distance);
+    if (buildings.changed || Math.floor(time.year) !== shadowYear) {
+      atmosphere.invalidateShadows();
+      buildings.changed = false;
+      shadowYear = Math.floor(time.year);
+    }
     if (!game.active) labels.update(camera, time.year);
     game.update(dt, t);
     updateLook();
@@ -446,8 +538,32 @@ async function main() {
     post.render();
   });
 
+  // ------------------------------------------------------------ asset pack
+  // Photo materials (public/pack, see tools/assets/pack.mjs) arrive after the first frames; the
+  // procedural textures stand in until then, and for good when there is no pack. The loaders
+  // (KTX2, glTF, meshopt) are a chunk of their own, fetched after the first frames.
+  const assets = import('./world/AssetPack')
+    .then(({ AssetPack }) => AssetPack.load(renderer, quality.tier === 'phone' ? '1k' : '2k'))
+    .then(async (pack) => {
+      if (!pack) return null;
+      await Promise.all([mats.applyPack(pack), streets.applyPack(pack)]);
+      atmosphere.invalidateShadows();
+      if ('slice' in pack.manifest.kits) {
+        const [{ KitDressing }, gltf] = await Promise.all([import('./world/buildings/KitDressing'), pack.kit('slice')]);
+        const facades = tex.facades as Partial<Record<string, FacadeTexture>>;
+        buildings.setKit(KitDressing.fromScene(gltf.scene, mats), (mat, column, row) => facades[mat]?.tiles[column]?.[3 - row]);
+      }
+      return pack;
+    })
+    .catch((err) => {
+      console.warn('asset pack not applied:', err);
+      return null;
+    });
+
   // Expose for debugging and automated screenshots.
-  Object.assign(window, { tlvtm: { time, rig, buildings, scene, camera, renderer, ERAS, setHour, selectSite, game } });
+  Object.assign(window, {
+    tlvtm: { time, rig, buildings, scene, camera, renderer, ERAS, setHour, selectSite, game, post, setQuality, quality: () => quality, perf, assets },
+  });
 }
 
 main().catch((err) => {

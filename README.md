@@ -42,9 +42,16 @@ npm install
 npm run dev        # http://localhost:5173
 npm test           # content & generator tests
 npm run build      # static site in dist/
+npm run assets     # optional photo materials and kits (public/pack), see below
 ```
 
-Deep links: `http://localhost:5173/#year=1948`.
+The **asset pack** (photo-sourced materials as KTX2, Blender kits as glTF) is not in git. `npm run
+assets` fetches the version pinned in `assets.lock.json` and checks its hashes; while none is
+published the game uses its procedural textures. `npm run assets:build` builds it from sources
+(needs [Blender 4.5](https://www.blender.org/) and [KTX-Software](https://github.com/KhronosGroup/KTX-Software)).
+
+Deep links: `http://localhost:5173/#year=1948`. Add `#perf` (or press Shift+P) for frame statistics, and
+`#quality=phone|laptop|desktop` to force a picture-quality tier (players pick it under Menu → Picture; Menu → Frame rate caps it at 60 fps, the default on phones).
 
 ## Controls
 
@@ -106,6 +113,12 @@ The notebook's photographs are public domain and come from Wikimedia Commons:
   — photographer unknown, National Photo Collection of Israel.
 - [The lottery of Ahuzat Bayit, 11 April 1909](https://commons.wikimedia.org/wiki/File:TelAviv-Founding.jpg)
   — Avraham Soskin.
+
+The photo materials in the asset pack are CC0 1.0 sets from [ambientCG](https://ambientcg.com/)
+(listed with their use in [assets/materials.json](assets/materials.json)):
+[Plaster007](https://ambientcg.com/a/Plaster007), [Bricks084](https://ambientcg.com/a/Bricks084),
+[RoofingTiles012A](https://ambientcg.com/a/RoofingTiles012A), [Asphalt031](https://ambientcg.com/a/Asphalt031),
+[PavingStones072](https://ambientcg.com/a/PavingStones072) and [Ground079S](https://ambientcg.com/a/Ground079S).
 
 ## Docs
 

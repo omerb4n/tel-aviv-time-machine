@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { RAILWAY, RAILWAY_YEARS, baseHeight } from '../data/geography';
 import { STREETS, frameAt, streetLength } from '../data/streets';
 import type { Street } from '../data/types';
+import type { AssetPack } from './AssetPack';
 import type { TextureSet } from './textures';
 
 /** Lateral band of a street: [from, to] offsets from the centreline (metres). */
@@ -55,6 +56,8 @@ export class Streets {
   private lampHeads: THREE.InstancedMesh;
   private lampData: { year: number; matrix: THREE.Matrix4 }[] = [];
   readonly lampMaterial: THREE.MeshStandardMaterial;
+  /** Surfaces that take a photo set from the asset pack, and the tint it gets. */
+  private surfaces: { mat: THREE.MeshStandardMaterial; set: string; tint: string }[] = [];
 
   constructor(tex: TextureSet) {
     this.root.name = 'streets';
@@ -68,6 +71,12 @@ export class Streets {
     const asphaltMat = mk(tex.asphalt, 6, '#c9c5bc', 0.9);
     const pavingMat = mk(tex.paving, 2.5, '#ffffff');
     const promenadeMat = mk(tex.sand, 8, '#d8c6a0');
+    this.surfaces = [
+      { mat: dirtMat, set: 'sand', tint: '#f0e4cc' },
+      { mat: asphaltMat, set: 'asphalt', tint: '#ebe3d6' },
+      { mat: pavingMat, set: 'paving', tint: '#f4eee4' },
+      { mat: promenadeMat, set: 'sand', tint: '#f6ecd8' },
+    ];
 
     STREETS.forEach((st, i) => {
       const lift = 0.04 + i * 0.006;
@@ -151,6 +160,27 @@ export class Streets {
     this.lampHeads.count = n;
     this.lamps.instanceMatrix.needsUpdate = true;
     this.lampHeads.instanceMatrix.needsUpdate = true;
+  }
+
+  /** Swaps the canvas textures of roads and sidewalks for the pack's photo sets. */
+  async applyPack(pack: AssetPack) {
+    const used = this.surfaces.filter((s) => pack.has(s.set));
+    const sets = await Promise.all(used.map((s) => pack.material(s.set)));
+    used.forEach(({ mat, tint }, i) => {
+      const set = sets[i];
+      // UVs are metres across and along the street; clones share the uploaded texture
+      const tiled = (t: THREE.Texture) => {
+        const c = t.clone();
+        c.repeat.set(1 / set.tile, 1 / set.tile);
+        return c;
+      };
+      mat.map = tiled(set.map);
+      mat.normalMap = tiled(set.normalMap);
+      mat.roughnessMap = mat.aoMap = tiled(set.orm);
+      mat.roughness = 1;
+      mat.color.set(tint);
+      mat.needsUpdate = true;
+    });
   }
 
   setNight(n: number) {
