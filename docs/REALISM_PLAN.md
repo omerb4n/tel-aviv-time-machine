@@ -290,7 +290,7 @@ level and settles near 60 when looking out over the streets from above.
   - Phones default to 60, so a 120 Hz phone draws every other refresh and stays cooler.
   - Laptops and desktops default to unlimited.
 
-### Step 2: the asset pipeline (done, pack not yet published)
+### Step 2: the asset pipeline (done)
 
 - **`npm run assets:build`** (`tools/assets/pack.mjs`) builds the pack into `public/pack/`
   (ignored) in about three minutes:
@@ -331,7 +331,7 @@ level and settles near 60 when looking out over the streets from above.
   - desktop tier with the 2K set: 2.7 ms.
   - Still to measure on the S24+.
 
-### Step 3: the facade kit (done, pack not yet published)
+### Step 3: the facade kit (done)
 
 Instead of whole building kits that would replace the procedural mesh, the kit **frames the
 windows the facade textures already paint**. Walls, footprints, heights, `roofHeight`, picking
@@ -386,6 +386,6 @@ flat textures lacked.
 
 ### Next
 
-- Publish the pack as `assets-1` (owner's go-ahead), so CI and Pages get it.
+- ~~Publish the pack~~: published as release `assets-1` (30 Oct 2026); `assets.lock.json` pins it, so CI and Pages fetch it.
 - Measure steps 2 and 3 on the S24+.
 - Step 4: streets and clutter.
