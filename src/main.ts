@@ -30,7 +30,7 @@ import { FrameCap, QUALITY, ResolutionController, detectTier, parseTier, type Ti
 import { Sea } from './world/Sea';
 import { Streets } from './world/Streets';
 import { Terrain, duneHeight } from './world/Terrain';
-import { createTextures } from './world/textures';
+import { createTextures, type FacadeTexture } from './world/textures';
 import { Traffic } from './world/Traffic';
 import { Vegetation } from './world/Vegetation';
 
@@ -497,6 +497,7 @@ async function main() {
     time.update(dt);
     tour.update(dt);
     rig.update(dt);
+    buildings.setDetail(camera.position, quality.kitRadius);
     buildings.update(dt);
     const now = performance.now();
     if (terrainDirty && now - lastTerrain > 140) {
@@ -547,6 +548,11 @@ async function main() {
       if (!pack) return null;
       await Promise.all([mats.applyPack(pack), streets.applyPack(pack)]);
       atmosphere.invalidateShadows();
+      if ('slice' in pack.manifest.kits) {
+        const [{ KitDressing }, gltf] = await Promise.all([import('./world/buildings/KitDressing'), pack.kit('slice')]);
+        const facades = tex.facades as Partial<Record<string, FacadeTexture>>;
+        buildings.setKit(KitDressing.fromScene(gltf.scene, mats), (mat, column, row) => facades[mat]?.tiles[column]?.[3 - row]);
+      }
       return pack;
     })
     .catch((err) => {

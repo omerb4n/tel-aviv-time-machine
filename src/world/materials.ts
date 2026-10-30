@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { AssetPack } from './AssetPack';
 import { buildingShader, photoDetail, type BuildingShader } from './buildingShader';
+import type { PhotoSet } from './AssetPack';
 import type { TextureSet } from './textures';
 
 export type MatKey =
@@ -27,6 +28,11 @@ export interface MaterialLibrary {
   setNight(n: number): void;
   /** Lays the pack's photo materials over the buildings (resolves once they are in). */
   applyPack(pack: AssetPack): Promise<void>;
+  /**
+   * The material of kit modules made of `key` (KitDressing): the building material with UVs
+   * and weathering taken per instance, and the same photo detail.
+   */
+  kit(key: MatKey): THREE.MeshStandardMaterial;
   ghost: THREE.Material;
   highlight: THREE.MeshStandardMaterial;
 }
@@ -114,12 +120,33 @@ export function createMaterials(tex: TextureSet): MaterialLibrary {
     ['stone', 'stone', 1, true],
   ];
 
+  const applied = new Map<MatKey, [PhotoSet, number, boolean]>();
+  const kits = new Map<MatKey, [THREE.MeshStandardMaterial, BuildingShader]>();
+
   return {
     get: (k) => mats[k],
     async applyPack(pack) {
       const used = photo.filter(([, set]) => pack.has(set));
       const sets = await Promise.all(used.map(([, set]) => pack.material(set)));
-      used.forEach(([k, , strength, replace], i) => photoDetail(mats[k] as THREE.MeshStandardMaterial, shaders.get(k)!, sets[i], strength, replace));
+      used.forEach(([k, , strength, replace], i) => {
+        applied.set(k, [sets[i], strength, replace]);
+        photoDetail(mats[k] as THREE.MeshStandardMaterial, shaders.get(k)!, sets[i], strength, replace);
+        const kit = kits.get(k);
+        if (kit) photoDetail(kit[0], kit[1], sets[i], strength, replace);
+      });
+    },
+    kit(k) {
+      let kit = kits.get(k);
+      if (!kit) {
+        const m = (mats[k] as THREE.MeshStandardMaterial).clone();
+        m.defines = { STANDARD: '' };
+        m.side = THREE.FrontSide;
+        kit = [m, buildingShader(m, true)];
+        kits.set(k, kit);
+        const a = applied.get(k);
+        if (a) photoDetail(m, kit[1], ...a);
+      }
+      return kit[0];
     },
     setNight(n) {
       for (const m of facadeMats) m.emissiveIntensity = n * 1.6;

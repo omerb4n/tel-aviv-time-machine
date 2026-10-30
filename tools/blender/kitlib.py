@@ -13,6 +13,7 @@ import bmesh
 import bpy
 
 GRID = 0.25  # vertex spacing, so baked AO in vertex colour has something to hold
+BACKS = True  # False: boxes have no face on +Y (against the wall the module sits on, never seen)
 
 
 def reset():
@@ -30,14 +31,20 @@ def material(name):
     return m
 
 
-def box(name, size, loc, mat, collection=None):
-    """An axis-aligned box `size` = (x, y, z) with its base centred on `loc`, subdivided on GRID."""
+def box(name, size, loc, mat, collection=None, grid=None):
+    """An axis-aligned box `size` = (x, y, z) with its base centred on `loc`, subdivided on
+    `grid` (GRID by default)."""
     sx, sy, sz = size
     cx, cy, cz = loc[0], loc[1], loc[2] + sz / 2
+    grid = grid or GRID
     bm = bmesh.new()
-    seg = lambda length: max(1, math.ceil(length / GRID))  # noqa: E731
+    seg = lambda length: max(1, math.ceil(length / grid))  # noqa: E731
     # each face a grid of its own size: (axis of u, axis of v, axis of the normal, side)
     for u, v, n, s in ((0, 2, 1, -1), (0, 2, 1, 1), (1, 2, 0, -1), (1, 2, 0, 1), (0, 1, 2, -1), (0, 1, 2, 1)):
+        if n == 1 and s > 0 and not BACKS:
+            continue
+        # u × v points along +n for a cyclic (u, v, n); wind each quad to face outwards
+        outward = (s > 0) == ((u, v, n) in ((0, 1, 2), (1, 2, 0), (2, 0, 1)))
         nu, nv = seg(size[u]), seg(size[v])
         verts = [[None] * (nv + 1) for _ in range(nu + 1)]
         for i in range(nu + 1):
@@ -50,8 +57,34 @@ def box(name, size, loc, mat, collection=None):
         for i in range(nu):
             for j in range(nv):
                 quad = [verts[i][j], verts[i + 1][j], verts[i + 1][j + 1], verts[i][j + 1]]
-                bm.faces.new(quad if s > 0 else quad[::-1])
+                bm.faces.new(quad if outward else quad[::-1])
     bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5)
+    me = bpy.data.meshes.new(name)
+    bm.to_mesh(me)
+    bm.free()
+    me.materials.append(material(mat))
+    ob = bpy.data.objects.new(name, me)
+    (collection or bpy.context.scene.collection).objects.link(ob)
+    return ob
+
+
+def arch(name, r_in, r_out, depth, centre, mat, segments=12, face=0.0, collection=None):
+    """A half ring in the XZ plane (an archivolt): radii `r_in`…`r_out` about `centre` = (x, z),
+    standing proud of the wall plane y = `face` by `depth` (towards -Y, the street)."""
+    bm = bmesh.new()
+    cx, cz = centre
+    rings = []
+    for i in range(segments + 1):
+        a = math.pi * i / segments
+        c, s = math.cos(a), math.sin(a)
+        rings.append([bm.verts.new((cx + r * c, y, cz + r * s)) for r in (r_in, r_out) for y in (face, face - depth)])
+    # per ring: 0 inner back, 1 inner front, 2 outer back, 3 outer front
+    for a, b in zip(rings, rings[1:]):
+        bm.faces.new((a[1], b[1], b[3], a[3]))  # front
+        bm.faces.new((a[0], a[1], b[1], b[0]))  # intrados
+        bm.faces.new((a[3], b[3], b[2], a[2]))  # extrados
+    for r in (rings[0], rings[-1]):
+        bm.faces.new((r[0], r[2], r[3], r[1]))
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     me = bpy.data.meshes.new(name)
     bm.to_mesh(me)
@@ -60,6 +93,19 @@ def box(name, size, loc, mat, collection=None):
     ob = bpy.data.objects.new(name, me)
     (collection or bpy.context.scene.collection).objects.link(ob)
     return ob
+
+
+SLOT = 24.0  # modules bake side by side, this far apart, so they don't shade one another
+
+
+def drop_backdrop():
+    """After the bake: removes the backdrops and moves every module back to the origin."""
+    for ob in [o for o in bpy.data.objects if o.name.startswith('_')]:
+        bpy.data.objects.remove(ob, do_unlink=True)
+    for m in [m for m in bpy.data.materials if m.name == 'backdrop']:
+        bpy.data.materials.remove(m)
+    for ob in bpy.data.objects:
+        ob.location = (0, 0, 0)
 
 
 def module(name, parts):
@@ -75,6 +121,11 @@ def module(name, parts):
     ob.data.name = name
     bpy.ops.object.shade_flat()
     metre_uvs(ob.data)
+    # its own slot for the bake, with a wall behind it (in the game modules sit on one)
+    slot = len([o for o in bpy.data.objects if o.name.startswith('_backdrop')])
+    ob.location = (slot * SLOT, 0, 0)
+    wall = box('_backdrop', (SLOT - 4, 0.2, SLOT - 4), (0, 0.1, -(SLOT - 4) / 2), 'backdrop', grid=SLOT)
+    wall.location = (slot * SLOT, 0, 0)
     return ob
 
 
@@ -99,7 +150,7 @@ def bake_ao(samples=48, distance=1.2):
     if scene.world is None:
         scene.world = bpy.data.worlds.new('World')
     scene.world.light_settings.distance = distance
-    for ob in [o for o in scene.objects if o.type == 'MESH']:
+    for ob in [o for o in scene.objects if o.type == 'MESH' and not o.name.startswith('_')]:
         attr = ob.data.color_attributes.new('AO', 'BYTE_COLOR', 'CORNER')
         ob.data.color_attributes.active_color = attr
         bpy.ops.object.select_all(action='DESELECT')

@@ -13,7 +13,10 @@ import type { PhotoSet } from './AssetPack';
  *   colour of a phase stays), its normal and roughness add relief. Windows and glass in the
  *   facade atlas are left alone (`wallness`, from the atlas brightness).
  *
- * The UVs of building parts are in metres (PartBuilder), which is what both rely on.
+ * The UVs of building parts are in metres (PartBuilder), which is what both rely on. Kit
+ * modules (KitDressing) are instances of shared geometry, so with `kit` the metre UVs come from
+ * the world position instead (box-projected on the normal: the plaster runs on across module
+ * seams), and the weathering from the alpha of the batch's per-instance colour.
  */
 export interface BuildingShader {
   uniforms: {
@@ -38,6 +41,32 @@ const VERTEX = /* glsl */ `
 vAging = aging;
 vMetreUv = uv;
 vLocalY = position.y;
+`;
+
+// after <batching_pars_vertex>: a kit instance's weathering rides in its colour's alpha
+const KIT_PARS = /* glsl */ `
+#if defined( KIT_DRESSING ) && defined( USE_BATCHING_COLOR )
+float kitAging() {
+  int size = textureSize( batchingColorTexture, 0 ).x;
+  int j = int( getIndirectIndex( gl_DrawID ) );
+  return texelFetch( batchingColorTexture, ivec2( j % size, j / size ), 0 ).a;
+}
+#endif
+`;
+
+// after <worldpos_vertex>
+const KIT = /* glsl */ `
+#if defined( KIT_DRESSING ) && defined( USE_BATCHING )
+{
+  vec4 kitWorld = modelMatrix * batchingMatrix * vec4( transformed, 1.0 );
+  vec3 kitN = abs( normalize( mat3( modelMatrix ) * mat3( batchingMatrix ) * objectNormal ) );
+  vMetreUv = kitN.y > 0.6 ? kitWorld.xz : ( kitN.x > kitN.z ? kitWorld.zy : kitWorld.xy );
+  vLocalY = 99.0; // windows and ledges stand clear of the splash band
+  #ifdef USE_BATCHING_COLOR
+  vAging = kitAging();
+  #endif
+}
+#endif
 `;
 
 const FRAGMENT_PARS = /* glsl */ `
@@ -116,8 +145,11 @@ const NORMAL = /* glsl */ `
 #endif
 `;
 
-/** Adds ageing to a building material; `photo` later adds detail from the pack. */
-export function buildingShader(m: THREE.MeshStandardMaterial): BuildingShader {
+/**
+ * Adds ageing to a building material; `photo` later adds detail from the pack. `kit` is for
+ * the materials of kit modules (BatchedMesh instances, see above).
+ */
+export function buildingShader(m: THREE.MeshStandardMaterial, kit = false): BuildingShader {
   const shader: BuildingShader = {
     uniforms: {
       uDetailMap: { value: null },
@@ -129,11 +161,14 @@ export function buildingShader(m: THREE.MeshStandardMaterial): BuildingShader {
       uDetailStrength: { value: 0 },
     },
   };
+  if (kit) m.defines = { ...m.defines, KIT_DRESSING: '' };
   m.onBeforeCompile = (s) => {
     Object.assign(s.uniforms, shader.uniforms);
     s.vertexShader = s.vertexShader
       .replace('#include <common>', `#include <common>\n${VERTEX_PARS}`)
-      .replace('#include <uv_vertex>', `#include <uv_vertex>\n${VERTEX}`);
+      .replace('#include <batching_pars_vertex>', `#include <batching_pars_vertex>\n${KIT_PARS}`)
+      .replace('#include <uv_vertex>', `#include <uv_vertex>\n${VERTEX}`)
+      .replace('#include <worldpos_vertex>', `#include <worldpos_vertex>\n${KIT}`);
     s.fragmentShader = s.fragmentShader
       .replace('#include <common>', `#include <common>\n${FRAGMENT_PARS}`)
       .replace('#include <color_fragment>', `#include <color_fragment>\n${COLOR}`)

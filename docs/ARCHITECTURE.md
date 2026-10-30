@@ -39,6 +39,8 @@ src/
       styles.ts           style generators (Ottoman house … glass tower, landmarks)
       BuildingManager.ts  lazy mesh building, rise/sink animation, picking, ghosts
       BuildingBatches.ts  draws all buildings as one BatchedMesh per material
+      facadeGrammar.ts    where the facade kit's modules go on a building (pure, tested)
+      KitDressing.ts      draws the facade kit near the player, one BatchedMesh per kit material
     CityBlanket.ts        instanced low-detail city beyond the core
     Terrain.ts            dunes that flatten as the city grows
     Streets.ts            sand tracks → asphalt, sidewalks, lamps, railway
@@ -113,6 +115,16 @@ shareable (`#year=1948`) and testable.
    painted colours (divided by their mean colour, so a phase keeps its paint), with their normal
    and roughness; roads and sidewalks take the photo sets outright. Phones get the 1K set
    (3.7 MB), other tiers 2K.
+   The pack's facade kit (`kit_slice.glb`, from `tools/blender/kits/slice.py`) frames the
+   windows that the facade textures paint: sills, lintels, louvred shutters, arched surrounds,
+   Bauhaus eyebrows and mullions, aluminium frames, the Gymnasium's portal. `facadeGrammar.ts`
+   walks each wall's painted window grid (the metre UVs of `PartBuilder`, whose part bounds it
+   reads) and places a module on every window nothing stands in front of, with shutters that
+   match the painted tile. `KitDressing` holds each module's geometry once in one `BatchedMesh`
+   per kit material, every placed module an instance; `BuildingManager` adds the instances for
+   buildings within the tier's `kitRadius` of the camera (60 / 80 / 120 m) and drops them as the
+   player moves on, a few milliseconds a frame. The kit is never picked or collided with; the
+   building meshes stay the proxy.
 4. Post: TAA pass (`TAAPass`: the scene at a dynamic render scale with Halton jitter, reprojected
    through the logarithmic depth buffer, neighbourhood-clamped, upsampled and sharpened) → UnrealBloom (stronger at night) → tone mapping (ACES) → period
    grading pass (sepia, saturation, fade, grain, vignette) → time-lens pass (a frozen snapshot of

@@ -12,6 +12,17 @@ export interface FacadeTexture {
   emissive: THREE.Texture;
   /** World size of the full atlas in metres (repeat = 1 / size). */
   size: [number, number];
+  /**
+   * What each window tile shows, where the painter says (`tiles[column][row]`, rows counted
+   * down from the top of the canvas): the facade grammar matches 3D shutters to it.
+   */
+  tiles: (TileInfo | undefined)[][];
+}
+
+/** A painted window tile's state: shutters open or closed, and their colour. */
+export interface TileInfo {
+  open: boolean;
+  shutter: string;
 }
 
 const PPM = 40; // pixels per metre
@@ -26,7 +37,7 @@ type TilePainter = (
   h: number,
   rng: () => number,
   lit: boolean,
-) => void;
+) => TileInfo | void;
 
 function canvas(w: number, h: number) {
   const c = document.createElement('canvas');
@@ -68,10 +79,13 @@ function facade(tileW: number, tileH: number, wall: string, paint: TilePainter, 
   e.fillStyle = '#000';
   e.fillRect(0, 0, ce.width, ce.height);
   const rng = mulberry32(seed);
-  for (let i = 0; i < ATLAS; i++)
-    for (let j = 0; j < ATLAS; j++) paint(g, e, i * tw, j * th, tw, th, rng, rng() < 0.38);
+  const tiles: (TileInfo | undefined)[][] = [];
+  for (let i = 0; i < ATLAS; i++) {
+    tiles.push([]);
+    for (let j = 0; j < ATLAS; j++) tiles[i].push(paint(g, e, i * tw, j * th, tw, th, rng, rng() < 0.38) ?? undefined);
+  }
   speckle(g, c.width, c.height, noise, seed + 1);
-  return { map: toTexture(c), emissive: toTexture(ce), size: [tileW * ATLAS, tileH * ATLAS] };
+  return { map: toTexture(c), emissive: toTexture(ce), size: [tileW * ATLAS, tileH * ATLAS], tiles };
 }
 
 function glassPane(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, rng: () => number, tint = [40, 52, 60]) {
@@ -117,6 +131,7 @@ const ottoman: TilePainter = (g, e, x, y, w, h, rng, lit) => {
   }
   g.fillStyle = 'rgba(255,255,255,0.35)';
   g.fillRect(wx - 8, wy + wh, ww + 16, 6); // sill
+  return { open: shutterOpen, shutter };
 };
 
 /** Eclectic: arched windows with a decorative keystone band. */

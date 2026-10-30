@@ -165,7 +165,7 @@ runtime: GLTFLoader + MeshoptDecoder + KTX2Loader (all already in three/examples
    - gltf-transform build script (`npm run assets:build`);
    - KTX2 and meshopt loaders;
    - the first CC0 material sets with per-year ageing.
-3. **Kits for the slice:**
+3. **Kits for the slice** (done as a facade kit, see §7):
    - Ottoman and eclectic houses for 1922;
    - eclectic (restored), Bauhaus and modern for 2025;
    - a bespoke Gymnasium model that keeps the 17.6 m tower tops and the arch the photo marks
@@ -322,9 +322,8 @@ level and settles near 60 when looking out over the streets from above.
   streaks and a splash band near the ground, rougher where dirty. The same Bauhaus building is
   grey and streaked in 1985 and clean white in 2025.
 - **A sample kit** (`sample_bay`: an eclectic window bay with lintel, sill and louvred shutters,
-  2.6 K triangles, 33 kB) proves the Blender → glTF → game path, but it is not placed in the
-  world. Placement is step 3, which also needs world-space UVs so the plaster runs across
-  module seams.
+  2.6 K triangles, 33 kB) proved the Blender → glTF → game path. Step 3 replaced it with the
+  slice kit.
 - **Unchanged:** geometry, draw calls (72 on the phone tier at Rothschild 2025), picking, the
   Herzl 1913 pose in 1922, and `npm test` / `npm run build`.
 - **Measured** on this PC (RTX 3070, 977×966, `gl.finish` timing), Rothschild 2025:
@@ -332,7 +331,61 @@ level and settles near 60 when looking out over the streets from above.
   - desktop tier with the 2K set: 2.7 ms.
   - Still to measure on the S24+.
 
+### Step 3: the facade kit (done, pack not yet published)
+
+Instead of whole building kits that would replace the procedural mesh, the kit **frames the
+windows the facade textures already paint**. Walls, footprints, heights, `roofHeight`, picking
+and the Herzl 1913 marks stay exactly as they were, and the kit adds the depth and shadow that
+flat textures lacked.
+
+- **`kit_slice.glb`** (`tools/blender/kits/slice.py`, 82 kB), seven modules:
+
+  | Module | For | Triangles |
+  | --- | --- | --- |
+  | `ottoman_open`, `ottoman_closed` | Ahuzat Bayit houses: plaster frame, kurkar sill and lintel, louvred shutters folded back or closed | 568 |
+  | `eclectic_window` | 1920s eclectic (and the restored ones of 2025): jambs, archivolt, keystone, hood, sill on corbels | 346 |
+  | `bauhaus_ledge` | International Style: the concrete eyebrow over a ribbon window and its sill, stretched along the band | 32 |
+  | `bauhaus_mullions` | steel mullions and transom of one 4 m tile of ribbon | 126 |
+  | `modern_frame` | contemporary floor-to-ceiling window: aluminium frame, mullion, sill | 210 |
+  | `gym_portal` | the Herzliya Gymnasium's arched door: jambs, imposts, archivolt, roll moulding, keystone | 450 |
+
+  Boxes bake on a 0.6 m grid with no faces against the wall. Each module bakes in its own
+  slot with a wall behind it, so the AO has the wall's contact shadow and nothing from the
+  other modules.
+- **Facade grammar** (`facadeGrammar.ts`, pure, `tests/kit.test.ts`):
+  - walks each dressable wall's painted window grid, the same grid the metre UVs lay down;
+  - puts a module on every window that nothing stands in front of (a door, a tower, a rounded
+    corner, a closed balcony);
+  - picks the shutters (open or closed, and their colour) to match the painted tile;
+  - Bauhaus ledges run over every clear stretch of a band.
+
+  Tests check that every module sits on the building's walls and under its roof, that the
+  shutters match the painted ones, that blocked windows are skipped, and that every module the
+  grammar places exists in the kit script.
+- **Drawing** (`KitDressing.ts`): one `BatchedMesh` per kit material (trim, stone, wood,
+  metal), each module's geometry stored once, every placed module an instance.
+  - Each instance's colour is its paint (shutter colours, frames), and the colour's alpha is
+    its building's weathering.
+  - The kit materials are the building materials in `kit` mode: the photo detail's UVs come
+    from the world position, so the plaster runs on across modules.
+  - Buildings within the tier's `kitRadius` (phone 60 m, laptop 80 m, desktop 120 m) get their
+    instances, built a few milliseconds a frame, and lose them past 1.2 × the radius.
+- **Measured** on this PC, Rothschild 2025, the same spot with the kit on and off:
+
+  | Tier | Draw calls | Triangles | Kit instances |
+  | --- | --- | --- | --- |
+  | phone | 75 → 78 | 1.162 M → 1.172 M | 796 |
+  | desktop | 107 → 115 | 2.15 M → 2.46 M | 2,004 |
+
+  Both tiers stay at 60 fps here. The S24+ is still to measure.
+- **Herzl 1913 photo pose in 1922:** the Gymnasium stands where it did, now with its portal.
+- **Not done in step 3:**
+  - the Shalom Meir Tower has no kit yet (its facade is the `concrete` atlas, which the grammar
+    doesn't dress);
+  - corner and rounded-corner windows, doors and shop fronts are still painted only.
+
 ### Next
 
 - Publish the pack as `assets-1` (owner's go-ahead), so CI and Pages get it.
-- Step 3: kits for the slice.
+- Measure steps 2 and 3 on the S24+.
+- Step 4: streets and clutter.

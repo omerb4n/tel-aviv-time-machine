@@ -25,6 +25,8 @@ export interface QualitySettings {
    * Moving people and cars then cast no shadow; the desktop keeps every-frame shadows.
    */
   shadowCache: boolean;
+  /** How near a building must be for the facade kit's 3D window detail, metres. */
+  kitRadius: number;
 }
 
 export const QUALITY: Record<Tier, QualitySettings> = {
@@ -40,6 +42,7 @@ export const QUALITY: Record<Tier, QualitySettings> = {
     shadowSize: 1024,
     shadowExtent: 60,
     shadowCache: true,
+    kitRadius: 60,
   },
   laptop: {
     tier: 'laptop',
@@ -51,6 +54,7 @@ export const QUALITY: Record<Tier, QualitySettings> = {
     shadowSize: 2048,
     shadowExtent: 100,
     shadowCache: true,
+    kitRadius: 80,
   },
   desktop: {
     tier: 'desktop',
@@ -62,6 +66,7 @@ export const QUALITY: Record<Tier, QualitySettings> = {
     shadowSize: 4096,
     shadowExtent: 160,
     shadowCache: false,
+    kitRadius: 120,
   },
 };
 
