@@ -24,7 +24,9 @@ import { CityBlanket } from './world/CityBlanket';
 import { allSites, phaseAt } from './world/fabric';
 import { createMaterials } from './world/materials';
 import { People } from './world/People';
+import { PerfOverlay } from './world/PerfOverlay';
 import { PostFX } from './world/PostFX';
+import { QUALITY, ResolutionController, detectTier, parseTier, type Tier } from './world/Quality';
 import { Sea } from './world/Sea';
 import { Streets } from './world/Streets';
 import { Terrain, duneHeight } from './world/Terrain';
@@ -41,11 +43,37 @@ function readHash() {
   return { year: Number.isFinite(year) && year >= TIME_MIN && year <= TIME_MAX ? year : undefined };
 }
 
+const QUALITY_KEY = 'tlvtm.quality';
+
+/** The URL (`#quality=phone`) wins, then the player's choice, then a guess from the GPU. */
+function pickTier(renderer: THREE.WebGLRenderer): Tier {
+  const fromHash = parseTier(new URLSearchParams(location.hash.slice(1)).get('quality'));
+  if (fromHash) return fromHash;
+  try {
+    const saved = parseTier(localStorage.getItem(QUALITY_KEY));
+    if (saved) return saved;
+  } catch {
+    // storage blocked: fall through to the guess
+  }
+  const gl = renderer.getContext();
+  const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+  return detectTier({
+    gpu: String(gl.getParameter(dbg ? dbg.UNMASKED_RENDERER_WEBGL : gl.RENDERER) ?? ''),
+    userAgent: navigator.userAgent,
+    touch: navigator.maxTouchPoints > 0,
+    screenMin: Math.min(screen.width, screen.height),
+    memory: (navigator as Navigator & { deviceMemory?: number }).deviceMemory,
+  });
+}
+
 async function main() {
   // ------------------------------------------------------------ renderer & scene
   const canvas = $('#scene') as HTMLCanvasElement;
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', logarithmicDepthBuffer: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
+  let quality = QUALITY[pickTier(renderer)];
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, quality.maxDpr));
+  // several passes render per frame: count them all, reset once per frame in the loop
+  renderer.info.autoReset = false;
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -83,6 +111,25 @@ async function main() {
   scene.add(terrain.mesh, sea.mesh, streets.root, vegetation.root, blanket.root, buildings.root, people.root, traffic.root);
   const atmosphere = new Atmosphere(renderer, scene);
   const post = new PostFX(renderer, scene, camera);
+  const resolution = new ResolutionController(quality);
+  /** Moves the whole renderer to a quality tier, live. */
+  const setQuality = (tier: Tier, remember = false) => {
+    quality = QUALITY[tier];
+    if (remember)
+      try {
+        localStorage.setItem(QUALITY_KEY, tier);
+      } catch {
+        // private mode: the choice is simply not remembered
+      }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, quality.maxDpr));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    post.setQuality(quality, window.innerWidth, window.innerHeight);
+    resolution.reset(quality);
+    atmosphere.setQuality(quality);
+    // a cached shadow map would freeze walkers' and cars' shadows where they stood
+    for (const root of [people.root, traffic.root]) root.traverse((o) => (o.castShadow = !quality.shadowCache));
+  };
+  setQuality(quality.tier);
 
   const ground = (x: number, z: number) =>
     baseHeight(x, z) + duneHeight(x, z) * devFactor(x, z, time.year) * (1 - smoothstep(-160, -30, seaward(x, z)));
@@ -196,8 +243,10 @@ async function main() {
     buildings.settle();
     terrain.setYear(time.year);
     terrainDirty = false;
+    // the old year's history must not bleed into the new one
+    post.taa.reset();
   };
-  const game = new Game({ time, rig, camera, canvas, post, buildings, scene, audio, ground, jumpTo }, $('#ui'));
+  const game = new Game({ time, rig, camera, canvas, post, buildings, scene, audio, ground, jumpTo, quality: { get: () => quality.tier, set: (t) => setQuality(t, true) } }, $('#ui'));
   // the real archive photographs download while the first year is built
   const archive = game.loadArchive();
   rig.collide = (x, z, eye) => game.active && game.blocked(x, z, eye);
@@ -304,6 +353,7 @@ async function main() {
     const on = (e.target as HTMLInputElement).checked;
     renderer.shadowMap.enabled = on;
     atmosphere.sun.castShadow = on;
+    atmosphere.invalidateShadows();
     scene.traverse((o) => {
       const m = (o as THREE.Mesh).material;
       if (m) for (const mm of Array.isArray(m) ? m : [m]) mm.needsUpdate = true;
@@ -405,9 +455,15 @@ async function main() {
   const clock = new THREE.Clock();
   let statsTimer = 0;
   setHour(hour);
+  const perf = new PerfOverlay(renderer, () => ({ tier: quality.tier, scale: post.taa.scale, size: post.taa.renderSize }));
+  let shadowYear = -1;
   renderer.setAnimationLoop(() => {
-    const dt = Math.min(clock.getDelta(), 0.1);
+    const raw = clock.getDelta();
+    const dt = Math.min(raw, 0.1);
     const t = clock.elapsedTime;
+    perf.frame(raw * 1000);
+    renderer.info.reset();
+    if (resolution.frame(raw * 1000)) post.taa.setScale(resolution.scale);
     time.update(dt);
     tour.update(dt);
     rig.update(dt);
@@ -424,6 +480,11 @@ async function main() {
     }
     sea.update(t);
     atmosphere.follow(rig.focus, rig.distance);
+    if (buildings.changed || Math.floor(time.year) !== shadowYear) {
+      atmosphere.invalidateShadows();
+      buildings.changed = false;
+      shadowYear = Math.floor(time.year);
+    }
     if (!game.active) labels.update(camera, time.year);
     game.update(dt, t);
     updateLook();
@@ -447,7 +508,9 @@ async function main() {
   });
 
   // Expose for debugging and automated screenshots.
-  Object.assign(window, { tlvtm: { time, rig, buildings, scene, camera, renderer, ERAS, setHour, selectSite, game } });
+  Object.assign(window, {
+    tlvtm: { time, rig, buildings, scene, camera, renderer, ERAS, setHour, selectSite, game, post, setQuality, quality: () => quality, perf },
+  });
 }
 
 main().catch((err) => {

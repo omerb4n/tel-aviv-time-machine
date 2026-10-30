@@ -45,7 +45,10 @@ src/
     People.ts             instanced pedestrians with GPU walk cycle
     Traffic.ts            instanced period vehicles
     Sea.ts, Atmosphere.ts sky, sun, fog, environment reflections
-    PostFX.ts             bloom + period film grading
+    PostFX.ts             TAA + bloom + period film grading
+    TAAPass.ts            temporal anti-aliasing with upsampling (dynamic resolution)
+    Quality.ts            quality tiers and the dynamic-resolution controller (pure, tested)
+    PerfOverlay.ts        #perf frame statistics
     textures.ts, materials.ts  procedural textures and shared materials
   game/                   the exploration game (see GAME_DESIGN.md §9)
     content/              the notebook's content: collections, discoveries, photos, props
@@ -86,13 +89,21 @@ shareable (`#year=1948`) and testable.
 
 ## Rendering pipeline
 
-1. Sky (Preetham) + directional sun with 4k soft shadow map that follows the camera focus.
+1. Sky (Preetham) + directional sun with a soft shadow map that follows the camera focus. Its size
+   and reach depend on the quality tier; on phones and laptops it is cached and redrawn only when
+   the sun, the year, a building or the player's spot changes (walkers and cars then cast none).
 2. PMREM environment from the sky for reflections on glass and sea.
 3. Scene: terrain, sea, streets, instanced city blanket, merged per-building meshes (one draw
    call per material per building), instanced trees / people / vehicles.
-4. Post: MSAA render target → UnrealBloom (stronger at night) → tone mapping (ACES) → period
+4. Post: TAA pass (`TAAPass`: the scene at a dynamic render scale with Halton jitter, reprojected
+   through the logarithmic depth buffer, neighbourhood-clamped, upsampled and sharpened) → UnrealBloom (stronger at night) → tone mapping (ACES) → period
    grading pass (sepia, saturation, fade, grain, vignette) → time-lens pass (a frozen snapshot of
    the previous year outside a circle, the live new year inside it).
+
+**Quality tiers** (`world/Quality.ts`): phone / laptop / desktop, guessed from the GPU name and
+screen, set the output pixel ratio, render-scale range, frame-time target and shadow settings.
+`ResolutionController` lowers the render scale when frames run late and probes back up.
+`#perf` shows fps, draw calls and triangles (`world/PerfOverlay.ts`).
 
 Performance strategies: lazy per-phase mesh generation within a time budget per frame, invisible
 phases are skipped entirely, instancing for everything repeated, logarithmic depth for the

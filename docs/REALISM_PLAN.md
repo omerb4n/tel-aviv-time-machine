@@ -1,6 +1,6 @@
 # Street-level realism: plan (Milestone 0.6)
 
-Status: **proposal, waiting for the owner's go-ahead.** Nothing in the renderer has changed yet.
+Status: **approved (30 Oct 2026). Step 1 of the slice (performance foundation) is done**; see §7.
 
 ## 1. Where we are (measured 30 Oct 2026, RTX 3070, Chrome, 1280×720 unless noted)
 
@@ -48,7 +48,7 @@ Screenshots of today's look are in `docs/screenshots/realism/`:
 ```
 reference board (archive prints + present-day photos)
       │
-Blender 4.2 LTS ── kit modules per style, built from Python scripts in tools/blender/
+Blender 4.5 LTS ── kit modules per style, built from Python scripts in tools/blender/
       │            (text in git; .blend only where hand modelling is needed)
       │            baked AO in vertex colour / 2nd UV
       ▼
@@ -181,17 +181,75 @@ runtime: GLTFLoader + MeshoptDecoder + KTX2Loader (all already in three/examples
    - `npm test` and `npm run build` green;
    - fps on this PC and on a phone via `npm run dev -- --host`.
 
-## 6. Decisions for the owner
+## 6. Decisions (owner, 30 Oct 2026)
 
-1. **Tools.** Can I install Blender 4.2 LTS and KTX-Software on this PC (winget), and add
-   `@gltf-transform/cli` as a **dev**-dependency? There would be no new runtime dependency.
-2. **Binary assets.** Is about 10 MB acceptable for the slice, rising to an estimated 40–60 MB
-   for all styles, committed to the repo without LFS?
-3. **Phone.** Which phone should the mid-range target be? I need you to open the dev URL on it
-   for the fps numbers.
-4. **Herzl 1922 layout.** The print shows more houses and a defined street near Rothschild than
-   the model has. May the slice add or adjust fabric parcels there, which changes site layout,
-   if the sources back it? Otherwise I'll keep the layout and only add the street surface,
-   fences and props.
-5. **Present-day reference.** Do you have photos of Rothschild and Herzl today, or shall I work
-   from Mapillary and Commons for reference only?
+1. **Tools: yes.**
+   - Blender LTS (4.5, the current LTS) and KTX-Software on the workstation.
+   - `@gltf-transform/cli` as a dev-dependency.
+   - No new runtime dependency.
+2. **Binary assets: left to us, as long as the repo can be slimmed later.** Policy:
+   - **No generated binaries in git history.** Kits (`.glb`) and textures (`.ktx2`) are build
+     outputs.
+   - What git holds is text: the Blender Python scripts, the material list (ambientCG / Poly
+     Haven ids with licence and source), and a small `assets.lock.json` (version and SHA-256
+     per file).
+   - The built asset pack is published as a **GitHub Release asset** of this repo, which does not
+     count towards the repo's size.
+   - CI downloads the pinned version and checks the hashes before `vite build`. Locally,
+     `npm run assets` builds the pack (or fetches it), into an ignored folder.
+   - Moving the pack elsewhere later (another repo, a CDN, LFS) only changes the URL in the lock
+     file, and nothing ever has to be purged from history.
+   - The few hand-modelled `.blend` sources that can't be scripted live outside the repo, in the
+     same release.
+3. **Phone: Samsung Galaxy S21.** It runs the `phone` tier, with a 30 fps target and up to
+   60 fps when it can.
+4. **Herzl 1922 layout: our call.** The slice may add or adjust fabric parcels near Rothschild
+   where the sources back it. The rephoto marks, `roofHeight` and the noticing tests must keep
+   passing.
+5. **Present-day reference: Mapillary and Wikimedia Commons**, for reference only; nothing
+   from them is shipped.
+
+## 7. Progress
+
+### Step 1: performance foundation (done)
+
+- **Cached sun shadow** on the phone and laptop tiers. It is redrawn only when:
+  - the shadow frustum moves (the player has walked about 8 % of its width);
+  - the sun turns;
+  - the year changes;
+  - a building rises, sinks or is built.
+
+  Walkers and cars cast no shadow on those tiers; the desktop keeps every-frame shadows.
+- **TAA with upsampling** (`TAAPass`) replaces 4× MSAA:
+  - the scene at a dynamic render scale with 16-sample Halton jitter;
+  - reprojection through the logarithmic depth buffer, respecting the photo frame's view
+    offset;
+  - YCoCg neighbourhood clipping;
+  - Catmull-Rom upsampling and a contrast-adaptive sharpen.
+
+  The history is cleared on cuts, resizes and instant year jumps. The photo plates render in
+  one unjittered frame, so the tracing aid is as crisp as before.
+- **Post chain** runs on non-MSAA buffers.
+- **Quality tiers.** They're detected from the GPU and screen; `#quality=` forces one, and
+  Menu → *Picture: light / balanced / full* switches live and is remembered on the device
+  (`tlvtm.quality`, separate from the notebook save).
+- **Dynamic resolution** (`ResolutionController`, tested). It lowers the scale when frames run
+  late and probes back up, backing off after a failed probe.
+- **`#perf` overlay** (or Shift+P), also readable as `tlvtm.perf.last`.
+
+Measured on the RTX 3070 at Rothschild 2025, sidewalk, 1280×720, all passes counted:
+
+| Tier | Draw calls | Triangles | Render scale | fps |
+| --- | --- | --- | --- | --- |
+| before (MSAA, every-frame shadow) | 1,153 | 2.09 M | 1.00 | 60 (vsync) |
+| desktop | 1,156 | 2.09 M | 1.00 | 60 |
+| laptop | 381 | 1.12 M | 0.93 | 60 |
+| phone | 381 | 1.12 M | 0.78 | 60 |
+| phone, 390×844 portrait at the start spot | 216 | 1.11 M | 0.86 | 60 |
+
+The phone tier is now under its 250-draw budget in portrait at the start spot. Rothschild in
+landscape (381) still needs the kit batching from step 3. **Galaxy S21: not measured yet.**
+
+### Next
+
+Step 2: the asset pipeline, following the storage policy above.

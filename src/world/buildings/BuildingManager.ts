@@ -41,6 +41,8 @@ export class BuildingManager {
   private ghosts = false;
   private highlightBox = new THREE.Box3Helper(new THREE.Box3(), 0xffc860);
   private selected?: SiteEntry;
+  /** Set whenever a mesh appears, moves or vanishes; whoever caches shadows clears it. */
+  changed = false;
 
   constructor(
     sites: BuildingSite[],
@@ -150,12 +152,14 @@ export class BuildingManager {
       const entry = this.pending.get(pe)!;
       this.pending.delete(pe);
       this.ensureMesh(entry, pe);
+      this.changed = true;
     }
     const k = 1 - Math.exp(-dt * 5);
     for (const entry of this.entries) {
       for (const pe of entry.phases) {
         if (!pe.mesh) continue;
         if (pe.presence === pe.target && !pe.mesh.visible === !pe.target) continue;
+        this.changed = true;
         pe.presence += (pe.target - pe.presence) * k;
         if (Math.abs(pe.presence - pe.target) < 0.004) pe.presence = pe.target;
         const s = pe.target > 0 ? easeOutBack(Math.min(1, pe.presence)) : pe.presence * pe.presence;
@@ -180,6 +184,7 @@ export class BuildingManager {
         pe.mesh.visible = pe.target > 0;
         pe.mesh.scale.set(1, 1, 1);
       }
+    this.changed = true;
   }
 
   /**

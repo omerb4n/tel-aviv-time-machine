@@ -44,7 +44,8 @@ npm test           # content & generator tests
 npm run build      # static site in dist/
 ```
 
-Deep links: `http://localhost:5173/#year=1948`.
+Deep links: `http://localhost:5173/#year=1948`. Add `#perf` (or press Shift+P) for frame statistics, and
+`#quality=phone|laptop|desktop` to force a picture-quality tier (players pick it under Menu → Picture).
 
 ## Controls
 

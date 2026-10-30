@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
-import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import type { QualitySettings } from './Quality';
+import { TAAPass } from './TAAPass';
 import { TimeWipePass } from './TimeWipePass';
 
 /**
@@ -52,14 +53,15 @@ export class PostFX {
   readonly bloom: UnrealBloomPass;
   readonly grade: ShaderPass;
   readonly wipe: TimeWipePass;
-  readonly renderPass: RenderPass;
+  readonly taa: TAAPass;
 
-  constructor(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera) {
+  constructor(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera) {
     const size = renderer.getDrawingBufferSize(new THREE.Vector2());
-    const rt = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: 4 });
+    // no MSAA: the TAA pass anti-aliases, and every pass after it runs on plain buffers
+    const rt = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, depthBuffer: false });
     this.composer = new EffectComposer(renderer, rt);
-    this.renderPass = new RenderPass(scene, camera);
-    this.composer.addPass(this.renderPass);
+    this.taa = new TAAPass(scene, camera);
+    this.composer.addPass(this.taa);
     this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x / 2, size.y / 2), 0.18, 0.5, 0.92);
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
@@ -71,6 +73,13 @@ export class PostFX {
 
   setSize(w: number, h: number) {
     this.composer.setSize(w, h);
+  }
+
+  /** Output pixel ratio and starting render scale for a quality tier. */
+  setQuality(q: QualitySettings, w: number, h: number) {
+    this.composer.setPixelRatio(Math.min(window.devicePixelRatio, q.maxDpr));
+    this.taa.setScale(q.startScale);
+    this.setSize(w, h);
   }
 
   setMood(m: { sepia: number; grain: number; saturation: number }, filmOn: boolean, night: number, t: number) {

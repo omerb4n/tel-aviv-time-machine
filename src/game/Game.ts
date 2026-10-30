@@ -10,6 +10,7 @@ import { h } from '../ui/dom';
 import type { BuildingManager } from '../world/buildings/BuildingManager';
 import { phaseAt } from '../world/fabric';
 import type { PostFX } from '../world/PostFX';
+import { TIERS, type Tier } from '../world/Quality';
 import { COLLECTIONS, DISCOVERIES, POIS, SECTIONS, START, YEARS } from './content';
 import { compareFinds, inYears, lookFinds, type LookHit } from './discover';
 import { GameUI, type NotebookSpec } from './GameUI';
@@ -36,7 +37,11 @@ export interface WorldApi {
   ground: (x: number, z: number) => number;
   /** Switch the whole world to a year instantly (no rise/sink animation). */
   jumpTo: (year: number) => void;
+  /** The picture-quality tier, and a way to change it (remembered on this device). */
+  quality: { get: () => Tier; set: (t: Tier) => void };
 }
+
+const QUALITY_NAMES: Record<Tier, string> = { phone: 'light', laptop: 'balanced', desktop: 'full' };
 
 const SAVE_KEY = 'tlvtm.notebook.v1';
 /** Style stamps and landmarks collected in the case builds, carried into the notebook. */
@@ -1129,6 +1134,15 @@ export class Game {
       ...(document.fullscreenEnabled
         ? [{ label: this.fullscreenPref() ? 'Full screen: on' : 'Full screen: off', icon: 'fullscreen' as const, run: () => this.toggleFullscreen() }]
         : []),
+      {
+        label: `Picture: ${QUALITY_NAMES[this.w.quality.get()]}`,
+        icon: 'photo',
+        run: () => {
+          const q = this.w.quality.get();
+          this.w.quality.set(TIERS[(TIERS.indexOf(q) + 1) % TIERS.length]);
+          this.menu();
+        },
+      },
       { label: 'How to play', icon: 'help', run: () => this.howToPlay() },
       { label: 'Title screen', icon: 'restart', run: () => this.toTitle() },
       {

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import { clamp, lerp, smoothstep } from '../core/math';
+import type { QualitySettings } from './Quality';
 
 /**
  * Sun, sky, fog and ambient light for a given hour of the day.
@@ -19,6 +20,9 @@ export class Atmosphere {
   private envSky = new Sky();
   private envRT?: THREE.WebGLRenderTarget;
   private lastEnvHour = -99;
+  private minExtent = 160;
+  private cache = false;
+  private lastDir = new THREE.Vector3();
 
   constructor(
     private renderer: THREE.WebGLRenderer,
@@ -88,23 +92,49 @@ export class Atmosphere {
     }
   }
 
+  /** Shadow map size, street-level extent and caching for a quality tier. */
+  setQuality(q: Pick<QualitySettings, 'shadowSize' | 'shadowExtent' | 'shadowCache'>) {
+    const s = this.sun.shadow;
+    if (s.mapSize.x !== q.shadowSize) {
+      s.mapSize.set(q.shadowSize, q.shadowSize);
+      s.map?.dispose();
+      s.map = null;
+    }
+    this.minExtent = q.shadowExtent;
+    this.cache = q.shadowCache;
+    this.renderer.shadowMap.autoUpdate = !q.shadowCache;
+    this.invalidateShadows();
+  }
+
+  /** The world changed (a year, a building rising): redraw a cached shadow map. */
+  invalidateShadows() {
+    this.renderer.shadowMap.needsUpdate = true;
+  }
+
   /** Keep the shadow frustum centred on what the viewer is looking at. */
   follow(target: THREE.Vector3, distance: number) {
-    const ext = clamp(distance * 0.9, 160, 900);
+    const ext = clamp(distance * 0.9, this.minExtent, 900);
     const cam = this.sun.shadow.camera;
-    if (Math.abs(cam.right - ext) > 20) {
+    if (Math.abs(cam.right - ext) > Math.max(8, ext * 0.12)) {
       cam.left = -ext;
       cam.right = ext;
       cam.top = ext;
       cam.bottom = -ext;
       cam.updateProjectionMatrix();
+      this.invalidateShadows();
     }
-    // Snap to shadow texels to avoid shimmering while moving.
+    // Snap to shadow texels to avoid shimmering while moving. A cached map only moves (and is
+    // redrawn) once the viewer has walked a fair way from where it was last centred.
     const texel = (2 * ext) / this.sun.shadow.mapSize.x;
-    const tx = Math.round(target.x / texel) * texel;
-    const tz = Math.round(target.z / texel) * texel;
-    this.sun.target.position.set(tx, 0, tz);
+    const step = this.cache ? Math.max(texel, ext * 0.08) : texel;
+    const tx = Math.round(target.x / step) * step;
+    const tz = Math.round(target.z / step) * step;
     const dir = this.sunDir.y > 0.05 ? this.sunDir : new THREE.Vector3(0.3, 0.8, 0.2).normalize();
-    this.sun.position.set(tx + dir.x * 1200, dir.y * 1200, tz + dir.z * 1200);
+    if (tx !== this.sun.target.position.x || tz !== this.sun.target.position.z || !dir.equals(this.lastDir)) {
+      this.sun.target.position.set(tx, 0, tz);
+      this.sun.position.set(tx + dir.x * 1200, dir.y * 1200, tz + dir.z * 1200);
+      this.lastDir.copy(dir);
+      this.invalidateShadows();
+    }
   }
 }
