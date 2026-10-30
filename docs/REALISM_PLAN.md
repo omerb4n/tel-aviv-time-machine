@@ -203,7 +203,8 @@ runtime: GLTFLoader + MeshoptDecoder + KTX2Loader (all already in three/examples
      same release.
 3. **Phone: Samsung Galaxy S24+** (the owner's phone; Exynos 2400 / Xclipse 940 in Israel), on
    the `phone` tier. It is a 2024 flagship, so it should hold **60 fps** there. The mid-range 30 fps
-   target is still checked by the phone tier's draw-call and triangle budgets (the CPU side, which   the S24+ can't stand in for).
+   target is still checked by the phone tier's draw-call and triangle budgets (the CPU side, which
+   the S24+ can't stand in for).
 4. **Herzl 1922 layout: our call.** The slice may add or adjust fabric parcels near Rothschild
    where the sources back it. The rephoto marks, `roofHeight` and the noticing tests must keep
    passing.
