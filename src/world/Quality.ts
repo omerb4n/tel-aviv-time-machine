@@ -79,7 +79,7 @@ export function detectTier(d: DeviceInfo): Tier {
   const gpu = d.gpu.toLowerCase();
   const mobileUA = /android|iphone|ipad|ipod|mobile/i.test(d.userAgent);
   if (mobileUA || (d.touch && d.screenMin < 600)) return 'phone';
-  if (/adreno|mali|powervr|apple gpu/.test(gpu)) return 'phone';
+  if (/adreno|mali|xclipse|powervr|apple gpu/.test(gpu)) return 'phone';
   if (d.memory !== undefined && d.memory <= 4) return 'laptop';
   // discrete cards: GeForce / Quadro / RTX, Radeon RX / Pro, Arc
   if (/geforce|quadro|rtx|radeon rx|radeon pro|arc\(tm\)|arc a\d/.test(gpu)) return 'desktop';

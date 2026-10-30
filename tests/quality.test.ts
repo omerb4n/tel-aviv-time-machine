@@ -9,9 +9,12 @@ describe('quality tiers', () => {
     expect(detectTier({ ...desk, gpu: 'ANGLE (Intel, Intel(R) Iris(R) Xe Graphics Direct3D11 vs_5_0 ps_5_0, D3D11)' })).toBe('laptop');
     expect(detectTier({ ...desk, gpu: 'Apple M2' })).toBe('laptop');
     expect(detectTier({ ...desk, gpu: '' })).toBe('laptop');
-    // Galaxy S21 (Exynos 2100) and Snapdragon phones
-    const phone = { userAgent: 'Mozilla/5.0 (Linux; Android 14; SM-G991B) Mobile Safari/537.36', touch: true, screenMin: 384 };
+    // Galaxy S24+ (Exynos 2400 in Israel and Europe, Snapdragon elsewhere) and older Mali phones
+    const phone = { userAgent: 'Mozilla/5.0 (Linux; Android 14; SM-S926B) Mobile Safari/537.36', touch: true, screenMin: 384 };
+    expect(detectTier({ ...phone, gpu: 'Samsung Xclipse 940' })).toBe('phone');
     expect(detectTier({ ...phone, gpu: 'Mali-G78' })).toBe('phone');
+    // the GPU alone is enough when the browser asks for the desktop site
+    expect(detectTier({ ...desk, gpu: 'Samsung Xclipse 940' })).toBe('phone');
     expect(detectTier({ ...phone, gpu: 'Adreno (TM) 660' })).toBe('phone');
     // an iPad asking for the desktop site still has a touch screen and a mobile GPU
     expect(detectTier({ ...desk, touch: true, screenMin: 820, gpu: 'Apple GPU' })).toBe('phone');

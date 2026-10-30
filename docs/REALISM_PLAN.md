@@ -122,7 +122,7 @@ runtime: GLTFLoader + MeshoptDecoder + KTX2Loader (all already in three/examples
 
 | | Phone | Laptop (integrated GPU) | Desktop |
 | --- | --- | --- | --- |
-| Target | **30 fps** stable, 60 on recent iPhones | 60 fps at 1080p | **60 fps** at 1440p (≤ 8 ms) |
+| Target | **30 fps** stable on mid-range; 60 on the S24+ and recent iPhones | 60 fps at 1080p | **60 fps** at 1440p (≤ 8 ms) |
 | Draw calls (all passes) | ≤ 250 | ≤ 500 | ≤ 1,000 |
 | Triangles per frame | ≤ 0.6 M | ≤ 1.5 M | ≤ 4 M |
 | Textures | 1K KTX2, ≤ 150 MB GPU | 2K, ≤ 300 MB | 2K, ≤ 500 MB |
@@ -201,8 +201,9 @@ runtime: GLTFLoader + MeshoptDecoder + KTX2Loader (all already in three/examples
      file, and nothing ever has to be purged from history.
    - The few hand-modelled `.blend` sources that can't be scripted live outside the repo, in the
      same release.
-3. **Phone: Samsung Galaxy S21.** It runs the `phone` tier, with a 30 fps target and up to
-   60 fps when it can.
+3. **Phone: Samsung Galaxy S24+** (the owner's phone; Exynos 2400 / Xclipse 940 in Israel), on
+   the `phone` tier. It is a 2024 flagship, so it should hold **60 fps** there. The mid-range 30 fps
+   target is still checked by the phone tier's draw-call and triangle budgets (the CPU side, which   the S24+ can't stand in for).
 4. **Herzl 1922 layout: our call.** The slice may add or adjust fabric parcels near Rothschild
    where the sources back it. The rephoto marks, `roofHeight` and the noticing tests must keep
    passing.
@@ -248,7 +249,7 @@ Measured on the RTX 3070 at Rothschild 2025, sidewalk, 1280×720, all passes cou
 | phone, 390×844 portrait at the start spot | 216 | 1.11 M | 0.86 | 60 |
 
 The phone tier is now under its 250-draw budget in portrait at the start spot. Rothschild in
-landscape (381) still needs the kit batching from step 3. **Galaxy S21: not measured yet.**
+landscape (381) still needs the kit batching from step 3. **Galaxy S24+: not measured yet.**
 
 ### Next
 
