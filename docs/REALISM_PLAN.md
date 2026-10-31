@@ -455,6 +455,6 @@ Ahuzat Bayit plot plan.
 
 ### Next
 
-- ~~Publish the pack~~: published as release `assets-1` (30 Oct 2026); `assets.lock.json` pins it, so CI and Pages fetch it.
+- Pack releases: `assets-1` (30 Oct 2026, steps 2–3), `assets-2` (31 Oct 2026, step 4: trees, street kit, leaf atlas, bark). `assets.lock.json` pins the latest, so CI and Pages fetch it.
 - Measure steps 2 and 3 on the S24+.
 - Step 4: streets and clutter.
