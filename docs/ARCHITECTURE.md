@@ -45,6 +45,8 @@ src/
     Terrain.ts            dunes that flatten as the city grows
     Streets.ts            sand tracks → asphalt, sidewalks, lamps, railway
     Vegetation.ts         trees that are planted, grow and are cut down
+    TreeKit.ts            near trees from the pack: bark and photo leaf cards, two BatchedMeshes
+    StreetProps.ts        street furniture by year (benches, tree guards, café tables), pure plan + drawing
     People.ts             instanced pedestrians with GPU walk cycle
     Traffic.ts            instanced period vehicles
     Sea.ts, Atmosphere.ts sky, sun, fog, environment reflections

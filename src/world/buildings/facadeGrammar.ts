@@ -87,7 +87,18 @@ export const FACADES: Partial<Record<MatKey, FacadeSpec>> = {
 };
 
 /** Every module the grammar can place (the kit must have them all; tests/kit.test.ts). */
-export const MODULES = ['ottoman_open', 'ottoman_closed', 'eclectic_window', 'bauhaus_ledge', 'bauhaus_mullions', 'modern_frame', 'gym_portal'];
+export const MODULES = [
+  'ottoman_open',
+  'ottoman_closed',
+  'eclectic_window',
+  'bauhaus_ledge',
+  'bauhaus_mullions',
+  'modern_frame',
+  'gym_portal',
+  'iron_railing',
+  'picket_fence',
+  'pillar_cap',
+];
 
 /** Looks up a painted tile: the facade, the tile's column and its row counted up from v = 0. */
 export type TileLookup = (mat: MatKey, column: number, row: number) => TileInfo | undefined;
@@ -162,7 +173,7 @@ function weathered(hex: string, w: number): string {
  * The modules for one building phase. `parts` are its PartBuilder bounds, `wall` its painted
  * wall colour (`wallColor`), `tileAt` the painted tiles (textures.ts).
  */
-export function dressPhase(phase: BuildingPhase, parts: PartBounds[], wall: string, tileAt: TileLookup): Placement[] {
+export function dressPhase(phase: BuildingPhase, parts: PartBounds[], wall: string, tileAt: TileLookup, plot?: { w: number; d: number }): Placement[] {
   const out: Placement[] = [];
   const w = phase.weathering ?? 0;
   const tint = (colors: Partial<Record<KitMat, string>>) => {
@@ -223,6 +234,38 @@ export function dressPhase(phase: BuildingPhase, parts: PartBounds[], wall: stri
           flush(f.length);
         }
       }
+    }
+  }
+  // garden walls (low plastered walls at the plot front) carry a wrought-iron railing
+  for (const b of parts) {
+    if (!b.box || b.mat !== 'plaster' || b.max[1] > 1.3 || b.max[1] - b.min[1] < 0.5) continue;
+    const along = b.max[0] - b.min[0] >= b.max[2] - b.min[2];
+    const len = along ? b.max[0] - b.min[0] : b.max[2] - b.min[2];
+    if (len < 0.8) continue;
+    out.push({
+      module: 'iron_railing',
+      x: (b.min[0] + b.max[0]) / 2,
+      y: b.max[1],
+      z: (b.min[2] + b.max[2]) / 2,
+      rotY: along ? 0 : Math.PI / 2,
+      sx: len - 0.1,
+      colors: { metal: '#2c302d' },
+    });
+  }
+  // garden-wall pillars (stone, about 0.5 × 1.5 × 0.5 m) wear a moulded cap
+  for (const b of parts) {
+    const [w, h, d] = [0, 1, 2].map((i) => b.max[i] - b.min[i]);
+    if (!b.box || b.mat !== 'stone' || w > 0.7 || d > 0.7 || h < 1 || h > 2.2 || b.min[1] > 0.1) continue;
+    out.push({ module: 'pillar_cap', x: (b.min[0] + b.max[0]) / 2, y: b.max[1], z: (b.min[2] + b.max[2]) / 2, rotY: 0, sx: 1, colors: tint({ trim: '#ece4d2' }) });
+  }
+  // eclectic houses of the 1920s: a picket fence along the plot front, a gate in the middle
+  if (plot && phase.style === 'eclectic' && phase.from < 1935) {
+    const z = plot.d / 2 - 0.25;
+    const half = plot.w / 2 - 0.3;
+    if (half > 2) {
+      const len = half - 0.9;
+      for (const s of [-1, 1])
+        out.push({ module: 'picket_fence', x: s * (0.9 + len / 2), y: 0, z, rotY: 0, sx: len, colors: tint({ wood: '#e9e4d6' }) });
     }
   }
   if (phase.style === 'gymnasium') {

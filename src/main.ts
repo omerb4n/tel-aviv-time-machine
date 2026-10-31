@@ -498,6 +498,9 @@ async function main() {
     tour.update(dt);
     rig.update(dt);
     buildings.setDetail(camera.position, quality.kitRadius);
+    // near trees and street furniture are laid out again every few metres: their shadows too
+    const relaid = vegetation.setDetail(camera.position, quality.kitRadius * (quality.tier === 'phone' ? 1.15 : 1.5));
+    if (streetProps?.update(time.year, camera.position, quality.kitRadius) || relaid) atmosphere.invalidateShadows();
     buildings.update(dt);
     const now = performance.now();
     if (terrainDirty && now - lastTerrain > 140) {
@@ -542,6 +545,7 @@ async function main() {
   // Photo materials (public/pack, see tools/assets/pack.mjs) arrive after the first frames; the
   // procedural textures stand in until then, and for good when there is no pack. The loaders
   // (KTX2, glTF, meshopt) are a chunk of their own, fetched after the first frames.
+  let streetProps: import('./world/StreetProps').StreetProps | undefined;
   const assets = import('./world/AssetPack')
     .then(({ AssetPack }) => AssetPack.load(renderer, quality.tier === 'phone' ? '1k' : '2k'))
     .then(async (pack) => {
@@ -549,9 +553,28 @@ async function main() {
       await Promise.all([mats.applyPack(pack), streets.applyPack(pack)]);
       atmosphere.invalidateShadows();
       if ('slice' in pack.manifest.kits) {
-        const [{ KitDressing }, gltf] = await Promise.all([import('./world/buildings/KitDressing'), pack.kit('slice')]);
+        const names = ['slice', 'street'].filter((n) => n in pack.manifest.kits);
+        const [{ KitDressing }, { StreetProps }, ...kits] = await Promise.all([
+          import('./world/buildings/KitDressing'),
+          import('./world/StreetProps'),
+          ...names.map((n) => pack.kit(n)),
+        ]);
         const facades = tex.facades as Partial<Record<string, FacadeTexture>>;
-        buildings.setKit(KitDressing.fromScene(gltf.scene, mats), (mat, column, row) => facades[mat]?.tiles[column]?.[3 - row]);
+        const dressing = KitDressing.fromScenes(
+          kits.map((k) => k.scene),
+          mats,
+        );
+        buildings.setKit(dressing, (mat, column, row) => facades[mat]?.tiles[column]?.[3 - row]);
+        streetProps = new StreetProps(dressing, sites, vegetation.guards());
+      }
+      if ('trees' in pack.manifest.kits) {
+        const [{ TreeKit }, gltf, leaves, bark] = await Promise.all([
+          import('./world/TreeKit'),
+          pack.kit('trees'),
+          pack.texture('leaves'),
+          pack.has('bark') ? pack.material('bark') : undefined,
+        ]);
+        if (leaves) vegetation.setKit(new TreeKit(gltf.scene, leaves, bark));
       }
       return pack;
     })

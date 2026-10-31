@@ -8,6 +8,12 @@
     { "name": "roof", "id": "RoofingTiles012A", "tile": 2.9, "use": "Marseille clay roof tiles" },
     { "name": "asphalt", "id": "Asphalt031", "tile": 3.0, "use": "road asphalt" },
     { "name": "paving", "id": "PavingStones072", "tile": 2.0, "use": "grey interlocking concrete pavers on sidewalks" },
-    { "name": "sand", "id": "Ground079S", "tile": 3.0, "use": "packed sand roads and tracks" }
+    { "name": "sand", "id": "Ground079S", "tile": 3.0, "use": "packed sand roads and tracks" },
+    { "name": "bark", "id": "Bark002", "tile": 1.2, "use": "smooth grey bark: royal poinciana and ficus trunks" }
+  ],
+  "leafSets": [
+    { "id": "LeafSet022", "use": "ficus leaves (elliptic, entire, dark)" },
+    { "id": "LeafSet002", "use": "sprigs of small leaflets, the pinnae of royal poinciana leaves" },
+    { "id": "LeafSet019", "use": "scale-leaf sprays, Italian cypress" }
   ]
 }

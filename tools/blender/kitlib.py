@@ -108,8 +108,12 @@ def drop_backdrop():
         ob.location = (0, 0, 0)
 
 
-def module(name, parts):
-    """Joins `parts` into one object named `name`: one node of the kit."""
+def module(name, parts, uvs=True, flat=True, backdrop='wall'):
+    """Joins `parts` into one object named `name`: one node of the kit.
+
+    `uvs`: box-project metre UVs (otherwise the parts bring their own 'UVMap'); `flat`: flat
+    shading; `backdrop`: what it stands against while the AO bakes, 'wall' (facade modules) or
+    'ground' (trees and street furniture)."""
     bpy.ops.object.select_all(action='DESELECT')
     for p in parts:
         p.select_set(True)
@@ -119,13 +123,18 @@ def module(name, parts):
     ob = bpy.context.view_layer.objects.active
     ob.name = name
     ob.data.name = name
-    bpy.ops.object.shade_flat()
-    metre_uvs(ob.data)
-    # its own slot for the bake, with a wall behind it (in the game modules sit on one)
+    if flat:
+        bpy.ops.object.shade_flat()
+    if uvs:
+        metre_uvs(ob.data)
+    # its own slot for the bake, with a wall or the ground next to it, as in the game
     slot = len([o for o in bpy.data.objects if o.name.startswith('_backdrop')])
     ob.location = (slot * SLOT, 0, 0)
-    wall = box('_backdrop', (SLOT - 4, 0.2, SLOT - 4), (0, 0.1, -(SLOT - 4) / 2), 'backdrop', grid=SLOT)
-    wall.location = (slot * SLOT, 0, 0)
+    if backdrop == 'wall':
+        back = box('_backdrop', (SLOT - 4, 0.2, SLOT - 4), (0, 0.1, -(SLOT - 4) / 2), 'backdrop', grid=SLOT)
+    else:
+        back = box('_backdrop', (SLOT - 4, SLOT - 4, 0.2), (0, 0, -0.2), 'backdrop', grid=SLOT)
+    back.location = (slot * SLOT, 0, 0)
     return ob
 
 

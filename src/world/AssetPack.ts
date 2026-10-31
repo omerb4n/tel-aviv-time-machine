@@ -19,6 +19,8 @@ export interface PackManifest {
       maps: Record<PackRes, { color: string; normal: string; orm: string }>;
     }
   >;
+  /** Single textures by name (the tree kit's leaf atlas), per size. */
+  textures?: Record<string, Record<PackRes, string>>;
   kits: Record<string, string>;
 }
 
@@ -76,6 +78,15 @@ export class AssetPack {
     let p = this.sets.get(name);
     if (!p) this.sets.set(name, (p = this.loadSet(name)));
     return p;
+  }
+
+  /** A single texture of the pack (sRGB colour, mipmapped), or null if the pack has none by that name. */
+  async texture(name: string): Promise<THREE.Texture | null> {
+    const file = this.manifest.textures?.[name]?.[this.res];
+    if (!file) return null;
+    const t = await this.ktx2.loadAsync(this.base + file);
+    t.anisotropy = this.anisotropy;
+    return t;
   }
 
   /** A kit (glTF scene of modules), for the kits of step 3. */

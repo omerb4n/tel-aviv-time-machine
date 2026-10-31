@@ -217,7 +217,8 @@ export class BuildingManager {
             pending = true;
             continue;
           }
-          const placed = dressPhase(pe.phase, pe.bounds ?? [], wallColor(pe.phase), kit.tileAt);
+          const plot = { w: pe.phase.width ?? site.width, d: pe.phase.depth ?? site.depth };
+          const placed = dressPhase(pe.phase, pe.bounds ?? [], wallColor(pe.phase), kit.tileAt, plot);
           pe.dress = kit.dressing.add(placed, pe.phase.weathering ?? 0);
           this.dirty.add(pe);
           this.changed = true;

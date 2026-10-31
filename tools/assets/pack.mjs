@@ -20,6 +20,7 @@ import { execFileSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { leafAtlas } from './foliage.mjs';
 import { unzip } from './zip.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -162,10 +163,21 @@ async function build() {
   // emptied rather than removed: Windows keeps a folder that a shell or watcher has open
   for (const f of readdirSync(OUT)) rmSync(join(OUT, f), { recursive: true, force: true });
 
-  const manifest = { materials: {}, kits: {} };
+  const manifest = { materials: {}, textures: {}, kits: {} };
   for (const m of spec.materials) {
     log(`material ${m.name} (${m.id})`);
     manifest.materials[m.name] = await buildMaterial(sharp, m, tmp);
+  }
+  // the tree kit's leaf cards: photographed leaves laid out by foliage.mjs, colour with alpha
+  log('texture leaves');
+  const sets = {};
+  for (const { id } of spec.leafSets) sets[id] = unzip(await download(`${id}_2K-PNG.zip`, `https://ambientcg.com/get?file=${id}_2K-PNG.zip`));
+  manifest.textures.leaves = {};
+  for (const [label, size] of Object.entries(SIZES)) {
+    const src = join(tmp, `leaves_${label}.png`);
+    writeFileSync(src, await leafAtlas(sharp, size, sets));
+    toktx(src, join(OUT, `leaves_${label}.ktx2`), 'color');
+    manifest.textures.leaves[label] = `leaves_${label}.ktx2`;
   }
   for (const f of readdirSync(join(ROOT, 'tools/blender/kits')).filter((f) => f.endsWith('.py'))) {
     const name = basename(f, '.py');

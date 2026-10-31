@@ -384,6 +384,75 @@ flat textures lacked.
     doesn't dress);
   - corner and rounded-corner windows, doors and shop fronts are still painted only.
 
+### Step 4: streets and clutter (in progress)
+
+**Owner feedback (30 Oct 2026):** the first trees looked like stylised game trees. Every element
+must be modelled from photographs of the real thing, not from general knowledge of a species.
+From now on each element starts with its references, the proportions are taken from them, and
+textures are photographed (CC0), not drawn.
+
+**References:** the full board, with sources per element and year, is [REFERENCE_BOARD.md](REFERENCE_BOARD.md). In short (reference only):
+
+- **Rothschild in the 1920s** ([Commons, PikiWiki 144596](https://commons.wikimedia.org/wiki/File:144596_tel_aviv_-_1920s-1930s_PikiWiki_Israel.jpg),
+  and the rest of [Category:History of Rothschild Boulevard](https://commons.wikimedia.org/wiki/Category:History_of_Rothschild_Boulevard)):
+  - two sand paths with a long planted bed between them (low shrubs, an agave), not one central
+    path;
+  - the outer edges lined with **Italian cypresses**, about 8–12 m tall and dense;
+  - young broadleaf saplings tied to **single stakes** (on Herzl in 1911 they stand in
+    ladder-shaped guards);
+  - benches along the paths facing them, lamp posts in the bed, sand roads either side.
+- **Planting history** ([UW horticulture library, citing Tel Aviv municipal archives](https://depts.washington.edu/hortlib/calendar/news/scholarJun2020.html)):
+  the **ficus** (F. microcarpa, F. sycomorus) were planted in the 1930s; **royal poinciana**
+  (Delonix regia) reached Israel in the 1920s and may have been planted then or later; jacaranda
+  is mentioned in historical sources.
+- **Rothschild today** ([Commons media search](https://commons.wikimedia.org/w/index.php?search=Rothschild+Boulevard+Tel+Aviv+trees&title=Special:MediaSearch&type=image)):
+  royal poincianas with low, twisting, smooth grey trunks under a wide umbrella (bare in late
+  winter); big ficus with heavy grey trunks; paths of light stone, a pétanque gravel strip,
+  benches, café kiosks, fountains at the Habima end.
+- **Photographed leaves, CC0** ([ambientCG Leaf Sets](https://ambientcg.com/list?q=leaf)):
+  - LeafSet022: elliptic, entire, dark green, for the ficus;
+  - LeafSet019: scale-leaf sprays, for the cypress;
+  - LeafSet002: small leaflets on a stalk, to build the poinciana's fern-like leaves;
+  - ambientCG Bark sets for the trunks.
+
+  None is a fan palm: Washingtonia fronds would be modelled as geometry with a photo texture.
+
+**Done (rebuilt from the references):**
+
+- **Kerbs** with a chamfered nose and a dark foot, and a gutter stain along them; the boulevard
+  raised behind kerbs of its own.
+- **Rothschild's middle by period** (`Streets.ts`, `PAVED_MIDDLE`): until 1949 two sand paths
+  either side of a planted bed (low shrubs, agaves), the trees in soil strips along the edges;
+  from 1950 a paved middle path between tree beds.
+- **Trees** (`tools/blender/kits/trees.py`, `TreeKit`): branching bark tubes with photographed
+  bark (ambientCG Bark002) and leaf cards cut from photographed leaves (`foliage.mjs`:
+  LeafSet022 for ficus, LeafSet002 sprigs as poinciana pinnae, LeafSet019 for cypress), leaves
+  in clumps at the branch tips. Models: royal poinciana (low split trunk, flat umbrella), ficus
+  (heavy stems, dense dome), Italian cypress (smooth column to a point), Washingtonia (fan fronds
+  as geometry), a sapling, a bed shrub and an agave. The kit draws trees near the camera (phone
+  69 m, laptop 120 m, desktop 180 m); the old blobs stand in further out.
+- **Tree timeline** (`Vegetation.ts`, `tests/vegetation.test.ts`): Rothschild's cypress rows
+  1911 to about 1938 (removal year approximate); royal poinciana from about 1925 and ficus from
+  1933 in the inner rows (sources: 1920s prints, municipal archives via the UW horticulture
+  library); Herzl's kerb saplings in ladder guards from 1910 along the stretch built by 1912
+  (species unknown: illustrative); other streets from the 1930s, poinciana and ficus.
+- **Street furniture** (`street.py`, `StreetProps.ts`, `tests/streetprops.test.ts`): ladder
+  guards (Herzl 1910s) and single stakes (later); benches facing the paths, plain wood until
+  1949, today's city bench (dark slats, black cast iron) after; iron railings on garden walls,
+  caps on their pillars, picket fences before 1920s eclectic houses; café tables by the kiosks
+  from 1990.
+- **Cost:** kit triangles per tree 0.6–1.4 K (bark tubes 3 segments, 3–6 sides). About 55 trees
+  are in reach on the phone tier at Rothschild 2025, roughly 60–75 K triangles per pass, two
+  draw calls (bark, leaves). Not measured live yet: the browser pane ran in the background.
+
+**Still to do in step 4:** street lamps from the prints (thin iron posts with lanterns in the
+1910s), today's kiosks (white octagonal pavilions), pale stone paving on today's boulevard,
+red-and-white kerbs and bollards.
+
+**Layout and data, postponed until after the graphics revamp** (owner, 31 Oct 2026; see the
+reference board): Herzl's paving year and 1910s sidewalks, house setbacks along Herzl, the
+Ahuzat Bayit plot plan.
+
 ### Next
 
 - ~~Publish the pack~~: published as release `assets-1` (30 Oct 2026); `assets.lock.json` pins it, so CI and Pages fetch it.
