@@ -118,7 +118,11 @@ The photo materials in the asset pack are CC0 1.0 sets from [ambientCG](https://
 (listed with their use in [assets/materials.json](assets/materials.json)):
 [Plaster007](https://ambientcg.com/a/Plaster007), [Bricks084](https://ambientcg.com/a/Bricks084),
 [RoofingTiles012A](https://ambientcg.com/a/RoofingTiles012A), [Asphalt031](https://ambientcg.com/a/Asphalt031),
-[PavingStones072](https://ambientcg.com/a/PavingStones072) and [Ground079S](https://ambientcg.com/a/Ground079S).
+[PavingStones072](https://ambientcg.com/a/PavingStones072), [Ground079S](https://ambientcg.com/a/Ground079S)
+and [Bark002](https://ambientcg.com/a/Bark002); the tree leaves are cut from the photographed leaf
+sets [LeafSet022](https://ambientcg.com/a/LeafSet022), [LeafSet002](https://ambientcg.com/a/LeafSet002)
+and [LeafSet019](https://ambientcg.com/a/LeafSet019). The trees and street furniture are modelled
+from archive and present-day photographs, listed in [docs/REFERENCE_BOARD.md](docs/REFERENCE_BOARD.md).
 
 ## Docs
 

@@ -37,12 +37,12 @@ export class KitDressing {
     this.root.name = 'kit-dressing';
   }
 
-  /** The kit from its glTF scene: each top-level node a module, its meshes named by material. */
-  static fromScene(scene: THREE.Object3D, mats: MaterialLibrary): KitDressing {
+  /** The kit from glTF scenes (the slice and street kits): each top-level node a module, its meshes named by material. */
+  static fromScenes(scenes: THREE.Object3D[], mats: MaterialLibrary): KitDressing {
     const kit = new KitDressing();
-    scene.updateMatrixWorld(true);
+    for (const s of scenes) s.updateMatrixWorld(true);
     const parts = new Map<KitMat, { module: string; geometry: THREE.BufferGeometry }[]>();
-    for (const node of scene.children) {
+    for (const node of scenes.flatMap((s) => s.children)) {
       node.traverse((o) => {
         const mesh = o as THREE.Mesh;
         if (!mesh.isMesh) return;
@@ -137,7 +137,7 @@ function colorData(batch: THREE.BatchedMesh): Float32Array {
  * baked AO), 32-bit indices, with the node's transform baked in (meshopt quantization keeps
  * the scale and offset on the node).
  */
-function canonical(src: THREE.BufferGeometry, world: THREE.Matrix4): THREE.BufferGeometry {
+export function canonical(src: THREE.BufferGeometry, world: THREE.Matrix4): THREE.BufferGeometry {
   const n = src.attributes.position.count;
   const out = new THREE.BufferGeometry();
   const read = (name: string, size: number, fill: number) => {

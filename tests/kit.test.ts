@@ -17,7 +17,7 @@ function build(site: BuildingSite, phase: BuildingPhase) {
 }
 
 function dress(site: BuildingSite, phase: BuildingPhase, tiles = closedEven): Placement[] {
-  return dressPhase(phase, build(site, phase), wallColor(phase), tiles);
+  return dressPhase(phase, build(site, phase), wallColor(phase), tiles, { w: phase.width ?? site.width, d: phase.depth ?? site.depth });
 }
 
 const sites = allSites();
@@ -40,9 +40,11 @@ describe('facade grammar', () => {
       const d = Math.max(...walls.map((b) => Math.max(-b.min[2], b.max[2])));
       for (const p of placed) {
         const where = `${site.id} ${phase.style} ${p.module}`;
-        expect(Math.abs(p.x), where).toBeLessThanOrEqual(w + 0.01);
-        expect(Math.abs(p.z), where).toBeLessThanOrEqual(d + 0.01);
-        expect(p.y, where).toBeGreaterThan(0);
+        // fences stand at the plot front, everything else on the walls
+        const plot = p.module === 'picket_fence';
+        expect(Math.abs(p.x), where).toBeLessThanOrEqual(plot ? (phase.width ?? site.width) / 2 : w + 0.01);
+        expect(Math.abs(p.z), where).toBeLessThanOrEqual(plot ? (phase.depth ?? site.depth) / 2 : d + 0.01);
+        expect(p.y, where).toBeGreaterThanOrEqual(plot ? 0 : 0.01);
         expect(p.y + 2.2, where).toBeLessThan(roofHeight(phase) + 4.5);
       }
     }
@@ -50,10 +52,10 @@ describe('facade grammar', () => {
 
   it('matches the painted shutters', () => {
     const ottoman = dressed.find((d) => d.phase.style === 'ottoman-house' && d.placed.length > 2)!;
-    const kinds = new Set(ottoman.placed.map((p) => p.module));
+    const kinds = new Set(ottoman.placed.filter((p) => p.module.startsWith('ottoman')).map((p) => p.module));
     expect(kinds).toEqual(new Set(['ottoman_open', 'ottoman_closed']));
     const open = dress(ottoman.site, ottoman.phase, () => ({ open: true, shutter: '#4a6a7a' }));
-    expect(open.every((p) => p.module === 'ottoman_open' && p.colors.wood === '#4a6a7a')).toBe(true);
+    expect(open.filter((p) => p.module.startsWith('ottoman')).every((p) => p.module === 'ottoman_open' && p.colors.wood === '#4a6a7a')).toBe(true);
   });
 
   it('leaves a window alone where something stands in front of it', () => {
@@ -82,8 +84,18 @@ describe('facade grammar', () => {
     expect(front.filter((p) => p.module === 'bauhaus_mullions').length).toBe(6);
   });
 
+  it('puts railings on garden walls and picket fences before eclectic houses of the 1920s', () => {
+    const ottoman = dressed.filter((d) => d.phase.style === 'ottoman-house');
+    expect(ottoman.every((d) => d.placed.filter((p) => p.module === 'iron_railing').length === 2)).toBe(true);
+    const early = dressed.filter((d) => d.phase.style === 'eclectic' && d.phase.from < 1935 && (d.phase.width ?? d.site.width) > 6);
+    expect(early.length).toBeGreaterThan(0);
+    for (const d of early) expect(d.placed.filter((p) => p.module === 'picket_fence').length, d.site.id).toBe(2);
+    const late = dressed.filter((d) => d.phase.style === 'eclectic' && d.phase.from >= 1935);
+    for (const d of late) expect(d.placed.some((p) => p.module === 'picket_fence')).toBe(false);
+  });
+
   it('only places modules the kit has', () => {
-    const script = readFileSync(new URL('../tools/blender/kits/slice.py', import.meta.url), 'utf8');
+    const script = ['slice', 'street'].map((k) => readFileSync(new URL(`../tools/blender/kits/${k}.py`, import.meta.url), 'utf8')).join('');
     for (const m of MODULES) expect(script, m).toContain(`'${m}'`);
     for (const { placed } of dressed) for (const p of placed) expect(MODULES).toContain(p.module);
   });
